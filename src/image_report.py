@@ -20,8 +20,25 @@ from datetime import date
 
 from PIL import Image, ImageDraw, ImageFont
 
-_FONT_REG  = "C:/Windows/Fonts/malgun.ttf"
-_FONT_BOLD = "C:/Windows/Fonts/malgunbd.ttf"
+import os, sys
+
+def _find_font(bold: bool) -> str:
+    # Windows
+    win_path = f"C:/Windows/Fonts/{'malgunbd' if bold else 'malgun'}.ttf"
+    if os.path.exists(win_path):
+        return win_path
+    # Linux (GitHub Actions) — 나눔고딕
+    candidates = [
+        f"/usr/share/fonts/truetype/nanum/NanumGothic{'Bold' if bold else ''}.ttf",
+        f"/usr/share/fonts/truetype/nanum/NanumGothic{'ExtraBold' if bold else ''}.ttf",
+        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    ]
+    for p in candidates:
+        if os.path.exists(p):
+            return p
+    raise FileNotFoundError("한글 폰트를 찾을 수 없습니다")
 
 # 색상
 _BG          = "#FFFFFF"
@@ -40,8 +57,7 @@ _SUM_BG      = "#D6EAF8"   # 합계 행 배경 (연한 파랑)
 
 
 def _font(bold: bool, size: int) -> ImageFont.FreeTypeFont:
-    path = _FONT_BOLD if bold else _FONT_REG
-    return ImageFont.truetype(path, size)
+    return ImageFont.truetype(_find_font(bold), size)
 
 
 def _text_size(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont) -> tuple[int, int]:
