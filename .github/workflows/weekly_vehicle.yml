@@ -1,0 +1,30 @@
+name: 차량관리 주간 보고
+
+on:
+  schedule:
+    # 매주 월요일 오전 11시 (KST = UTC 02:00)
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+
+jobs:
+  vehicle-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Python 설치
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 패키지 설치
+        run: pip install -r requirements.txt
+
+      - name: 차량관리 보고 슬랙 전송
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL:   C087JL55TA6
+        run: python run_vehicle_headless.py
