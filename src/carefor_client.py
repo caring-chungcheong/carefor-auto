@@ -298,17 +298,23 @@ def scrape_monthly_attend(page: Page, target: date) -> tuple[int, float]:
     if today_total is None:
         raise RuntimeError(f"월간 입소자 표에서 {date_pattern} 행을 찾을 수 없습니다")
 
-    # 페이지 텍스트에서 "입소자 합계(N명) / 급여제공일(N일)" 파싱 후 직접 계산
-    # 팝업 예시: "입소자 합계(1202명) / 급여제공일(20일) = 60.10 값의 반올림한 60 입니다."
+    # img[param-info] 속성에서 "입소자 합계(N명) / 급여제공일(N일) = X.XX" 직접 파싱
     avg = 0.0
     try:
-        full_text = page.evaluate("document.body.innerText")
-        m = re.search(r"입소자\s*합계\s*\(\s*(\d+)\s*명\s*\)\s*/\s*급여제공일\s*\(\s*(\d+)\s*일\s*\)", full_text)
-        if m:
-            total_attendees = int(m.group(1))
-            working_days = int(m.group(2))
-            if working_days > 0:
-                avg = round(total_attendees / working_days, 2)
+        param_info = page.evaluate("""
+            (() => {
+                const imgs = document.querySelectorAll('img[param-info]');
+                for (const img of imgs) {
+                    const p = img.getAttribute('param-info') || '';
+                    if (p.includes('입소자 합계')) return p;
+                }
+                return null;
+            })()
+        """)
+        if param_info:
+            m = re.search(r"=\s*([\d.]+)\s*값의", param_info)
+            if m:
+                avg = float(m.group(1))
     except Exception:
         pass
 
