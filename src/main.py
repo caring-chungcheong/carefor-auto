@@ -104,20 +104,9 @@ def run_slack_only(
                 logger.exception("Slack 이미지 전송 실패")
                 errors.append(f"slack image: {e}")
 
-    # 슬랙 텍스트 보고 (webhook)
+    # 슬랙 텍스트 보고는 비활성화 (이미지만 전송)
     slack_message = slack_notifier.build_message(target_date, branches_data)
     sent_slack = False
-    if not dry_run:
-        webhook = credentials.get_slack_webhook()
-        if webhook:
-            try:
-                slack_notifier.send_via_webhook(webhook, slack_message)
-                sent_slack = True
-            except Exception as e:
-                logger.exception("Slack webhook send failed")
-                errors.append(f"slack: {e}")
-        else:
-            errors.append("slack: webhook URL이 저장되어 있지 않습니다")
 
     return {
         "ok": not errors,

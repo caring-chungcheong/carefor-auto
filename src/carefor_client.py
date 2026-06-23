@@ -298,39 +298,17 @@ def scrape_monthly_attend(page: Page, target: date) -> tuple[int, float]:
     if today_total is None:
         raise RuntimeError(f"월간 입소자 표에서 {date_pattern} 행을 찾을 수 없습니다")
 
-    # ? 버튼 클릭 → 팝업에서 소수점 2자리 평균값 파싱
+    # 페이지 텍스트에서 "입소자 합계(N명) / 급여제공일(N일)" 파싱 후 직접 계산
     # 팝업 예시: "입소자 합계(1202명) / 급여제공일(20일) = 60.10 값의 반올림한 60 입니다."
     avg = 0.0
     try:
-        page.evaluate("""
-            (() => {
-                const els = Array.from(document.querySelectorAll('a, button, span, img'));
-                for (const el of els) {
-                    const txt = (el.textContent || el.title || el.alt || '').trim();
-                    if (txt === '?' || txt === '❓') { el.click(); return; }
-                }
-                // onclick 속성에 평균 관련 함수가 있는 요소 클릭
-                const all = document.querySelectorAll('[onclick]');
-                for (const el of all) {
-                    const oc = el.getAttribute('onclick') || '';
-                    if (oc.includes('avg') || oc.includes('평균')) { el.click(); return; }
-                }
-            })()
-        """)
-        page.wait_for_timeout(800)
-        popup_text = page.evaluate("document.body.innerText")
-        m = re.search(r"=\s*(\d+\.\d+)\s*값의", popup_text)
+        full_text = page.evaluate("document.body.innerText")
+        m = re.search(r"입소자\s*합계\s*\(\s*(\d+)\s*명\s*\)\s*/\s*급여제공일\s*\(\s*(\d+)\s*일\s*\)", full_text)
         if m:
-            avg = float(m.group(1))
-        # 팝업 닫기
-        page.evaluate("""
-            (() => {
-                const btns = document.querySelectorAll('button, input[type="button"]');
-                for (const b of btns) {
-                    if ((b.textContent || b.value || '').trim() === '창닫기') { b.click(); return; }
-                }
-            })()
-        """)
+            total_attendees = int(m.group(1))
+            working_days = int(m.group(2))
+            if working_days > 0:
+                avg = round(total_attendees / working_days, 2)
     except Exception:
         pass
 
