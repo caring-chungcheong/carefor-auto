@@ -112,11 +112,12 @@ def classify(cars, today):
     for c in cars:
         total_km  = c.get('totalKm') or 0
         next_km   = c.get('oilNextKm') or 0
+        oil_km    = c.get('oilKm') or 0   # 교환시 주행거리 (0이면 기록 없음)
         oil_date  = c.get('oilDate')
         remain    = next_km - total_km
 
-        # 오일 교환 초과: km 초과 OR 1년 이상 경과
-        oil_over_km   = total_km > 0 and remain < 0
+        # 오일 교환 초과: 교환 기록(oilKm)이 있을 때만 km 초과 판정
+        oil_over_km   = oil_km > 0 and total_km > 0 and remain < 0
         oil_over_date = False
         days_since_oil = None
         if oil_date:
