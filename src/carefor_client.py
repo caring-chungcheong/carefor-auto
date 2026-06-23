@@ -175,11 +175,12 @@ def scrape_patient_report(page: Page) -> int:
 
 def scrape_daily_center(page: Page) -> tuple[int, int]:
     """
-    시설운영일지 화면에서 현원, 결석 추출.
+    시설운영일지 화면에서 현원, 일정 추출.
+    출석 = 일정, 결석 = 현원 - 일정
     화면 텍스트 예시:
       "수급자현황(총 73명)"
-      "결석(0명)"
-    반환: (현원, 결석)
+      "일정(65명)"
+    반환: (현원, 일정)
     """
     page.wait_for_load_state("networkidle", timeout=30000)
     page.wait_for_timeout(2000)
@@ -187,16 +188,17 @@ def scrape_daily_center(page: Page) -> tuple[int, int]:
     page.wait_for_timeout(500)
 
     body_text = page.evaluate("document.body.innerText")
+    print(f"  [DEBUG 6-4] {body_text[:300]}")
 
     m_hyeon = re.search(r"수급자현황\s*\(\s*총?\s*(\d+)\s*명\s*\)", body_text)
-    m_gyeol = re.search(r"결석\s*\(\s*(\d+)\s*명\s*\)", body_text)
+    m_iljung = re.search(r"일정\s*\(\s*(\d+)\s*명\s*\)", body_text)
 
     if not m_hyeon:
         raise RuntimeError("시설운영일지에서 '수급자현황(총 N명)' 텍스트를 찾을 수 없습니다")
-    if not m_gyeol:
-        raise RuntimeError("시설운영일지에서 '결석(N명)' 텍스트를 찾을 수 없습니다")
+    if not m_iljung:
+        raise RuntimeError("시설운영일지에서 '일정(N명)' 텍스트를 찾을 수 없습니다")
 
-    return int(m_hyeon.group(1)), int(m_gyeol.group(1))
+    return int(m_hyeon.group(1)), int(m_iljung.group(1))
 
 
 def _close_popups(page: Page) -> None:
