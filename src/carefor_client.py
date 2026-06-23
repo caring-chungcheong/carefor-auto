@@ -317,13 +317,10 @@ def scrape_monthly_attend(page: Page, target: date) -> tuple[int, float]:
                 return null;
             })()
         """)
-        print(f"  [DEBUG] param_info: {param_info}")
         if param_info:
-            m = re.search(r"=\s*([\d.]+)\s*예의|\s*=\s*([\d.]+)\s*값의", param_info)
-            if not m:
-                m = re.search(r"=\s*([\d]+\.[\d]+)", param_info)
+            m = re.search(r"=\s*([\d]+\.[\d]+)\s*값의", param_info)
             if m:
-                avg = float(m.group(1) or m.group(2))
+                avg = float(m.group(1))
     except Exception as e:
         print(f"  [DEBUG] param_info 오류: {e}")
 
