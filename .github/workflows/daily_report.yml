@@ -1,9 +1,6 @@
 name: 출석관리
 
 on:
-  schedule:
-    # 매일 오전 11시 (KST = UTC+9, 즉 UTC 02:00)
-    - cron: '0 2 * * 1-5'   # 평일만 (월~금)
   workflow_dispatch:
     inputs:
       dry_run:
