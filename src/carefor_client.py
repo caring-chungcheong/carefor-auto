@@ -71,6 +71,11 @@ def monthly_attend_url(g_pammgno: str) -> str:
     return f"{DN_BASE}#{h}"
 
 
+def car_manage_url(g_pammgno: str) -> str:
+    h = build_spa_hash("left_sub2", "/transport/view.transport_car_manage", "2-4.차량관리", g_pammgno)
+    return f"{DN_BASE}#{h}"
+
+
 def _navigate_spa(page: Page, full_url: str) -> None:
     """
     SPA hash 변경. hash-only 변경은 reload를 안 일으키므로
@@ -295,6 +300,136 @@ def scrape_monthly_attend(page: Page, target: date) -> tuple[int, float]:
 
     avg = round(sum(daily_totals) / len(daily_totals), 1) if daily_totals else 0.0
     return today_total, avg
+
+
+def _click_drive_record_tab(page: Page) -> None:
+    """운행기록(필요시) 탭 클릭."""
+    page.evaluate("""
+        (() => {
+            const els = Array.from(document.querySelectorAll('button, input[type="button"], a, td, th, li, span'));
+            for (const el of els) {
+                const txt = (el.textContent || el.value || '').trim();
+                if (txt.includes('운행기록')) {
+                    el.click();
+                    return true;
+                }
+            }
+            return false;
+        })()
+    """)
+    page.wait_for_timeout(1500)
+
+
+def scrape_car_mileage(page: Page) -> dict[str, int]:
+    """
+    2-4 차량관리 화면에서 차량별 최신 누적 주행거리 추출.
+    g-tf[data-info] → carmgno + carnumb 추출 → 각 차량 클릭 → 운행기록 탭 → 계기판 첫 행 마지막 숫자.
+    반환: {차량번호: 누적km}  예) {"121어8045": 92581}
+    """
+    import json as _json
+
+    page.wait_for_load_state("networkidle", timeout=30000)
+    page.wait_for_timeout(2000)
+    _close_popups(page)
+    page.wait_for_timeout(500)
+
+    # g-tf 요소에서 carmgno + carnumb 수집 (HTML에서 직접 파싱 — DOM 변경 전에)
+    import json as _json2
+    html_src = page.content()
+    gtf_re = re.compile(r'<g-tf[^>]+data-key="(\d+)"[^>]+data-info="([^"]+)"')
+    raw_cars = []
+    for m in gtf_re.finditer(html_src):
+        key = m.group(1)
+        info_str = m.group(2).replace("&quot;", '"')
+        try:
+            info = _json2.loads(info_str)
+            raw_cars.append({"key": key, "info": info_str})
+        except Exception:
+            pass
+
+    car_list = []
+    seen_keys = set()
+    for m in gtf_re.finditer(html_src):
+        key = m.group(1)
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        info_str = m.group(2).replace("&quot;", '"')
+        car_list.append({"key": key, "info": info_str})
+
+    result: dict[str, int] = {}
+
+    for item in car_list:
+        try:
+            info = _json2.loads(item["info"])
+        except Exception:
+            continue
+        car_no  = info.get("carnumb", "")
+        carmgno = item["key"]
+        if not car_no or not carmgno:
+            continue
+
+        # reloadPage로 차량 선택
+        page.evaluate(f"reloadPage({{'carmgno':'{carmgno}', 'all_car':'Y'}})")
+        page.wait_for_load_state("networkidle", timeout=15000)
+        page.wait_for_timeout(1500)
+
+        # 운행기록 탭 클릭
+        _click_drive_record_tab(page)
+        page.wait_for_load_state("networkidle", timeout=15000)
+        page.wait_for_timeout(1000)
+
+        # 계기판(km): innerText에서 "숫자,숫자 ~ 숫자,숫자" 패턴 추출
+        # 시간 패턴(예: 30 ~ 09)은 숫자가 3자리 미만이므로 제외
+        km_text = page.evaluate("""
+            (() => {
+                const txt = document.body.innerText;
+                const matches = txt.match(/[\\d,]{4,}\\s*~\\s*[\\d,]{4,}/g);
+                return matches ? matches[0] : null;
+            })()
+        """)
+
+        if km_text:
+            nums = re.findall(r"[\d,]+", km_text)
+            if nums:
+                result[car_no] = int(nums[-1].replace(",", ""))
+
+    return result
+
+
+def fetch_branch_car_mileage(
+    ctmnumb: str,
+    branch_name: str,
+    headless: bool = True,
+) -> dict[str, int]:
+    """한 지점의 차량별 최신 누적 주행거리 수집."""
+    portal_creds = credentials.get_portal_credentials()
+    if not portal_creds:
+        raise RuntimeError("케어포 portal 자격증명이 없습니다.")
+    portal_id, portal_pw = portal_creds
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=headless)
+        ctx = browser.new_context(
+            http_credentials={"username": portal_id, "password": portal_pw}
+        )
+        portal_page = ctx.new_page()
+        portal_page.goto(PORTAL_URL, wait_until="domcontentloaded")
+        portal_page.wait_for_function("typeof login2 === 'function'", timeout=15000)
+
+        with ctx.expect_page(timeout=30000) as new_page_info:
+            portal_page.evaluate(f"login2('{ctmnumb}')")
+        data_page = new_page_info.value
+        data_page.wait_for_load_state("domcontentloaded", timeout=30000)
+        data_page.wait_for_load_state("networkidle", timeout=30000)
+
+        g_pammgno = extract_g_pammgno(data_page)
+        _navigate_spa(data_page, car_manage_url(g_pammgno))
+
+        mileage = scrape_car_mileage(data_page)
+        browser.close()
+
+    return mileage
 
 
 def fetch_branch_attendance(
