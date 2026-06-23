@@ -7,11 +7,11 @@ from src import credentials
 
 API_URL = 'https://script.google.com/macros/s/AKfycbyH8lT1hyxFHyKQaPjF0FQixctfFLc-1fooQREZbBpUXbvSbOxK7VTNr04Ixu414xGn/exec'
 
-# 지점별 케어포 센터코드 (천안점은 데이터 입력 중이라 주행거리 스크래핑 제외)
 BRANCH_CTMNUMB = {
-    "둔산점":     "23017000602",
-    "서구점":     "23017000617",
+    "둔산점":      "23017000602",
+    "서구점":      "23017000617",
     "청주 오창점": "24311001003",
+    "천안점":      "24413000644",
 }
 
 # 자차 제외 차량번호 (끝 4자리)
