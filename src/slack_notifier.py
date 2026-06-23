@@ -118,6 +118,7 @@ def send_image_via_api(
     channel: str,
     image_bytes: bytes,
     title: str = "지점별 출석 현황",
+    mention_text: str | None = None,
 ) -> None:
     """Slack Token으로 이미지를 채널에 파일로 업로드."""
     client = WebClient(token=bot_token)
@@ -127,6 +128,7 @@ def send_image_via_api(
         file=io.BytesIO(image_bytes),
         filename="attendance.png",
         title=title,
+        initial_comment=mention_text or "",
     )
 
 

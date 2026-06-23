@@ -91,13 +91,26 @@ def run_slack_only(
         logger.exception("이미지 생성 실패")
         errors.append(f"image: {e}")
 
-    # 슬랙 이미지 전송 (Bot Token)
+    # 슬랙 이미지 전송 (Bot Token) — 충청본부_지점 채널, 지점별 센터장 멘션
+    BRANCH_CHANNEL = "C0870HLTG9Z"
+    BRANCH_MENTIONS = {
+        "둔산점":      "U08908V4Y64",
+        "서구점":      "U07K74212MV",
+        "청주 오창점": "U087FH5CKL0",
+        "천안점":      "U03DFLVSQ91",
+    }
+    mention_parts = [f"<@{BRANCH_MENTIONS[b['name']]}>" for b in branches_data if b["name"] in BRANCH_MENTIONS]
+    mention_text = " ".join(mention_parts) if mention_parts else None
+
     sent_image = False
     if image_bytes and not dry_run:
         bot_token = credentials.get_slack_bot_token()
         if bot_token:
             try:
-                slack_notifier.send_image_via_api(bot_token, config.slack_channel_name, image_bytes)
+                slack_notifier.send_image_via_api(
+                    bot_token, BRANCH_CHANNEL, image_bytes,
+                    mention_text=mention_text,
+                )
                 sent_image = True
             except Exception as e:
                 logger.exception("Slack 이미지 전송 실패")
