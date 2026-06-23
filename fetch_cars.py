@@ -83,7 +83,7 @@ def save_mileage_to_sheet(carefor_km: dict[str, int]) -> int:
     res = requests.post(API_URL,
         headers={'Content-Type': 'text/plain;charset=utf-8'},
         data=json.dumps({'action': 'updateMileage', 'data': data}),
-        timeout=30)
+        timeout=60)
     res.encoding = 'utf-8'
     result = res.json()
     if not result.get('ok'):
