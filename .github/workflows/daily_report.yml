@@ -1,5 +1,4 @@
 name: 출석관리
-run-name: 출석관리 ${{ github.event.inputs.dry_run == 'true' && '(미리보기)' || '(전송)' }}
 
 on:
   schedule:
