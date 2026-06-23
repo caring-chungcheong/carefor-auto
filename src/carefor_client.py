@@ -173,12 +173,14 @@ def scrape_patient_report(page: Page) -> int:
     raise RuntimeError("1-7 수급자 현황에서 '수급중' 인원을 찾을 수 없습니다")
 
 
-def scrape_daily_center(page: Page) -> tuple[int, int]:
+def scrape_daily_center(page: Page) -> tuple[int, int, int]:
     """
-    시설운영일지 화면에서 현원, 결석 추출.
+    시설운영일지 화면 상단에서 현원, 출석, 결석 추출.
     화면 텍스트 예시:
       "수급자현황(총 73명)"
+      "출석(65명)"
       "결석(0명)"
+    반환: (현원, 출석, 결석)
     """
     page.wait_for_load_state("networkidle", timeout=30000)
     page.wait_for_timeout(2000)
@@ -188,14 +190,25 @@ def scrape_daily_center(page: Page) -> tuple[int, int]:
     body_text = page.evaluate("document.body.innerText")
 
     m_hyeon = re.search(r"수급자현황\s*\(\s*총?\s*(\d+)\s*명\s*\)", body_text)
+    m_chul  = re.search(r"출석\s*\(\s*(\d+)\s*명\s*\)", body_text)
     m_gyeol = re.search(r"결석\s*\(\s*(\d+)\s*명\s*\)", body_text)
 
     if not m_hyeon:
         raise RuntimeError("시설운영일지에서 '수급자현황(총 N명)' 텍스트를 찾을 수 없습니다")
-    if not m_gyeol:
-        raise RuntimeError("시설운영일지에서 '결석(N명)' 텍스트를 찾을 수 없습니다")
 
-    return int(m_hyeon.group(1)), int(m_gyeol.group(1))
+    hyeon_won = int(m_hyeon.group(1))
+    chul_seok = int(m_chul.group(1)) if m_chul else None
+    gyeol_seok = int(m_gyeol.group(1)) if m_gyeol else None
+
+    # 출석 없으면 결석으로 계산, 결석 없으면 출석으로 계산
+    if chul_seok is None and gyeol_seok is not None:
+        chul_seok = hyeon_won - gyeol_seok
+    if gyeol_seok is None and chul_seok is not None:
+        gyeol_seok = hyeon_won - chul_seok
+    if chul_seok is None:
+        raise RuntimeError("시설운영일지에서 출석/결석 텍스트를 찾을 수 없습니다")
+
+    return hyeon_won, chul_seok, gyeol_seok
 
 
 def _close_popups(page: Page) -> None:
@@ -502,13 +515,13 @@ def fetch_branch_attendance(
         _navigate_spa(data_page, patient_report_url(g_pammgno))
         hyeon_won = scrape_patient_report(data_page)
 
-        # 4-1) 시설운영일지 → 결석
+        # 5) 6-4 시설운영일지 → 출석 + 결석 (상단 기준)
         _navigate_spa(data_page, daily_center_url(g_pammgno))
-        _, gyeol_seok = scrape_daily_center(data_page)
+        _, chul_seok, gyeol_seok = scrape_daily_center(data_page)
 
-        # 5) 월간 입소자 진입 → 출석 + 월평균
+        # 6) 2-8 월간 입소자 → 월평균 입소자 수만
         _navigate_spa(data_page, monthly_attend_url(g_pammgno))
-        chul_seok, avg_attendees = scrape_monthly_attend(data_page, target_date)
+        _, avg_attendees = scrape_monthly_attend(data_page, target_date)
 
         browser.close()
 
