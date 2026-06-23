@@ -298,18 +298,44 @@ def scrape_monthly_attend(page: Page, target: date) -> tuple[int, float]:
     if today_total is None:
         raise RuntimeError(f"월간 입소자 표에서 {date_pattern} 행을 찾을 수 없습니다")
 
-    # 페이지 하단 "평균 입소자 수 N 명" 직접 읽기
+    # ? 버튼 클릭 → 팝업에서 소수점 2자리 평균값 파싱
+    # 팝업 예시: "입소자 합계(1202명) / 급여제공일(20일) = 60.10 값의 반올림한 60 입니다."
     avg = 0.0
     try:
-        body_text2 = page.evaluate("document.body.innerText")
-        m = re.search(r"평균\s*입소자\s*수.*?(\d+(?:\.\d+)?)\s*명", body_text2)
+        page.evaluate("""
+            (() => {
+                const els = Array.from(document.querySelectorAll('a, button, span, img'));
+                for (const el of els) {
+                    const txt = (el.textContent || el.title || el.alt || '').trim();
+                    if (txt === '?' || txt === '❓') { el.click(); return; }
+                }
+                // onclick 속성에 평균 관련 함수가 있는 요소 클릭
+                const all = document.querySelectorAll('[onclick]');
+                for (const el of all) {
+                    const oc = el.getAttribute('onclick') || '';
+                    if (oc.includes('avg') || oc.includes('평균')) { el.click(); return; }
+                }
+            })()
+        """)
+        page.wait_for_timeout(800)
+        popup_text = page.evaluate("document.body.innerText")
+        m = re.search(r"=\s*(\d+\.\d+)\s*값의", popup_text)
         if m:
             avg = float(m.group(1))
+        # 팝업 닫기
+        page.evaluate("""
+            (() => {
+                const btns = document.querySelectorAll('button, input[type="button"]');
+                for (const b of btns) {
+                    if ((b.textContent || b.value || '').trim() === '창닫기') { b.click(); return; }
+                }
+            })()
+        """)
     except Exception:
         pass
 
     if avg == 0.0 and daily_totals:
-        avg = round(sum(daily_totals) / len(daily_totals), 1)
+        avg = round(sum(daily_totals) / len(daily_totals), 2)
 
     return today_total, avg
 
