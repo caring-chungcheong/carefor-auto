@@ -298,7 +298,19 @@ def scrape_monthly_attend(page: Page, target: date) -> tuple[int, float]:
     if today_total is None:
         raise RuntimeError(f"월간 입소자 표에서 {date_pattern} 행을 찾을 수 없습니다")
 
-    avg = round(sum(daily_totals) / len(daily_totals), 1) if daily_totals else 0.0
+    # 페이지 하단 "평균 입소자 수 N 명" 직접 읽기
+    avg = 0.0
+    try:
+        body_text2 = page.evaluate("document.body.innerText")
+        m = re.search(r"평균\s*입소자\s*수.*?(\d+(?:\.\d+)?)\s*명", body_text2)
+        if m:
+            avg = float(m.group(1))
+    except Exception:
+        pass
+
+    if avg == 0.0 and daily_totals:
+        avg = round(sum(daily_totals) / len(daily_totals), 1)
+
     return today_total, avg
 
 
