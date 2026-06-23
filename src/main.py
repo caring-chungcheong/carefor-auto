@@ -100,7 +100,14 @@ def run_slack_only(
         "천안점":      "U03DFLVSQ91",
     }
     mention_parts = [f"<@{BRANCH_MENTIONS[b['name']]}>" for b in branches_data if b["name"] in BRANCH_MENTIONS]
-    mention_text = " ".join(mention_parts) if mention_parts else None
+    mention_text = (
+        " ".join(mention_parts) + "\n\n"
+        "#지점별 출석인원\n"
+        "안녕하세요 충청본부 입니다.\n"
+        "각 지점별 출석 인원 공지 합니다.\n"
+        "변동사항 있을 경우 스레드에 댓글로 남겨 주시기 바랍니다.\n"
+        "(케어포 1-1(수급중) / 6-4(시설일지) 확인 / 매일 11:00 기준 / 보류자 제외한 현 수급자 기준)"
+    ) if mention_parts else None
 
     sent_image = False
     if image_bytes and not dry_run:
