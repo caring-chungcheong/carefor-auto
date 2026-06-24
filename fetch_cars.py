@@ -105,15 +105,21 @@ def fetch_carefor_mileage(headless: bool = True) -> dict[str, dict]:
 def save_mileage_to_sheet(carefor_data: dict[str, dict]) -> int:
     """케어포 데이터(주행거리+오일)를 구글시트에 저장. 반환: 업데이트된 차량 수."""
     data = [{"carNumber": car_no, **car_data} for car_no, car_data in carefor_data.items()]
-    res = requests.post(API_URL,
-        headers={'Content-Type': 'text/plain;charset=utf-8'},
-        data=json.dumps({'action': 'updateMileage', 'data': data}),
-        timeout=60)
-    res.encoding = 'utf-8'
-    result = res.json()
-    if not result.get('ok'):
-        raise RuntimeError(f"구글시트 저장 실패: {result.get('error')}")
-    return result.get('data', {}).get('updated', 0)
+    payload = json.dumps({'action': 'updateMileage', 'data': data})
+    headers = {'Content-Type': 'text/plain;charset=utf-8'}
+    for attempt in range(2):
+        try:
+            res = requests.post(API_URL, headers=headers, data=payload, timeout=120)
+            res.encoding = 'utf-8'
+            result = res.json()
+            if not result.get('ok'):
+                raise RuntimeError(f"구글시트 저장 실패: {result.get('error')}")
+            return result.get('data', {}).get('updated', 0)
+        except requests.exceptions.Timeout:
+            if attempt == 0:
+                print("  구글시트 저장 timeout, 재시도 중...")
+            else:
+                raise
 
 
 def apply_carefor_mileage(branches_data: dict, carefor_data: dict[str, dict]) -> dict:
