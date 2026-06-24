@@ -33,8 +33,16 @@ def fetch_inspect_expiry(car_number: str, corp_number: str, headless: bool = Tru
 
 
 def _query_inspect(page: Page, car_number: str, corp_number: str) -> date | None:
-    page.goto(CYBERTS_URL, wait_until="domcontentloaded", timeout=30000)
-    page.wait_for_timeout(2000)
+    page.goto(CYBERTS_URL, wait_until="networkidle", timeout=60000)
+    page.wait_for_timeout(3000)
+
+    # 디버그: 실제 input 필드 목록 출력
+    inputs = page.evaluate("""
+        Array.from(document.querySelectorAll('input')).map(i => ({
+            name: i.name, id: i.id, placeholder: i.placeholder, type: i.type
+        }))
+    """)
+    print(f"  [DEBUG inputs] {inputs}")
 
     # 차량번호 입력
     page.fill('input[placeholder*="자동차등록번호"]', car_number)
