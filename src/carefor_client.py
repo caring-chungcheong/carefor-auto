@@ -477,7 +477,7 @@ def scrape_car_mileage(page: Page) -> dict[str, int]:
                 (() => {
                     const txt = document.body.innerText;
                     const matches = txt.match(/[\\d,]{4,}\\s*~\\s*[\\d,]{4,}/g);
-                    return matches ? matches[matches.length - 1] : null;
+                    return matches ? matches[0] : null;
                 })()
             """)
 
@@ -485,7 +485,7 @@ def scrape_car_mileage(page: Page) -> dict[str, int]:
             if km_text:
                 nums = re.findall(r"[\d,]+", km_text)
                 if nums:
-                    car_data['totalKm'] = int(nums[-1].replace(",", ""))
+                    car_data['totalKm'] = int(nums[0].replace(",", ""))
 
             # 정비기록 탭 클릭 → 엔진오일 교환 기록 수집
             _click_maintenance_tab(page)
