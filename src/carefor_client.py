@@ -461,40 +461,43 @@ def scrape_car_mileage(page: Page) -> dict[str, int]:
         if not car_no or not carmgno:
             continue
 
-        # reloadPage로 차량 선택
-        page.evaluate(f"reloadPage({{'carmgno':'{carmgno}', 'all_car':'Y'}})")
-        page.wait_for_load_state("networkidle", timeout=15000)
-        page.wait_for_timeout(1500)
+        try:
+            # reloadPage로 차량 선택
+            page.evaluate(f"reloadPage({{'carmgno':'{carmgno}', 'all_car':'Y'}})")
+            page.wait_for_load_state("networkidle", timeout=15000)
+            page.wait_for_timeout(1500)
 
-        # 운행기록 탭 클릭
-        _click_drive_record_tab(page)
-        page.wait_for_load_state("networkidle", timeout=15000)
-        page.wait_for_timeout(1000)
+            # 운행기록 탭 클릭
+            _click_drive_record_tab(page)
+            page.wait_for_load_state("networkidle", timeout=15000)
+            page.wait_for_timeout(1000)
 
-        # 계기판(km): innerText에서 "숫자,숫자 ~ 숫자,숫자" 패턴 추출
-        km_text = page.evaluate("""
-            (() => {
-                const txt = document.body.innerText;
-                const matches = txt.match(/[\\d,]{4,}\\s*~\\s*[\\d,]{4,}/g);
-                return matches ? matches[matches.length - 1] : null;
-            })()
-        """)
+            # 계기판(km): innerText에서 "숫자,숫자 ~ 숫자,숫자" 패턴 추출
+            km_text = page.evaluate("""
+                (() => {
+                    const txt = document.body.innerText;
+                    const matches = txt.match(/[\\d,]{4,}\\s*~\\s*[\\d,]{4,}/g);
+                    return matches ? matches[matches.length - 1] : null;
+                })()
+            """)
 
-        car_data: dict = {}
-        if km_text:
-            nums = re.findall(r"[\d,]+", km_text)
-            if nums:
-                car_data['totalKm'] = int(nums[-1].replace(",", ""))
+            car_data: dict = {}
+            if km_text:
+                nums = re.findall(r"[\d,]+", km_text)
+                if nums:
+                    car_data['totalKm'] = int(nums[-1].replace(",", ""))
 
-        # 정비기록 탭 클릭 → 엔진오일 교환 기록 수집
-        _click_maintenance_tab(page)
-        page.wait_for_load_state("networkidle", timeout=15000)
-        page.wait_for_timeout(1000)
-        oil_data = scrape_car_oil_change(page)
-        car_data.update(oil_data)
+            # 정비기록 탭 클릭 → 엔진오일 교환 기록 수집
+            _click_maintenance_tab(page)
+            page.wait_for_load_state("networkidle", timeout=15000)
+            page.wait_for_timeout(1000)
+            oil_data = scrape_car_oil_change(page)
+            car_data.update(oil_data)
 
-        if car_data:
-            result[car_no] = car_data
+            if car_data:
+                result[car_no] = car_data
+        except Exception as e:
+            print(f"    [{car_no}] 수집 실패 (건너뜀): {e}")
 
     return result
 
