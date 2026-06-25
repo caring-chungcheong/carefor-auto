@@ -476,7 +476,7 @@ def scrape_car_mileage(page: Page) -> dict[str, int]:
             (() => {
                 const txt = document.body.innerText;
                 const matches = txt.match(/[\\d,]{4,}\\s*~\\s*[\\d,]{4,}/g);
-                return matches ? matches[0] : null;
+                return matches ? matches[matches.length - 1] : null;
             })()
         """)
 
