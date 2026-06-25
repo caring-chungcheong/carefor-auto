@@ -50,6 +50,13 @@ branches_data = apply_carefor_mileage(branches_data, carefor_data)
 try:
     updated = save_mileage_to_sheet(carefor_data)
     print(f"구글시트 주행거리/오일 업데이트 완료: {updated}대")
+    sheet_car_nos = {
+        c.get('carNumber', '').replace(' ', '')
+        for cars in branches_data.values() for c in cars
+    }
+    unmatched = [no for no in carefor_data if no.replace(' ', '') not in sheet_car_nos]
+    if unmatched:
+        print(f"  [구글시트 미등록 차량 {len(unmatched)}대]: {', '.join(unmatched)}")
 except Exception as e:
     print(f"구글시트 저장 오류 (슬랙 보고는 계속): {e}")
 
