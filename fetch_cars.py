@@ -5,7 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from src import credentials
 
-API_URL = 'https://script.google.com/macros/s/AKfycbxZ0TRzqAMvxhxCwYNUoYfmdqLUjtSl56iThqZfgt0EUzA6MF6jwA7RaMmeMwR9l-U/exec'
+API_URL = 'https://script.google.com/macros/s/AKfycbzlrOLKx9_Cs4LnWYPMi9bySTPPpjOHy4pxcwXKJ7F7c4eulGOWs3SZmdRdAgL7sDFi/exec'
 
 BRANCH_CTMNUMB = {
     "둔산점":      "23017000602",
