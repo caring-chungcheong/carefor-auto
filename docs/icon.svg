@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="url(#g)"/>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1e3a8a"/>
+      <stop offset="1" stop-color="#3b82f6"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(96 160)" fill="#fff">
+    <!-- 자동차 본체 -->
+    <path d="M40 100 L60 50 Q70 30 90 30 L230 30 Q250 30 260 50 L280 100 L290 100 Q310 100 310 120 L310 170 Q310 180 300 180 L280 180 Q280 210 250 210 Q220 210 220 180 L100 180 Q100 210 70 210 Q40 210 40 180 L20 180 Q10 180 10 170 L10 120 Q10 100 30 100 Z" />
+    <!-- 창문 -->
+    <path d="M75 95 L90 55 Q95 45 105 45 L215 45 Q225 45 230 55 L245 95 Z" fill="#1e3a8a"/>
+    <!-- 바퀴 -->
+    <circle cx="70" cy="180" r="22" fill="#1e293b"/>
+    <circle cx="70" cy="180" r="10" fill="#fff"/>
+    <circle cx="250" cy="180" r="22" fill="#1e293b"/>
+    <circle cx="250" cy="180" r="10" fill="#fff"/>
+  </g>
+  <text x="256" y="430" font-family="Arial, sans-serif" font-size="56" font-weight="bold" text-anchor="middle" fill="#fff">차량관리</text>
+</svg>

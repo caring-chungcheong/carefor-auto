@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="theme-color" content="#1e3a8a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="차량관리">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>충청본부 차량관리</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: 'Malgun Gothic', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #f4f6f8;
+    color: #2c3e50;
+    min-height: 100vh;
+    -webkit-text-size-adjust: 100%;
+  }
+  .header {
+    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+    color: white;
+    padding: 16px 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .header-top {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 8px;
+    position: relative;
+  }
+  .header h1 { font-size: 22px; text-align: center; }
+  .header .sub {
+    font-size: 12px;
+    opacity: 0.85;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+  }
+  .header-btns {
+    display: flex;
+    gap: 6px;
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  @media (max-width: 600px) {
+    .header-top {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+    }
+    .header-btns {
+      position: static;
+      transform: none;
+      justify-content: center;
+    }
+  }
+  .header-btns button {
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .sync-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    padding: 2px 8px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 10px;
+  }
+  .sync-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #94a3b8;
+  }
+  .sync-dot.live { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+  .sync-dot.error { background: #ef4444; }
+
+  .container { max-width: 1400px; margin: 0 auto; padding: 16px; }
+
+  .config-warning {
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    color: #92400e;
+    padding: 16px;
+    border-radius: 10px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .config-warning strong { color: #78350f; }
+  .config-warning code {
+    background: rgba(0,0,0,0.08);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 13px;
+  }
+
+  .dashboard {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .stat-card {
+    background: white;
+    border-radius: 10px;
+    padding: 18px 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    border-left: 4px solid #3b82f6;
+    text-align: center;
+  }
+  .stat-card.warn { border-left-color: #f59e0b; }
+  .stat-card.danger { border-left-color: #ef4444; }
+  .stat-card .label { font-size: 15px; color: #1e293b; margin-bottom: 8px; font-weight: 700; }
+  .stat-card .value { font-size: 30px; font-weight: 700; color: #1e293b; }
+  .stat-card .unit { font-size: 14px; color: #94a3b8; margin-left: 4px; }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    background: white;
+    padding: 6px;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    padding: 10px 16px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #64748b;
+    white-space: nowrap;
+  }
+  .tab.active { background: #1e3a8a; color: white; }
+  .tab.dashboard-tab { color: #f59e0b; font-weight: 700; }
+  .tab.dashboard-tab.active { background: #f59e0b; color: white; }
+
+  .toolbar {
+    display: flex;
+    margin-bottom: 12px;
+    gap: 8px;
+  }
+  .search {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 14px;
+    background: white;
+  }
+  .btn {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .btn-primary { background: #1e3a8a; color: white; }
+  .btn-secondary { background: #e2e8f0; color: #475569; }
+
+  .cars-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 12px;
+  }
+  .car-card {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    border-top: 4px solid #3b82f6;
+  }
+  .car-card.warn { border-top-color: #f59e0b; }
+  .car-card.danger { border-top-color: #ef4444; }
+  .car-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .car-number { font-size: 18px; font-weight: 700; }
+  .car-model { font-size: 12px; color: #64748b; margin-top: 2px; }
+  .car-actions { display: flex; gap: 4px; }
+  .icon-btn {
+    background: none;
+    border: none;
+    padding: 6px;
+    cursor: pointer;
+    border-radius: 4px;
+    color: #94a3b8;
+    font-size: 16px;
+  }
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    font-size: 13px;
+    border-bottom: 1px dashed #e2e8f0;
+  }
+  .info-row:last-child { border-bottom: none; }
+  .info-label { color: #64748b; }
+  .info-value { font-weight: 600; }
+
+  .badges { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge.ok { background: #d1fae5; color: #065f46; }
+  .badge.warn { background: #fef3c7; color: #92400e; }
+  .badge.danger { background: #fee2e2; color: #991b1b; }
+
+  .empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: #94a3b8;
+  }
+  .empty .icon { font-size: 48px; margin-bottom: 12px; }
+
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal h2 { margin-bottom: 18px; font-size: 17px; }
+  .form-group { margin-bottom: 12px; }
+  .form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #475569;
+  }
+  .form-group input, .form-group textarea, .form-group select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 20px;
+  }
+
+  .alert-section { margin-bottom: 20px; }
+  .alert-section h3 {
+    font-size: 14px;
+    margin-bottom: 8px;
+    color: #475569;
+  }
+  .alert-list {
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .alert-item {
+    padding: 12px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    display: grid;
+    grid-template-columns: 80px 110px 1fr auto;
+    gap: 10px;
+    align-items: center;
+    font-size: 13px;
+  }
+  .alert-item:last-child { border-bottom: none; }
+  .alert-branch {
+    background: #e0e7ff;
+    color: #3730a3;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    text-align: center;
+    font-weight: 600;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: #1e293b;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 200;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  .toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+  .toast.error { background: #dc2626; }
+  .toast.success { background: #059669; }
+
+  .install-banner {
+    display: none;
+    position: fixed;
+    bottom: 20px;
+    left: 16px;
+    right: 16px;
+    background: #1e3a8a;
+    color: white;
+    padding: 14px 16px;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    z-index: 150;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .install-banner.show { display: flex; }
+  .install-banner button {
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .install-banner .install-btn { background: white; color: #1e3a8a; }
+  .install-banner .close-btn { background: rgba(255,255,255,0.2); color: white; }
+
+  @media (max-width: 700px) {
+    .dashboard { grid-template-columns: repeat(2, 1fr); }
+    .form-row { grid-template-columns: 1fr; }
+    .header h1 { font-size: 17px; }
+    .header-btns button { font-size: 11px; padding: 5px 10px; }
+    .alert-item {
+      grid-template-columns: 70px 1fr;
+      grid-template-rows: auto auto;
+      gap: 4px;
+    }
+    .alert-item .alert-branch { grid-row: 1; }
+    .cars-grid { grid-template-columns: 1fr; }
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #e2e8f0;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-top">
+      <div>
+        <h1>충청본부 차량관리</h1>
+        <div class="sub">
+          <span class="sync-status">
+            <span class="sync-dot" id="syncDot"></span>
+            <span id="syncText">연결 중...</span>
+          </span>
+        </div>
+      </div>
+      <div class="header-btns">
+        <button onclick="refreshFromSheet()">🔄 새로고침</button>
+        <button onclick="exportCSV()">📤 백업</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div id="configWarning" class="config-warning" style="display:none">
+      <strong>⚙️ Google Apps Script 웹 앱 URL 설정이 필요합니다</strong><br>
+      <code>index.html</code> 파일을 메모장으로 열고, 아래쪽 <code>API_URL</code> 값을 본인이 배포한 Apps Script 웹 앱 URL(<code>.../exec</code>)로 교체하세요.<br>
+      자세한 방법은 <strong>설정가이드.md</strong> 파일을 참고하세요.
+    </div>
+
+    <div class="dashboard" id="dashboardCards"></div>
+    <div class="tabs" id="tabs"></div>
+
+    <div class="toolbar" id="toolbar" style="display:none">
+      <input type="text" class="search" id="searchInput" placeholder="🔍 차량번호/차종 검색">
+    </div>
+
+    <div id="content">
+      <div style="text-align:center;padding:60px 20px;color:#94a3b8">
+        <div class="spinner"></div>
+        <div style="margin-top:12px">데이터 동기화 중...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 차량 추가/수정 모달 -->
+  <div class="modal-overlay" id="carModal">
+    <div class="modal">
+      <h2 id="modalTitle">차량 추가</h2>
+      <div class="form-group">
+        <label>차량번호 *</label>
+        <input type="text" id="carNumber" placeholder="예: 73나9869">
+      </div>
+      <div class="form-group">
+        <label>차종</label>
+        <input type="text" id="carModel" placeholder="예: 스타렉스">
+      </div>
+      <div class="form-group">
+        <label>현재 누적 주행거리 (km)</label>
+        <input type="number" id="totalKm" inputmode="numeric" placeholder="0">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>마지막 엔진오일 교환일</label>
+          <input type="date" id="oilDate">
+        </div>
+        <div class="form-group">
+          <label>교환시 주행거리</label>
+          <input type="number" id="oilKm" inputmode="numeric" placeholder="0">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>다음 교환 예정 (km)</label>
+        <input type="number" id="oilNextKm" inputmode="numeric" placeholder="0">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>정기검사 시작일</label>
+          <input type="date" id="inspectStart">
+        </div>
+        <div class="form-group">
+          <label>정기검사 종료일</label>
+          <input type="date" id="inspectEnd">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>비고</label>
+        <textarea id="note" rows="2"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('carModal')">취소</button>
+        <button class="btn btn-primary" id="saveBtn" onclick="saveCar()">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 지점관리 모달 -->
+  <div class="modal-overlay" id="branchModal">
+    <div class="modal">
+      <h2>지점 관리</h2>
+      <div class="form-group">
+        <label>새 지점 추가</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="newBranchName" placeholder="예: 둔산점">
+          <button class="btn btn-primary" onclick="addBranch()">추가</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>등록된 지점</label>
+        <div id="branchList" style="border:1px solid #e2e8f0;border-radius:6px;padding:8px"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('branchModal')">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="install-banner" id="installBanner">
+    <div style="font-size:13px">📱 홈 화면에 추가해서 앱처럼 사용하세요</div>
+    <div style="display:flex;gap:6px">
+      <button class="install-btn" onclick="installApp()">설치</button>
+      <button class="close-btn" onclick="document.getElementById('installBanner').classList.remove('show')">✕</button>
+    </div>
+  </div>
+
+<!-- =========================================================
+     ⚙️ Google Apps Script 웹 앱 URL (여기를 본인 배포 URL로 바꾸세요)
+     설정가이드.md 의 3단계 참고
+     ========================================================= -->
+<script>
+// =========================================================
+//  Google Apps Script 웹 앱 URL
+//  Code.gs를 배포한 뒤 받은 "/exec" 로 끝나는 URL을 붙여넣으세요.
+//  예: https://script.google.com/macros/s/AKfycb.../exec
+// =========================================================
+const API_URL = 'https://script.google.com/macros/s/AKfycbzc4VeJQQpeYblx3Ack2Yrp1q0pJPe_LM9g8_3noB6-DJCaLMsFVENZDFOXYzvUHT0/exec';
+
+const isConfigured = API_URL && !API_URL.startsWith('여기에') && API_URL.includes('/exec');
+
+// CORS preflight를 피하려고 text/plain으로 POST.
+// Apps Script ContentService는 Access-Control-Allow-Origin: * 를 자동으로 붙입니다.
+async function apiCall(action, params) {
+  if (!isConfigured) throw new Error('API URL 미설정');
+  const body = Object.assign({ action: action }, params || {});
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(body),
+    redirect: 'follow'
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'API 오류');
+  return data.data;
+}
+window.apiCall = apiCall;
+</script>
+
+<script>
+const DEFAULT_BRANCHES = ['둔산점', '서구점', '청주점', '천안점', '대전점'];
+
+let state = {
+  branches: [],
+  data: {},
+  currentBranch: null,
+  editingIndex: null,
+  searchQuery: '',
+  loaded: false,
+  saving: false
+};
+
+let deferredInstallPrompt = null;
+
+function setSync(status, msg) {
+  const dot = document.getElementById('syncDot');
+  const txt = document.getElementById('syncText');
+  dot.className = 'sync-dot ' + status;
+  txt.textContent = msg;
+}
+
+async function startSync() {
+  if (!isConfigured) return;
+  setSync('', '불러오는 중...');
+  try {
+    const res = await apiCall('getAll');
+    state.branches = res.branches || [];
+    state.data = res.data || {};
+    state.loaded = true;
+    setSync('live', '시트 연결됨');
+    render();
+  } catch (err) {
+    setSync('error', '연결 오류');
+    showToast('시트 로드 실패: ' + err.message, 'error');
+  }
+}
+window.startSync = startSync;
+
+// 사이트에서 액션을 수행한 뒤 최신 시트 상태를 다시 불러옴.
+async function refreshFromSheet() {
+  await startSync();
+}
+window.refreshFromSheet = refreshFromSheet;
+
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('searchInput').addEventListener('input', e => {
+    state.searchQuery = e.target.value.toLowerCase();
+    renderCars();
+  });
+
+  // 헤더 sync 표시 클릭 → 수동 새로고침
+  const syncBar = document.querySelector('.sync-status');
+  if (syncBar) {
+    syncBar.style.cursor = 'pointer';
+    syncBar.title = '클릭하면 시트에서 최신 데이터를 다시 불러옵니다';
+    syncBar.addEventListener('click', () => refreshFromSheet());
+  }
+
+  if (!isConfigured) {
+    document.getElementById('configWarning').style.display = 'block';
+    document.getElementById('content').innerHTML = '';
+    document.getElementById('syncText').textContent = '설정 필요';
+  } else {
+    startSync();
+    // 60초마다 시트에서 자동으로 다시 끌어옴.
+    // 탭이 백그라운드일 땐 건너뛰어 호출량 절약.
+    setInterval(() => {
+      if (document.visibilityState === 'visible') refreshFromSheet();
+    }, 60000);
+  }
+});
+
+// PWA 설치 프롬프트
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  document.getElementById('installBanner').classList.add('show');
+});
+
+async function installApp() {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  const { outcome } = await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  document.getElementById('installBanner').classList.remove('show');
+  if (outcome === 'accepted') showToast('앱이 설치되었습니다', 'success');
+}
+window.installApp = installApp;
+
+function render() {
+  renderDashboardCards();
+  renderTabs();
+  if (state.currentBranch) renderCars();
+  else showDashboard();
+}
+
+function getDashboardStats() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const stats = {
+    totalCars: 0,
+    oilDueSoon: [], oilOverdue: [],
+    inspectDueSoon: [], inspectOverdue: []
+  };
+  state.branches.forEach(branch => {
+    const cars = state.data[branch] || [];
+    stats.totalCars += cars.length;
+    cars.forEach(car => {
+      // 오일 교환 판정: km 기준 또는 시간 기준(1년) 둘 중 하나라도 걸리면 처리
+      let oilRemainKm = null;
+      let oilDaysSince = null;
+      if (car.oilNextKm && car.totalKm) {
+        oilRemainKm = car.oilNextKm - car.totalKm;
+      }
+      if (car.oilDate) {
+        const last = new Date(car.oilDate);
+        if (!isNaN(last)) oilDaysSince = Math.floor((today - last) / 86400000);
+      }
+      const oilOverKm = oilRemainKm !== null && oilRemainKm < 0;
+      const oilOverDate = oilDaysSince !== null && oilDaysSince >= 365;
+      const oilSoonKm = oilRemainKm !== null && oilRemainKm >= 0 && oilRemainKm <= 1000;
+      if (oilOverKm || oilOverDate) {
+        stats.oilOverdue.push({ branch, ...car, remainKm: oilRemainKm, daysSince: oilDaysSince });
+      } else if (oilSoonKm) {
+        stats.oilDueSoon.push({ branch, ...car, remainKm: oilRemainKm });
+      }
+      if (car.inspectEnd) {
+        const end = new Date(car.inspectEnd);
+        const d = Math.floor((end - today) / (1000 * 60 * 60 * 24));
+        if (d < 0) stats.inspectOverdue.push({ branch, ...car, remainDays: d });
+        else if (d <= 60) stats.inspectDueSoon.push({ branch, ...car, remainDays: d });
+      }
+    });
+  });
+  return stats;
+}
+
+function renderDashboardCards() {
+  const d = getDashboardStats();
+  document.getElementById('dashboardCards').innerHTML = `
+    <div class="stat-card"><div class="label">전체 차량</div><div class="value">${d.totalCars}<span class="unit">대</span></div></div>
+    <div class="stat-card ${d.oilOverdue.length?'danger':''}"><div class="label">오일 교환 초과</div><div class="value">${d.oilOverdue.length}<span class="unit">대</span></div></div>
+    <div class="stat-card ${d.oilDueSoon.length?'warn':''}"><div class="label">오일 교체 임박</div><div class="value">${d.oilDueSoon.length}<span class="unit">대</span></div></div>
+    <div class="stat-card ${d.inspectOverdue.length?'danger':''}"><div class="label">정기 검사 만료</div><div class="value">${d.inspectOverdue.length}<span class="unit">대</span></div></div>
+    <div class="stat-card ${d.inspectDueSoon.length?'warn':''}"><div class="label">정기 검사 임박</div><div class="value">${d.inspectDueSoon.length}<span class="unit">대</span></div></div>
+  `;
+}
+
+function renderTabs() {
+  let html = `<button class="tab dashboard-tab ${!state.currentBranch?'active':''}" onclick="selectBranch(null)">대시보드</button>`;
+  state.branches.forEach(branch => {
+    const count = (state.data[branch] || []).length;
+    html += `<button class="tab ${state.currentBranch===branch?'active':''}" onclick="selectBranch('${branch.replace(/'/g,"\\'")}')">${escapeHtml(branch)} (${count})</button>`;
+  });
+  document.getElementById('tabs').innerHTML = html;
+}
+
+function selectBranch(branch) {
+  state.currentBranch = branch;
+  state.searchQuery = '';
+  document.getElementById('searchInput').value = '';
+  if (branch === null) {
+    document.getElementById('toolbar').style.display = 'none';
+    showDashboard();
+  } else {
+    document.getElementById('toolbar').style.display = 'flex';
+    renderCars();
+  }
+  renderTabs();
+}
+window.selectBranch = selectBranch;
+
+function showDashboard() {
+  const d = getDashboardStats();
+  let html = '';
+  const sections = [
+    { title: '⚠️ 엔진오일 교환 초과', items: d.oilOverdue, type: 'danger', fmt: c => `${Math.abs(c.remainKm).toLocaleString()}km 초과` },
+    { title: '🔔 엔진오일 교환 임박 (1,000km 이내)', items: d.oilDueSoon, type: 'warn', fmt: c => `${c.remainKm.toLocaleString()}km 남음` },
+    { title: '⚠️ 정기검사 만료', items: d.inspectOverdue, type: 'danger', fmt: c => `${Math.abs(c.remainDays)}일 초과` },
+    { title: '🔔 정기검사 임박 (60일 이내)', items: d.inspectDueSoon, type: 'warn', fmt: c => `${c.remainDays}일 남음` }
+  ];
+  sections.forEach(s => {
+    if (!s.items.length) return;
+    html += `<div class="alert-section"><h3>${s.title} (${s.items.length}대)</h3><div class="alert-list">`;
+    s.items.forEach(car => {
+      html += `<div class="alert-item">
+        <span class="alert-branch">${escapeHtml(car.branch)}</span>
+        <strong>${escapeHtml(car.carNumber)}</strong>
+        <span>${escapeHtml(car.carModel || '')}</span>
+        <span class="badge ${s.type}">${s.fmt(car)}</span>
+      </div>`;
+    });
+    html += `</div></div>`;
+  });
+  if (!html) {
+    html = d.totalCars === 0
+      ? `<div class="empty"><div class="icon">🚗</div><div>등록된 차량이 없습니다</div><div style="margin-top:8px;font-size:13px">상단 지점 탭을 선택하고 추가하세요</div></div>`
+      : `<div class="empty"><div class="icon">✅</div><div>모든 차량 정상</div></div>`;
+  }
+  document.getElementById('content').innerHTML = html;
+}
+
+function renderCars() {
+  const cars = state.data[state.currentBranch] || [];
+  const q = state.searchQuery;
+  const filtered = q
+    ? cars.filter(c => c.carNumber.toLowerCase().includes(q) || (c.carModel||'').toLowerCase().includes(q))
+    : cars;
+  if (!filtered.length) {
+    document.getElementById('content').innerHTML = `<div class="empty"><div class="icon">🚗</div><div>${q?'검색 결과 없음':state.currentBranch+'에 차량이 없습니다'}</div></div>`;
+    return;
+  }
+  const today = new Date(); today.setHours(0,0,0,0);
+  let html = '<div class="cars-grid">';
+  filtered.forEach(car => {
+    const realIndex = cars.indexOf(car);
+    let oilStat = 'ok', oilTxt = '오일정보 없음';
+    let kmRem = null, daysSince = null;
+    if (car.oilNextKm > 0) kmRem = car.oilNextKm - car.totalKm;
+    if (car.oilDate) {
+      const last = new Date(car.oilDate);
+      if (!isNaN(last)) daysSince = Math.floor((today - last) / 86400000);
+    }
+    const overKm = kmRem !== null && kmRem < 0;
+    const overDate = daysSince !== null && daysSince >= 365;
+    const soonKm = kmRem !== null && kmRem >= 0 && kmRem <= 1000;
+    if (overKm || overDate) {
+      oilStat = 'danger';
+      if (overKm && overDate) oilTxt = `오일 ${Math.abs(kmRem).toLocaleString()}km 초과·1년경과`;
+      else if (overKm) oilTxt = `오일 ${Math.abs(kmRem).toLocaleString()}km 초과`;
+      else oilTxt = `오일교환 1년경과`;
+    } else if (soonKm) {
+      oilStat = 'warn';
+      oilTxt = `오일 ${kmRem.toLocaleString()}km 남음`;
+    } else if (kmRem !== null) {
+      oilTxt = `오일 ${kmRem.toLocaleString()}km 남음`;
+    }
+    let insStat = 'ok', insTxt = '검사정보 없음';
+    if (car.inspectEnd) {
+      const d = Math.floor((new Date(car.inspectEnd) - today) / (1000*60*60*24));
+      if (d < 0) { insStat='danger'; insTxt=`검사 ${Math.abs(d)}일 초과`; }
+      else if (d <= 60) { insStat='warn'; insTxt=`검사 ${d}일 남음`; }
+      else insTxt = `검사 ${d}일 남음`;
+    }
+    const cls = (oilStat==='danger'||insStat==='danger')?'danger':(oilStat==='warn'||insStat==='warn')?'warn':'';
+    html += `<div class="car-card ${cls}">
+      <div class="car-header">
+        <div>
+          <div class="car-number">${escapeHtml(car.carNumber)}</div>
+          <div class="car-model">${escapeHtml(car.carModel||'')}</div>
+        </div>
+      </div>
+      <div class="info-row"><span class="info-label">누적 주행</span><span class="info-value">${(car.totalKm||0).toLocaleString()} km${car.updatedAt ? `<span style="color:#888;font-size:0.82em;margin-left:6px">(${car.updatedAt})</span>` : ''}</span></div>
+      <div class="info-row"><span class="info-label">마지막 교환</span><span class="info-value">${car.oilDate||'-'}</span></div>
+      <div class="info-row"><span class="info-label">교환시 주행</span><span class="info-value">${(car.oilKm||0).toLocaleString()} km</span></div>
+      <div class="info-row"><span class="info-label">다음 교환</span><span class="info-value">${(car.oilNextKm||0).toLocaleString()} km</span></div>
+      <div class="info-row"><span class="info-label">정기검사</span><span class="info-value">${car.inspectStart||'-'} ~ ${car.inspectEnd||'-'}</span></div>
+      ${car.note?`<div class="info-row"><span class="info-label">비고</span><span class="info-value">${escapeHtml(car.note)}</span></div>`:''}
+      <div class="badges">
+        <span class="badge ${oilStat}">${oilTxt}</span>
+        <span class="badge ${insStat}">${insTxt}</span>
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+  document.getElementById('content').innerHTML = html;
+}
+
+function openAddModal() {
+  if (!state.currentBranch) { showToast('지점 탭을 먼저 선택하세요', 'error'); return; }
+  state.editingIndex = null;
+  document.getElementById('modalTitle').textContent = state.currentBranch + ' - 차량 추가';
+  ['carNumber','carModel','totalKm','oilDate','oilKm','oilNextKm','inspectStart','inspectEnd','note']
+    .forEach(id => document.getElementById(id).value = '');
+  document.getElementById('carModal').classList.add('show');
+}
+window.openAddModal = openAddModal;
+
+function editCar(index) {
+  state.editingIndex = index;
+  const car = state.data[state.currentBranch][index];
+  document.getElementById('modalTitle').textContent = state.currentBranch + ' - 차량 수정';
+  document.getElementById('carNumber').value = car.carNumber || '';
+  document.getElementById('carModel').value = car.carModel || '';
+  document.getElementById('totalKm').value = car.totalKm || '';
+  document.getElementById('oilDate').value = car.oilDate || '';
+  document.getElementById('oilKm').value = car.oilKm || '';
+  document.getElementById('oilNextKm').value = car.oilNextKm || '';
+  document.getElementById('inspectStart').value = car.inspectStart || '';
+  document.getElementById('inspectEnd').value = car.inspectEnd || '';
+  document.getElementById('note').value = car.note || '';
+  document.getElementById('carModal').classList.add('show');
+}
+window.editCar = editCar;
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('show');
+}
+window.closeModal = closeModal;
+
+async function saveCar() {
+  const car = {
+    carNumber: document.getElementById('carNumber').value.trim(),
+    carModel: document.getElementById('carModel').value.trim(),
+    totalKm: Number(document.getElementById('totalKm').value) || 0,
+    oilDate: document.getElementById('oilDate').value,
+    oilKm: Number(document.getElementById('oilKm').value) || 0,
+    oilNextKm: Number(document.getElementById('oilNextKm').value) || 0,
+    inspectStart: document.getElementById('inspectStart').value,
+    inspectEnd: document.getElementById('inspectEnd').value,
+    note: document.getElementById('note').value.trim()
+  };
+  if (!car.carNumber) { showToast('차량번호를 입력하세요', 'error'); return; }
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true; btn.textContent = '저장 중...';
+  try {
+    if (state.editingIndex !== null) {
+      const existing = state.data[state.currentBranch][state.editingIndex];
+      await apiCall('updateCar', { branch: state.currentBranch, rowIndex: existing.rowIndex, car: car });
+    } else {
+      await apiCall('addCar', { branch: state.currentBranch, car: car });
+    }
+    closeModal('carModal');
+    await refreshFromSheet();
+    showToast('시트에 저장됨', 'success');
+  } catch (err) {
+    showToast('저장 실패: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '저장';
+  }
+}
+window.saveCar = saveCar;
+
+async function deleteCar(index) {
+  const car = state.data[state.currentBranch][index];
+  if (!confirm(`${car.carNumber} 삭제할까요?`)) return;
+  try {
+    await apiCall('deleteCar', { branch: state.currentBranch, rowIndex: car.rowIndex });
+    await refreshFromSheet();
+    showToast('삭제됨', 'success');
+  } catch (err) {
+    showToast('삭제 실패: ' + err.message, 'error');
+  }
+}
+window.deleteCar = deleteCar;
+
+function manageBranches() {
+  renderBranchList();
+  document.getElementById('newBranchName').value = '';
+  document.getElementById('branchModal').classList.add('show');
+}
+window.manageBranches = manageBranches;
+
+function renderBranchList() {
+  let html = state.branches.length === 0
+    ? '<div style="color:#94a3b8;padding:12px">등록된 지점 없음</div>'
+    : state.branches.map(b => {
+        const c = (state.data[b] || []).length;
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px;border-bottom:1px solid #f1f5f9">
+          <span><strong>${escapeHtml(b)}</strong> <span style="color:#94a3b8;font-size:12px">차량 ${c}대</span></span>
+          <button class="icon-btn" onclick="removeBranch('${b.replace(/'/g,"\\'")}')">🗑️</button>
+        </div>`;
+      }).join('');
+  document.getElementById('branchList').innerHTML = html;
+}
+
+async function addBranch() {
+  const name = document.getElementById('newBranchName').value.trim();
+  if (!name) { showToast('지점명 입력', 'error'); return; }
+  if (state.branches.includes(name)) { showToast('이미 있는 지점', 'error'); return; }
+  try {
+    await apiCall('addBranch', { branch: name });
+    await refreshFromSheet();
+    renderBranchList();
+    document.getElementById('newBranchName').value = '';
+    showToast(name + ' 추가됨', 'success');
+  } catch (err) {
+    showToast('실패: ' + err.message, 'error');
+  }
+}
+window.addBranch = addBranch;
+
+async function removeBranch(name) {
+  showToast('지점 삭제는 구글시트에서 해당 시트 탭을 삭제해주세요', 'error');
+}
+window.removeBranch = removeBranch;
+
+// 기존 데이터는 이제 구글시트가 마스터이므로, 시트로 직접 안내합니다.
+async function importLocal() {
+  showToast('기존 데이터는 구글시트에 직접 입력/붙여넣기 해주세요', 'error');
+}
+window.importLocal = importLocal;
+
+function exportCSV() {
+  const headers = ['지점','차량번호','차종','누적주행거리','엔진오일 교환일','교환시 주행거리','다음교환 예정거리','정기검사 시작','정기검사 종료','비고'];
+  let csv = '﻿' + headers.join(',') + '\n';
+  state.branches.forEach(branch => {
+    (state.data[branch] || []).forEach(car => {
+      const row = [branch, car.carNumber, car.carModel, car.totalKm, car.oilDate, car.oilKm, car.oilNextKm, car.inspectStart, car.inspectEnd, car.note]
+        .map(v => { const s = String(v||''); return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g,'""')}"` : s; })
+        .join(',');
+      csv += row + '\n';
+    });
+  });
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `차량관리_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  showToast('CSV 다운로드됨', 'success');
+}
+window.exportCSV = exportCSV;
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (type || '');
+  setTimeout(() => t.className = 'toast', 2500);
+}
+
+function escapeHtml(str) {
+  return String(str||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+// 서비스 워커 등록 (오프라인 지원)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
