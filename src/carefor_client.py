@@ -541,7 +541,7 @@ def fetch_branch_car_mileage(
         portal_page.goto(PORTAL_URL, wait_until="domcontentloaded")
         portal_page.wait_for_function("typeof login2 === 'function'", timeout=15000)
 
-        with ctx.expect_page(timeout=30000) as new_page_info:
+        with ctx.expect_page(timeout=60000) as new_page_info:
             portal_page.evaluate(f"login2('{ctmnumb}')")
         data_page = new_page_info.value
         data_page.wait_for_load_state("domcontentloaded", timeout=30000)
@@ -585,7 +585,7 @@ def fetch_branch_attendance(
         portal_page.wait_for_function("typeof login2 === 'function'", timeout=15000)
 
         # 2) login2 호출 → 새 탭으로 dn.carefor.co.kr 열림
-        with ctx.expect_page(timeout=30000) as new_page_info:
+        with ctx.expect_page(timeout=60000) as new_page_info:
             portal_page.evaluate(f"login2('{ctmnumb}')")
         data_page = new_page_info.value
         data_page.wait_for_load_state("domcontentloaded", timeout=30000)
