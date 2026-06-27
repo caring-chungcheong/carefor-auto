@@ -90,16 +90,26 @@ def fetch_vehicle_data():
 
 def fetch_carefor_mileage(headless: bool = True) -> dict[str, dict]:
     """케어포에서 전 지점 차량별 데이터 수집. 반환: {차량번호: {totalKm, oilDate, oilKm, oilNextKm}}"""
+    import time
     from src.carefor_client import fetch_branch_car_mileage
     result: dict[str, dict] = {}
     for branch, ctmnumb in BRANCH_CTMNUMB.items():
-        try:
-            data = fetch_branch_car_mileage(ctmnumb, branch, headless=headless)
-            data = {no: v for no, v in data.items() if not _is_excluded_car(no)}
-            result.update(data)
-            print(f"  {branch}: {len(data)}대 수집")
-        except Exception as e:
-            print(f"  {branch} 오류: {e}")
+        for attempt in range(2):
+            try:
+                if attempt > 0:
+                    print(f"  {branch} 재시도 중...")
+                    time.sleep(10)
+                data = fetch_branch_car_mileage(ctmnumb, branch, headless=headless)
+                data = {no: v for no, v in data.items() if not _is_excluded_car(no)}
+                result.update(data)
+                print(f"  {branch}: {len(data)}대 수집")
+                break
+            except Exception as e:
+                if attempt == 0:
+                    print(f"  {branch} 오류: {e} (재시도 예정)")
+                else:
+                    print(f"  {branch} 최종 실패: {e}")
+        time.sleep(5)  # 지점 간 대기
     return result
 
 
