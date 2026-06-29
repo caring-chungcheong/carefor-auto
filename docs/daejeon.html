@@ -95,7 +95,6 @@
   .btn-submit:active { opacity: 0.85; }
   .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  .history-section { margin-top: 4px; }
   .history-item {
     background: white;
     border-radius: 10px;
@@ -104,6 +103,7 @@
     box-shadow: 0 1px 4px rgba(0,0,0,0.07);
     border-left: 4px solid #3b82f6;
   }
+  .repair-item { border-left-color: #e53e3e; }
   .history-date { font-size: 12px; color: #718096; margin-bottom: 4px; }
   .history-main { font-size: 14px; font-weight: 600; color: #2c3e50; }
   .history-detail { font-size: 12px; color: #718096; margin-top: 4px; }
@@ -116,6 +116,51 @@
     background: #e8f0fe;
     color: #1e3a8a;
     margin-right: 4px;
+  }
+  .badge-red { background: #fff0f0; color: #e53e3e; }
+  .file-link {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #3b82f6;
+    text-decoration: none;
+  }
+
+  /* 파일 업로드 */
+  .file-upload-area {
+    border: 2px dashed #c3d4f0;
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    background: #f8faff;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .file-upload-area:hover, .file-upload-area.dragover {
+    border-color: #3b82f6;
+    background: #e8f0fe;
+  }
+  .file-upload-area input[type=file] { display: none; }
+  .file-upload-icon { font-size: 32px; margin-bottom: 8px; }
+  .file-upload-text { font-size: 13px; color: #718096; }
+  .file-preview {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: #f0f9f0;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #38a169;
+    display: none;
+    align-items: center;
+    gap: 8px;
+  }
+  .file-preview.show { display: flex; }
+  .file-preview .remove-file {
+    margin-left: auto;
+    cursor: pointer;
+    color: #e53e3e;
+    font-size: 16px;
+    font-weight: 700;
   }
 
   .toast {
@@ -145,6 +190,8 @@
     z-index: 998;
     align-items: center;
     justify-content: center;
+    flex-direction: column;
+    gap: 16px;
   }
   .loading-overlay.show { display: flex; }
   .spinner {
@@ -154,15 +201,16 @@
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
+  .loading-text { color: white; font-size: 14px; font-weight: 600; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 16px; }
   .tab-btn {
     flex: 1;
-    padding: 10px;
+    padding: 10px 6px;
     border: 2px solid #e2e8f0;
     border-radius: 8px;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     background: white;
     color: #718096;
@@ -171,13 +219,7 @@
   .tab-btn.active { border-color: #3b82f6; color: #1e3a8a; background: #e8f0fe; }
   .tab-content { display: none; }
   .tab-content.active { display: block; }
-
-  .empty-state {
-    text-align: center;
-    padding: 40px 20px;
-    color: #a0aec0;
-    font-size: 14px;
-  }
+  .empty-state { text-align: center; padding: 40px 20px; color: #a0aec0; font-size: 14px; }
 </style>
 </head>
 <body>
@@ -189,34 +231,31 @@
 
 <div class="container">
   <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('input')">✏️ 입력</button>
-    <button class="tab-btn" onclick="switchTab('history')">📋 최근 기록</button>
+    <button class="tab-btn active" onclick="switchTab('drive', this)">✏️ 운행입력</button>
+    <button class="tab-btn" onclick="switchTab('repair', this)">🔧 정비입력</button>
+    <button class="tab-btn" onclick="switchTab('history', this)">📋 운행기록</button>
+    <button class="tab-btn" onclick="switchTab('repairHistory', this)">🛠 정비기록</button>
   </div>
 
-  <!-- 입력 탭 -->
-  <div id="tab-input" class="tab-content active">
+  <!-- 운행 입력 -->
+  <div id="tab-drive" class="tab-content active">
     <div class="card">
       <div class="card-title">🚙 운행 정보</div>
-
-      <div class="km-info" id="currentKmInfo">
+      <div class="km-info">
         <span>📍</span> <span id="currentKmText">현재 누적주행거리 불러오는 중...</span>
       </div>
-
       <div class="form-group">
         <label>운행일자 <span class="required">*</span></label>
         <input type="date" id="driveDate">
       </div>
-
       <div class="form-group">
         <label>운전자명 <span class="required">*</span></label>
         <input type="text" id="driverName" placeholder="이름 입력">
       </div>
-
       <div class="form-group">
         <label>운행목적 <span class="required">*</span></label>
         <input type="text" id="driveReason" placeholder="예: 방문요양, 업무, 차량점검 등">
       </div>
-
       <div class="form-row">
         <div class="form-group">
           <label>출발km <span class="required">*</span></label>
@@ -228,7 +267,6 @@
         </div>
       </div>
     </div>
-
     <div class="card">
       <div class="card-title">⛽ 주유 정보 (해당 시)</div>
       <div class="form-group">
@@ -237,42 +275,83 @@
       </div>
       <div class="form-group">
         <label>비고</label>
-        <input type="text" id="memo" placeholder="특이사항 입력">
+        <input type="text" id="driveMemo" placeholder="특이사항">
       </div>
     </div>
-
-    <button class="btn-submit" onclick="submitLog()">저장하기</button>
+    <button class="btn-submit" onclick="submitDrive()">저장하기</button>
   </div>
 
-  <!-- 최근 기록 탭 -->
-  <div id="tab-history" class="tab-content">
-    <div id="historyList">
-      <div class="empty-state">불러오는 중...</div>
+  <!-- 정비 입력 -->
+  <div id="tab-repair" class="tab-content">
+    <div class="card">
+      <div class="card-title">🔧 정비 정보</div>
+      <div class="form-group">
+        <label>정비일자 <span class="required">*</span></label>
+        <input type="date" id="repairDate">
+      </div>
+      <div class="form-group">
+        <label>정비내역 <span class="required">*</span></label>
+        <input type="text" id="repairDetail" placeholder="예: 엔진오일 교환, 타이어 교체 등">
+      </div>
+      <div class="form-group">
+        <label>비고</label>
+        <input type="text" id="repairMemo" placeholder="추가 메모">
+      </div>
     </div>
+    <div class="card">
+      <div class="card-title">📎 수리 내역서 첨부 (PDF / 사진)</div>
+      <div class="file-upload-area" onclick="document.getElementById('fileInput').click()"
+           ondragover="event.preventDefault(); this.classList.add('dragover')"
+           ondragleave="this.classList.remove('dragover')"
+           ondrop="handleDrop(event)">
+        <input type="file" id="fileInput" accept="image/*,application/pdf" onchange="handleFileSelect(this.files[0])">
+        <div class="file-upload-icon">📄</div>
+        <div class="file-upload-text">클릭하거나 파일을 끌어다 놓으세요<br><small>PDF, JPG, PNG 지원</small></div>
+      </div>
+      <div class="file-preview" id="filePreview">
+        <span>📎</span>
+        <span id="fileName"></span>
+        <span class="remove-file" onclick="removeFile()">✕</span>
+      </div>
+    </div>
+    <button class="btn-submit" onclick="submitRepair()">저장하기</button>
+  </div>
+
+  <!-- 운행기록 조회 -->
+  <div id="tab-history" class="tab-content">
+    <div id="driveHistoryList"><div class="empty-state">불러오는 중...</div></div>
+  </div>
+
+  <!-- 정비기록 조회 -->
+  <div id="tab-repairHistory" class="tab-content">
+    <div id="repairHistoryList"><div class="empty-state">불러오는 중...</div></div>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
+  <div class="loading-text" id="loadingText">저장 중...</div>
 </div>
 
 <script>
-// ===== 설정 =====
-const DRIVE_LOG_API = 'https://script.google.com/macros/s/AKfycbzlfRYjvu6ZZY33xYveomm7foNQB2KhM62cq0vOT9nr8wQW2hM0flgD_dFm1mDEVII/exec';
+const DRIVE_LOG_API = 'https://script.google.com/macros/s/AKfycbyKcxI-XNCjNAwTLRPLepGTnX_D1ptC82PgQkq8p79pANHe5ihDcJTuxeMqV3pudwGS/exec';
 const CAR_MGMT_API = 'https://script.google.com/macros/s/AKfycbzlrOLKx9_Cs4LnWYPMi9bySTPPpjOHy4pxcwXKJ7F7c4eulGOWs3SZmdRdAgL7sDFi/exec';
 const CAR_NUMBER = '233다9797';
 
-// ===== 초기화 =====
+let selectedFile = null;
+
 window.onload = () => {
-  // 오늘 날짜 기본값
-  document.getElementById('driveDate').value = new Date().toISOString().split('T')[0];
-  // 마지막 운전자 저장값 복원
+  document.getElementById('driveDate').value = today();
+  document.getElementById('repairDate').value = today();
   const saved = localStorage.getItem('lastDriver');
   if (saved) document.getElementById('driverName').value = saved;
-  // 현재 km 불러오기
   loadCurrentKm();
 };
+
+function today() {
+  return new Date().toISOString().split('T')[0];
+}
 
 async function loadCurrentKm() {
   try {
@@ -289,84 +368,67 @@ async function loadCurrentKm() {
       document.getElementById('currentKmText').textContent = `현재 누적주행거리: ${Number(car.totalKm).toLocaleString()} km`;
       document.getElementById('startKm').placeholder = Number(car.totalKm).toLocaleString();
     } else {
-      document.getElementById('currentKmText').textContent = '현재 누적주행거리 정보 없음';
+      document.getElementById('currentKmText').textContent = '누적주행거리 정보 없음';
     }
   } catch(e) {
-    document.getElementById('currentKmText').textContent = '누적주행거리 불러오기 실패';
+    document.getElementById('currentKmText').textContent = '불러오기 실패';
   }
 }
 
-// ===== 탭 전환 =====
-function switchTab(tab) {
+// ── 탭 전환 ──
+function switchTab(tab, btn) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
-  event.target.classList.add('active');
-  if (tab === 'history') loadHistory();
+  btn.classList.add('active');
+  if (tab === 'history') loadDriveHistory();
+  if (tab === 'repairHistory') loadRepairHistory();
 }
 
-// ===== 운행기록 저장 =====
-async function submitLog() {
-  const date = document.getElementById('driveDate').value;
-  const driver = document.getElementById('driverName').value.trim();
-  const reason = document.getElementById('driveReason').value.trim();
-  const startKm = document.getElementById('startKm').value;
-  const driveKm = document.getElementById('driveKm').value;
-  const fuelLiter = document.getElementById('fuelLiter').value || '';
+// ── 운행기록 저장 ──
+async function submitDrive() {
+  const date     = document.getElementById('driveDate').value;
+  const driver   = document.getElementById('driverName').value.trim();
+  const reason   = document.getElementById('driveReason').value.trim();
+  const startKm  = document.getElementById('startKm').value;
+  const driveKm  = document.getElementById('driveKm').value;
   const fuelCost = document.getElementById('fuelCost').value || '';
-  const memo = document.getElementById('memo').value.trim();
+  const memo     = document.getElementById('driveMemo').value.trim();
 
   if (!date || !driver || !reason || !startKm || !driveKm) {
-    showToast('필수 항목을 모두 입력해주세요', 'error');
-    return;
+    showToast('필수 항목을 모두 입력해주세요', 'error'); return;
   }
   if (Number(driveKm) <= 0) {
-    showToast('운행km을 올바르게 입력해주세요', 'error');
-    return;
+    showToast('운행km을 올바르게 입력해주세요', 'error'); return;
   }
 
   const totalKm = Number(startKm) + Number(driveKm);
-
-  showLoading(true);
+  showLoading(true, '저장 중...');
 
   try {
-    // 1) 방문요양 구글시트에 운행기록 저장
-    const logPayload = {
-      action: 'addDriveLog',
-      data: { date, driver, reason, startKm: Number(startKm), driveKm: Number(driveKm), fuelLiter: fuelLiter ? Number(fuelLiter) : '', fuelCost: fuelCost ? Number(fuelCost) : '', memo }
-    };
     const logRes = await fetch(DRIVE_LOG_API, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(logPayload)
+      body: JSON.stringify({ action: 'addDriveLog', data: { date, driver, reason, startKm: Number(startKm), driveKm: Number(driveKm), fuelCost: fuelCost ? Number(fuelCost) : '', memo } })
     });
     const logData = await logRes.json();
     if (!logData.ok) throw new Error(logData.error || '저장 실패');
 
-    // 2) 차량관리 구글시트 totalKm 업데이트
-    const kmPayload = {
-      action: 'updateMileage',
-      data: [{ carNumber: CAR_NUMBER, totalKm, kmDate: date }]
-    };
     await fetch(CAR_MGMT_API, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(kmPayload)
+      body: JSON.stringify({ action: 'updateMileage', data: [{ carNumber: CAR_NUMBER, totalKm, kmDate: date }] })
     });
 
-    // 운전자 저장
     localStorage.setItem('lastDriver', driver);
-
-    // 폼 리셋 (날짜·운전자 유지)
     document.getElementById('driveReason').value = '';
     document.getElementById('startKm').value = totalKm;
     document.getElementById('driveKm').value = '';
-    document.getElementById('fuelLiter').value = '';
     document.getElementById('fuelCost').value = '';
-    document.getElementById('memo').value = '';
+    document.getElementById('driveMemo').value = '';
+    document.getElementById('startKm').placeholder = totalKm.toLocaleString();
     document.getElementById('currentKmText').textContent = `현재 누적주행거리: ${totalKm.toLocaleString()} km`;
-
-    showToast('저장 완료! ✅', 'success');
+    showToast('운행기록 저장 완료! ✅', 'success');
   } catch(e) {
     showToast('저장 실패: ' + e.message, 'error');
   } finally {
@@ -374,21 +436,71 @@ async function submitLog() {
   }
 }
 
-// ===== 최근 기록 불러오기 =====
-async function loadHistory() {
-  document.getElementById('historyList').innerHTML = '<div class="empty-state">불러오는 중...</div>';
+// ── 정비기록 저장 ──
+async function submitRepair() {
+  const repairDate   = document.getElementById('repairDate').value;
+  const repairDetail = document.getElementById('repairDetail').value.trim();
+  const memo         = document.getElementById('repairMemo').value.trim();
+
+  if (!repairDate || !repairDetail) {
+    showToast('정비일자와 정비내역을 입력해주세요', 'error'); return;
+  }
+
+  showLoading(true, selectedFile ? '파일 업로드 중...' : '저장 중...');
+
+  try {
+    let fileUrl = '';
+
+    // 파일 업로드
+    if (selectedFile) {
+      const base64 = await toBase64(selectedFile);
+      const upRes = await fetch(DRIVE_LOG_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'uploadFile',
+          data: { base64: base64.split(',')[1], mimeType: selectedFile.type, fileName: selectedFile.name, type: 'repair' }
+        })
+      });
+      const upData = await upRes.json();
+      if (!upData.ok) throw new Error('파일 업로드 실패: ' + upData.error);
+      fileUrl = upData.data.url;
+      showLoading(true, '정비기록 저장 중...');
+    }
+
+    const repairRes = await fetch(DRIVE_LOG_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'addRepairLog', data: { repairDate, repairDetail, fileUrl, memo } })
+    });
+    const repairData = await repairRes.json();
+    if (!repairData.ok) throw new Error(repairData.error || '저장 실패');
+
+    document.getElementById('repairDetail').value = '';
+    document.getElementById('repairMemo').value = '';
+    removeFile();
+    showToast('정비기록 저장 완료! ✅', 'success');
+  } catch(e) {
+    showToast('저장 실패: ' + e.message, 'error');
+  } finally {
+    showLoading(false);
+  }
+}
+
+// ── 운행기록 조회 ──
+async function loadDriveHistory() {
+  document.getElementById('driveHistoryList').innerHTML = '<div class="empty-state">불러오는 중...</div>';
   try {
     const res = await fetch(DRIVE_LOG_API, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'getDriveLogs', limit: 20 })
+      body: JSON.stringify({ action: 'getDriveLogs', limit: 30 })
     });
     const data = await res.json();
     if (!data.ok || !data.data || data.data.length === 0) {
-      document.getElementById('historyList').innerHTML = '<div class="empty-state">기록이 없습니다</div>';
-      return;
+      document.getElementById('driveHistoryList').innerHTML = '<div class="empty-state">기록이 없습니다</div>'; return;
     }
-    const html = data.data.map(r => `
+    document.getElementById('driveHistoryList').innerHTML = data.data.map(r => `
       <div class="history-item">
         <div class="history-date">${r.date}</div>
         <div class="history-main">${r.driver} · ${r.reason}</div>
@@ -398,24 +510,77 @@ async function loadHistory() {
           ${r.fuelCost ? `<span class="badge">⛽ ${Number(r.fuelCost).toLocaleString()}원</span>` : ''}
           ${r.memo ? `· ${r.memo}` : ''}
         </div>
-      </div>
-    `).join('');
-    document.getElementById('historyList').innerHTML = html;
+      </div>`).join('');
   } catch(e) {
-    document.getElementById('historyList').innerHTML = '<div class="empty-state">불러오기 실패</div>';
+    document.getElementById('driveHistoryList').innerHTML = '<div class="empty-state">불러오기 실패</div>';
   }
 }
 
-// ===== 유틸 =====
+// ── 정비기록 조회 ──
+async function loadRepairHistory() {
+  document.getElementById('repairHistoryList').innerHTML = '<div class="empty-state">불러오는 중...</div>';
+  try {
+    const res = await fetch(DRIVE_LOG_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'getRepairLogs', limit: 30 })
+    });
+    const data = await res.json();
+    if (!data.ok || !data.data || data.data.length === 0) {
+      document.getElementById('repairHistoryList').innerHTML = '<div class="empty-state">기록이 없습니다</div>'; return;
+    }
+    document.getElementById('repairHistoryList').innerHTML = data.data.map(r => `
+      <div class="history-item repair-item">
+        <div class="history-date">${r.repairDate}</div>
+        <div class="history-main">${r.repairDetail}</div>
+        <div class="history-detail">
+          <span class="badge badge-red">🔧 정비</span>
+          ${r.memo ? `· ${r.memo}` : ''}
+          ${r.fileUrl ? `<br><a class="file-link" href="${r.fileUrl}" target="_blank">📎 첨부파일 보기</a>` : ''}
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    document.getElementById('repairHistoryList').innerHTML = '<div class="empty-state">불러오기 실패</div>';
+  }
+}
+
+// ── 파일 처리 ──
+function handleFileSelect(file) {
+  if (!file) return;
+  selectedFile = file;
+  document.getElementById('fileName').textContent = file.name;
+  document.getElementById('filePreview').classList.add('show');
+}
+function handleDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('dragover');
+  handleFileSelect(e.dataTransfer.files[0]);
+}
+function removeFile() {
+  selectedFile = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('filePreview').classList.remove('show');
+}
+function toBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ── 유틸 ──
 function showToast(msg, type = '') {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.className = 'toast show ' + type;
   setTimeout(() => t.classList.remove('show'), 3000);
 }
-function showLoading(show) {
+function showLoading(show, text = '저장 중...') {
   document.getElementById('loadingOverlay').classList.toggle('show', show);
-  document.querySelector('.btn-submit').disabled = show;
+  document.getElementById('loadingText').textContent = text;
+  document.querySelectorAll('.btn-submit').forEach(b => b.disabled = show);
 }
 </script>
 </body>
