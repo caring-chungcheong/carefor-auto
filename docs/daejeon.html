@@ -282,10 +282,12 @@ async function loadCurrentKm() {
       body: JSON.stringify({ action: 'getAll' })
     });
     const data = await res.json();
-    const allCars = Object.values(data.data.data).flat();
+    const branchData = data.data?.data || data.data || {};
+    const allCars = Object.values(branchData).flat();
     const car = allCars.find(c => c.carNumber && c.carNumber.replace(/\s/g,'') === CAR_NUMBER.replace(/\s/g,''));
     if (car && car.totalKm) {
       document.getElementById('currentKmText').textContent = `현재 누적주행거리: ${Number(car.totalKm).toLocaleString()} km`;
+      document.getElementById('startKm').placeholder = Number(car.totalKm).toLocaleString();
     } else {
       document.getElementById('currentKmText').textContent = '현재 누적주행거리 정보 없음';
     }
