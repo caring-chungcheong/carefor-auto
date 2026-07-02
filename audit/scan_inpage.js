@@ -64,7 +64,15 @@
       if (t.startsWith('배변')) bv = +sm[1];
       if (t.startsWith('정신상태')) ms = +sm[1];
     });
-    return { a, g, bv, ms };
+    // 합계점수: 행 끝이 '고위험' 등 라벨로 끝날 수 있어 마지막 'N점'을 취함
+    let total = -1;
+    Array.from(doc.querySelectorAll('tr')).forEach(r => {
+      const t = r.textContent.replace(/\s+/g, ' ').trim();
+      if (!t.startsWith('합계점수')) return;
+      const all = t.match(/(\d+)점/g);
+      if (all && all.length) total = +all[all.length - 1].replace('점', '');
+    });
+    return { a, g, bv, ms, total };
   }
   function parseSore(html) {
     // 욕창위험도 팝업: 점수가 있는 모든 행을 {라벨: {score, text}} 로 수집 (서식 차이에 안전)
@@ -248,7 +256,7 @@
                 const p2 = anyXhrWait('합계점수', 15000);
                 rd.fallCell.click();
                 const html = await p2;
-                if (html) { const { a, g, bv, ms } = parseFall(html); falls.push({ date: fd, a, g, bv, ms }); } else falls.push({ date: fd, a: -9, g: -9, bv: -9, ms: -9 });
+                if (html) { const { a, g, bv, ms, total } = parseFall(html); falls.push({ date: fd, a, g, bv, ms, total }); } else falls.push({ date: fd, a: -9, g: -9, bv: -9, ms: -9, total: -9 });
                 closeModalSync();
               }
               if (sd && !sores.some(s => s.date === sd)) {
