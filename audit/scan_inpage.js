@@ -54,35 +54,55 @@
   }
   function parseFall(html) {
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    let a = -1, g = -1;
+    let a = -1, g = -1, bv = -1, ms = -1;
     Array.from(doc.querySelectorAll('tr')).forEach(r => {
       const t = r.textContent.replace(/\s+/g, ' ').trim();
       const sm = t.match(/(\d+)점\s*$/);
       if (!sm) return;
       if (t.startsWith('활동')) a = +sm[1];
       if (t.startsWith('걸음걸이')) g = +sm[1];
+      if (t.startsWith('배변')) bv = +sm[1];
+      if (t.startsWith('정신상태')) ms = +sm[1];
     });
-    return { a, g };
+    return { a, g, bv, ms };
+  }
+  function parseSore(html) {
+    // 욕창위험도 팝업: 점수가 있는 모든 행을 {라벨: {score, text}} 로 수집 (서식 차이에 안전)
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const out = {};
+    Array.from(doc.querySelectorAll('tr')).forEach(r => {
+      const t = r.textContent.replace(/\s+/g, ' ').trim();
+      const sm = t.match(/(\d+)점\s*$/);
+      if (!sm) return;
+      const label = t.split(' ')[0];
+      if (label && !out[label]) out[label] = { score: +sm[1], text: t.substring(0, 90) };
+    });
+    return out;
   }
   function parseNeeds(html) {
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    const res = { sit: '?', tr: '?' };
+    const res = { sit: '?', tr: '?', toilet: '?', nutrition: '?' };
     Array.from(doc.querySelectorAll('tr')).forEach(r => {
       const t = r.textContent.replace(/\s+/g, ' ').trim();
-      if (!(t.startsWith('일어나 앉기') || t.startsWith('옮겨 앉기'))) return;
+      const isNut = t.indexOf('영양상태') === 0 || t.indexOf('영양 ') === 0;
+      if (!(t.startsWith('일어나 앉기') || t.startsWith('옮겨 앉기') || t.startsWith('화장실 사용하기') || isNut)) return;
       const seq = [];
+      const vocab = isNut ? null : ['완전자립', '부분도움', '완전도움'];
       const walker = doc.createTreeWalker(r, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
       let n;
       while (n = walker.nextNode()) {
         if (n.nodeType === 3) {
           const txt = n.textContent.trim();
-          if (['완전자립', '부분도움', '완전도움'].includes(txt)) seq.push(txt);
+          if (vocab ? vocab.includes(txt) : (txt && txt.length <= 6 && txt !== '영양상태' && txt !== '영양')) seq.push(txt);
         } else if (n.tagName === 'IMG' && (n.getAttribute('src') || '').includes('case_spot')) seq.push('●');
       }
       let sel = '?';
       const mi = seq.indexOf('●');
       if (mi > 0) sel = seq[mi - 1];
-      if (t.startsWith('일어나')) res.sit = sel; else res.tr = sel;
+      if (t.startsWith('일어나')) res.sit = sel;
+      else if (t.startsWith('옮겨')) res.tr = sel;
+      else if (isNut) { if (res.nutrition === '?') res.nutrition = sel; }
+      else res.toilet = sel;
     });
     return res;
   }
@@ -204,7 +224,7 @@
         if (await clickTab('표준약관')) { await sleep(400); contracts = parseContracts(); }
 
         const evals = { fall: [], sore: [], cog: [] };
-        const falls = [], needsArr = [], plans = [];
+        const falls = [], needsArr = [], plans = [], sores = [];
         if (await clickTab('기초평가')) {
           for (const yr of yearTabs) {
             const tabs = Array.from(document.querySelectorAll('span.btn_month, span.btn_month_on'));
@@ -228,7 +248,19 @@
                 const p2 = anyXhrWait('합계점수', 15000);
                 rd.fallCell.click();
                 const html = await p2;
-                if (html) { const { a, g } = parseFall(html); falls.push({ date: fd, a, g }); } else falls.push({ date: fd, a: -9, g: -9 });
+                if (html) { const { a, g, bv, ms } = parseFall(html); falls.push({ date: fd, a, g, bv, ms }); } else falls.push({ date: fd, a: -9, g: -9, bv: -9, ms: -9 });
+                closeModalSync();
+              }
+              if (sd && !sores.some(s => s.date === sd)) {
+                closeModalSync();
+                const p2s = anyXhrWait('욕창위험도 평가', 15000);
+                const soreCell = rd.fallCell && rd.fallCell.nextElementSibling ? rd.fallCell.nextElementSibling : null;
+                if (soreCell) {
+                  soreCell.click();
+                  const htmlS = await p2s;
+                  if (htmlS) sores.push({ date: sd, scores: parseSore(htmlS) });
+                  else sores.push({ date: sd, scores: null });
+                }
                 closeModalSync();
               }
               const nd = /재사정|신규/.test(rd.needs) ? dateOf(rd.needs) : '';
@@ -237,7 +269,7 @@
                 const p3 = anyXhrWait('일어나 앉기', 15000);
                 rd.needsCell.click();
                 const html = await p3;
-                if (html) { const pn = parseNeeds(html); needsArr.push({ date: nd, sit: pn.sit, tr: pn.tr }); } else needsArr.push({ date: nd, sit: '실패', tr: '실패' });
+                if (html) { const pn = parseNeeds(html); needsArr.push({ date: nd, sit: pn.sit, tr: pn.tr, toilet: pn.toilet, nutrition: pn.nutrition }); } else needsArr.push({ date: nd, sit: '실패', tr: '실패', toilet: '실패' });
                 closeModalSync();
               }
               const pd = dateOf(rd.plan);
@@ -259,7 +291,7 @@
             }
           }
         }
-        window.__AUDIT.results.push({ name, status, enroll, contracts, evals, falls, needs: needsArr, plans });
+        window.__AUDIT.results.push({ name, status, enroll, contracts, evals, falls, sores, needs: needsArr, plans });
       }
       closeModalSync();
       window.__AUDIT.progress = 'DONE';
