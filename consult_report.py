@@ -131,29 +131,25 @@ def build_message(rows: list[dict], today: date) -> str:
 
     msg = f"{title}\n\n```\n{table}\n```"
 
+    # 지점별 건수 요약 (상세 명단은 엑셀 참조)
+    msg += "\n"
     ym = f"{today.year}년 {today.month:02d}월"
-    urgent_total = sum(1 for r in rows if r["admitted"] == "Y" and r["sheet_entered"] == "N")
-    recent_total = sum(1 for r in rows if r["sheet_entered"] == "N" and r["yearmonth"] == ym)
-    if urgent_total or recent_total:
-        msg += (f"\n\n⚠️ 입소 완료인데 미입력 {urgent_total}건 · "
-                f"📝 {today.month}월 신규상담 미입력 {recent_total}건")
-
-    # 지점별 섹션: 입소완료 미입력 + 이번 달 미입력
     for short, full in CENTER_ORDER:
         grp = by_center.get(full, [])
-        urgent = sorted((r for r in grp if r["admitted"] == "Y" and r["sheet_entered"] == "N"),
-                        key=lambda x: x["consult_date"])
-        recent = sorted((r for r in grp if r["sheet_entered"] == "N" and r["yearmonth"] == ym),
-                        key=lambda x: x["consult_date"])
-        if not urgent and not recent:
+        miss = [r for r in grp if r["sheet_entered"] == "N"]
+        if not miss:
             continue
-        msg += f"\n\n*{full}*"
-        for r in urgent:
-            msg += f"\n· ⚠️ 입소완료 미입력 | 상담일 {r['consult_date']} | {r['phone']}"
-        for r in recent:
-            msg += f"\n· {today.month}월 미입력 | 상담일 {r['consult_date']} | {r['phone']}"
+        n_urgent = sum(1 for r in miss if r["admitted"] == "Y")
+        n_recent = sum(1 for r in miss if r["yearmonth"] == ym)
+        parts = [f"미입력 {len(miss)}건"]
+        if n_urgent:
+            parts.append(f"⚠️ 입소완료 {n_urgent}건")
+        if n_recent:
+            parts.append(f"{today.month}월 {n_recent}건")
+        msg += f"\n*{full}* — " + " · ".join(parts)
 
-    msg += "\n\n상담시트 입력 부탁드립니다. (데이터: 주보_충청본부_센터 현황 > 신규상담 세부사항, 전일자 기준)"
+    msg += ("\n\n상담시트 입력 부탁드립니다. 상세 명단(연락처 포함)은 엑셀 파일 참조."
+            "\n(데이터: 주보_충청본부_센터 현황 > 신규상담 세부사항, 전일자 기준)")
     return msg
 
 
