@@ -49,7 +49,7 @@ def main() -> None:
             )
             ir = out["item_results"]
             print(f"----- {b.name} 결과 -----")
-            for no in ("20", "21", "22"):
+            for no in sorted(ir, key=int):
                 print(f"  항목 {no}: {ir[no]['status']} — {ir[no]['detail']}")
             st = out["analysis"]["stats"] if "stats" in out.get("analysis", {}) else None
             if st:

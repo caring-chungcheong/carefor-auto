@@ -102,10 +102,23 @@ def run_branch_audit(
             time.sleep(5)
 
         results = page.evaluate("window.__AUDIT.results")
+
+        # 지점 단위 페이지 수집·판정 (그룹 A·D: 교육일지·보수교육·정기점검)
+        branch_pages = None
+        try:
+            from .branch_pages import scrape_branch_pages, analyze_branch_pages
+            years = list(range(cut_year, date.today().year + 1))
+            progress_cb(f"[{branch_name}] 지점 페이지 수집 (8-7 교육, 8-7-1 보수교육, 6-3 점검)...")
+            bp_raw = scrape_branch_pages(page, g_pammgno, years, progress_cb)
+            branch_pages = analyze_branch_pages(bp_raw, cutoff)
+        except Exception as e:
+            progress_cb(f"[{branch_name}] 지점 페이지 수집 실패(수급자 분석은 계속): {e}")
         browser.close()
 
     progress_cb(f"[{branch_name}] 분석 중... ({len(results)}명)")
     analysis = analyze(results, cutoff)
+    if branch_pages:
+        analysis["item_results"].update(branch_pages["item_results"])
 
     out = {
         "branch": branch_name,
@@ -118,6 +131,7 @@ def run_branch_audit(
         "rows_match": analysis["rows_match"],
         "items": ITEMS,
         "item_results": analysis["item_results"],
+        "branch_pages": branch_pages["detail"] if branch_pages else None,
     }
 
     AUDIT_DIR.mkdir(exist_ok=True)
