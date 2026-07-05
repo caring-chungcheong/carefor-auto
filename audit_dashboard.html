@@ -255,8 +255,8 @@ function setSub(no, label, val){
 // ---- 점수 본부 공유 (Apps Script 웹훅) ----
 const SCORES_HOOK = 'https://script.google.com/macros/s/AKfycbxCaMyM26xaLNlYUof-Jxac88jfWggzphLDvBEIRlDY-2Bn8S9wF5HWt52QupXWkxlO/exec';
 const SCORES_TOKEN = 'audit-scores-2026-cheongju';
-async function uploadScores(){
-  const manual = loadManual(cur);
+function buildScoreData(branch){
+  const manual = loadManual(branch);
   let earned=0, denom=0, filled=0, total=0, naPts=0;
   const per_item = {};
   ITEMS.forEach(it=>{
@@ -272,24 +272,37 @@ async function uploadScores(){
   });
   const memos = {};
   Object.keys(manual).forEach(no=>{ if(manual[no] && manual[no].memo) memos[no] = manual[no].memo; });
-  const data = {total_earned: Math.round(earned*100)/100, filled, total_subs: total,
-                na_points: Math.round(naPts*100)/100, per_item, memos};
-  const msg = document.getElementById('upmsg');
-  msg.textContent = '업로드 중...';
+  return {total_earned: Math.round(earned*100)/100, filled, total_subs: total,
+          na_points: Math.round(naPts*100)/100, per_item, memos};
+}
+async function postScores(branch, data){
+  const body = JSON.stringify({token: SCORES_TOKEN, branch, data});
   try{
     const res = await fetch(SCORES_HOOK, {method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({token: SCORES_TOKEN, branch: cur, data})});
+      headers:{'Content-Type':'text/plain;charset=utf-8'}, body});
     const out = await res.json();
-    msg.textContent = out.ok ? `✅ ${cur} 점수 공유 완료 (총점 ${data.total_earned}, 입력 ${filled}/${total})` : '❌ 실패: '+out.error;
+    return out.ok;
   }catch(e){
-    try{
-      await fetch(SCORES_HOOK, {method:'POST', mode:'no-cors',
-        headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body: JSON.stringify({token: SCORES_TOKEN, branch: cur, data})});
-      msg.textContent = `✅ ${cur} 점수 공유 요청 보냄 (총점 ${data.total_earned})`;
-    }catch(e2){ msg.textContent = '❌ 업로드 실패: ' + e2; }
+    await fetch(SCORES_HOOK, {method:'POST', mode:'no-cors',
+      headers:{'Content-Type':'text/plain;charset=utf-8'}, body});
+    return true;  // no-cors: 응답 확인 불가하지만 전송됨
   }
+}
+async function uploadScores(){
+  const msg = document.getElementById('upmsg');
+  msg.textContent = '전체 지점 업로드 중...';
+  const done = [], skipped = [];
+  for(const b of BRANCHES){
+    const data = buildScoreData(b);
+    if(data.filled === 0){ skipped.push(b); continue; }
+    try{
+      const ok = await postScores(b, data);
+      done.push(`${b} ${data.total_earned}점(${data.filled}/${data.total_subs})`);
+      if(!ok) done[done.length-1] += '⚠️';
+    }catch(e){ done.push(`${b} ❌`); }
+  }
+  msg.textContent = (done.length ? '✅ 공유 완료: ' + done.join(' · ') : '입력된 점수가 없습니다')
+    + (skipped.length && done.length ? ` (미입력 제외: ${skipped.join(', ')})` : '');
 }
 function exportAll(){
   const out = {};
