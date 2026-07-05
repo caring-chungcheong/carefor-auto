@@ -43,6 +43,11 @@ def _style_sheet(ws, widths: list[int]) -> None:
         cell.fill = HEADER_FILL
         cell.font = HEADER_FONT
         cell.alignment = Alignment(horizontal="center", vertical="center")
+    # 데이터 전체: 가운데 정렬 + 줄바꿈으로 셀 안에 맞춤
+    center_wrap = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    for row in ws.iter_rows(min_row=2):
+        for cell in row:
+            cell.alignment = center_wrap
     ws.freeze_panes = "A2"
     ws.auto_filter.ref = ws.dimensions
 

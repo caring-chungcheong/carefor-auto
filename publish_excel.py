@@ -93,11 +93,25 @@ def find_or_create_folder(token: str, name: str, parent: str | None = None) -> s
     return drive(token, "POST", "/files", body=meta)["id"]
 
 
-def upload_file(token: str, path: Path, folder_id: str) -> dict:
-    """multipart 업로드 → {id, webViewLink} 반환. 링크 공유(보기) 설정 포함."""
-    boundary = uuid.uuid4().hex
-    meta = json.dumps({"name": path.name, "parents": [folder_id]}).encode()
+def upload_file(token: str, path: Path, folder_id: str, drive_name: str) -> dict:
+    """같은 이름 파일이 있으면 내용 덮어쓰기(링크 유지), 없으면 새로 만들고 링크공유(뷰어) 설정."""
+    q = (f"name = '{drive_name}' and '{folder_id}' in parents and trashed = false")
+    found = drive(token, "GET", "/files", query={"q": q, "fields": "files(id,webViewLink)"})
     content = path.read_bytes()
+
+    if found.get("files"):
+        # 기존 파일 초기화: 내용만 교체 → 파일 ID·링크·권한 그대로 유지
+        fid = found["files"][0]["id"]
+        req = urllib.request.Request(
+            f"https://www.googleapis.com/upload/drive/v3/files/{fid}?uploadType=media&fields=id,webViewLink",
+            data=content, method="PATCH",
+            headers={"Authorization": f"Bearer {token}", "Content-Type": XLSX_MIME},
+        )
+        with urllib.request.urlopen(req, timeout=120) as res:
+            return json.loads(res.read().decode())
+
+    boundary = uuid.uuid4().hex
+    meta = json.dumps({"name": drive_name, "parents": [folder_id]}).encode()
     body = b"".join([
         f"--{boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n".encode(),
         meta,
@@ -113,7 +127,7 @@ def upload_file(token: str, path: Path, folder_id: str) -> dict:
     )
     with urllib.request.urlopen(req, timeout=120) as res:
         info = json.loads(res.read().decode())
-    # 링크가 있는 모든 사용자: 보기
+    # 링크가 있는 모든 사용자: 뷰어(보기 전용)
     drive(token, "POST", f"/files/{info['id']}/permissions",
           body={"type": "anyone", "role": "reader"})
     return info
@@ -143,13 +157,15 @@ def main():
 
     token = google_token()
     root_id = find_or_create_folder(token, ROOT_FOLDER)
-    day_id = find_or_create_folder(token, today.isoformat(), root_id)
 
     links = []
     for p in paths:
-        info = upload_file(token, p, day_id)
-        links.append((p.stem.split("_")[0], info["webViewLink"]))
-        print(f"업로드: {p.name}")
+        # 드라이브에는 날짜 없는 고정 이름으로 → 매번 같은 파일에 덮어쓰기 (링크 불변)
+        center = p.stem.split("_")[0]
+        drive_name = f"{center}_상담공지.xlsx"
+        info = upload_file(token, p, root_id, drive_name)
+        links.append((center, info["webViewLink"]))
+        print(f"업로드(덮어쓰기): {drive_name}")
 
     weekday = "월화수목금토일"[today.weekday()]
     lines = [f"📎 상담 상세 명단 엑셀 {today.strftime('%Y.%m.%d')}({weekday})",
