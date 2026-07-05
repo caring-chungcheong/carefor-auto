@@ -89,8 +89,9 @@ def make_book(path: Path, miss: list[dict], wait: list[dict], ym: str) -> None:
     wb.save(path)
 
 
-def main():
-    today = date.today()
+def generate(today: date | None = None) -> tuple[Path, list[Path]]:
+    """엑셀 파일들 생성. (출력폴더, [전체본, 센터별...]) 반환."""
+    today = today or date.today()
 
     # 데이터 로드 (공지 스크립트와 동일 소스)
     a_rows = cr.load_rows_from_webhook()
@@ -116,10 +117,12 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     ym = f"{today.year}년 {today.month:02d}월"
+    paths = []
 
     # 전체 통합본
     total_path = out_dir / f"전체_상담공지_{today:%Y%m%d}.xlsx"
     make_book(total_path, miss_all, wait_all, ym)
+    paths.append(total_path)
     print(f"생성: {total_path.name}  (미입력 {len(miss_all)} / 대기 {len(wait_all)})")
 
     # 지점별 파일 — 신규상담 센터명과 대기명단 센터명 매칭 (둔산점 ↔ 대전둔산점)
@@ -129,9 +132,15 @@ def main():
         wait = [it for it in wait_all if it["center"].replace(" ", "").startswith(short)]
         p = out_dir / f"{full}_상담공지_{today:%Y%m%d}.xlsx"
         make_book(p, miss, wait, ym)
+        paths.append(p)
         print(f"생성: {p.name}  (미입력 {len(miss)} / 대기 {len(wait)})")
 
     print(f"\n저장 위치: {out_dir}")
+    return out_dir, paths
+
+
+def main():
+    generate()
 
 
 if __name__ == "__main__":

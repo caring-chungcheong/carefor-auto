@@ -1,0 +1,171 @@
+# -*- coding: utf-8 -*-
+"""
+상담 공지 엑셀 → 구글 드라이브 업로드 → 슬랙에 다운로드 링크 공지
+
+흐름:
+  1. consult_excel.generate() 로 지점별 엑셀 생성
+  2. 내 드라이브 '상담공지_엑셀/YYYY-MM-DD' 폴더에 업로드
+  3. 링크 공유(보기) 설정 후 슬랙 webhook으로 링크 목록 전송
+
+인증: ~/.clasprc.json 의 구글 OAuth 토큰 (drive.file 권한 — 이 앱이 만든 파일만 접근)
+
+실행:
+  py -X utf8 publish_excel.py            # 생성+업로드+슬랙 공지
+  py -X utf8 publish_excel.py --dry-run  # 슬랙 전송 없이 링크만 출력
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import mimetypes
+import os
+import sys
+import time
+import urllib.parse
+import urllib.request
+import uuid
+from datetime import date
+from pathlib import Path
+
+sys.stdout.reconfigure(encoding="utf-8")
+
+try:
+    import keyring
+except ImportError:
+    keyring = None
+
+import consult_excel
+
+XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+FOLDER_MIME = "application/vnd.google-apps.folder"
+RC = os.path.join(os.path.expanduser("~"), ".clasprc.json")
+ROOT_FOLDER = "상담공지_엑셀"
+
+
+# ---------- 구글 OAuth (clasp 토큰 재사용) ----------
+def google_token() -> str:
+    env = os.environ.get("GOOGLE_OAUTH_JSON")  # GitHub Actions용: .clasprc.json 내용
+    store = json.loads(env) if env else json.loads(open(RC, encoding="utf-8").read())
+    cred = store["tokens"]["default"]
+    if not env and cred.get("expiry_date", 0) > time.time() * 1000 + 60000:
+        return cred["access_token"]
+    data = urllib.parse.urlencode({
+        "client_id": cred["client_id"],
+        "client_secret": cred["client_secret"],
+        "refresh_token": cred["refresh_token"],
+        "grant_type": "refresh_token",
+    }).encode()
+    req = urllib.request.Request("https://oauth2.googleapis.com/token", data=data)
+    with urllib.request.urlopen(req, timeout=30) as res:
+        tok = json.loads(res.read().decode())
+    if not env:
+        cred["access_token"] = tok["access_token"]
+        cred["expiry_date"] = int(time.time() * 1000) + tok.get("expires_in", 3600) * 1000
+        open(RC, "w", encoding="utf-8").write(json.dumps(store, indent=2))
+    return tok["access_token"]
+
+
+# ---------- Drive API ----------
+def drive(token: str, method: str, path: str, body: dict | None = None, query: dict | None = None) -> dict:
+    url = f"https://www.googleapis.com/drive/v3{path}"
+    if query:
+        url += "?" + urllib.parse.urlencode(query)
+    data = json.dumps(body).encode() if body is not None else None
+    headers = {"Authorization": f"Bearer {token}"}
+    if data:
+        headers["Content-Type"] = "application/json"
+    req = urllib.request.Request(url, data=data, method=method, headers=headers)
+    with urllib.request.urlopen(req, timeout=60) as res:
+        raw = res.read().decode()
+        return json.loads(raw) if raw else {}
+
+
+def find_or_create_folder(token: str, name: str, parent: str | None = None) -> str:
+    q = f"name = '{name}' and mimeType = '{FOLDER_MIME}' and trashed = false"
+    if parent:
+        q += f" and '{parent}' in parents"
+    found = drive(token, "GET", "/files", query={"q": q, "fields": "files(id)"})
+    if found.get("files"):
+        return found["files"][0]["id"]
+    meta = {"name": name, "mimeType": FOLDER_MIME}
+    if parent:
+        meta["parents"] = [parent]
+    return drive(token, "POST", "/files", body=meta)["id"]
+
+
+def upload_file(token: str, path: Path, folder_id: str) -> dict:
+    """multipart 업로드 → {id, webViewLink} 반환. 링크 공유(보기) 설정 포함."""
+    boundary = uuid.uuid4().hex
+    meta = json.dumps({"name": path.name, "parents": [folder_id]}).encode()
+    content = path.read_bytes()
+    body = b"".join([
+        f"--{boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n".encode(),
+        meta,
+        f"\r\n--{boundary}\r\nContent-Type: {XLSX_MIME}\r\n\r\n".encode(),
+        content,
+        f"\r\n--{boundary}--".encode(),
+    ])
+    req = urllib.request.Request(
+        "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink",
+        data=body, method="POST",
+        headers={"Authorization": f"Bearer {token}",
+                 "Content-Type": f"multipart/related; boundary={boundary}"},
+    )
+    with urllib.request.urlopen(req, timeout=120) as res:
+        info = json.loads(res.read().decode())
+    # 링크가 있는 모든 사용자: 보기
+    drive(token, "POST", f"/files/{info['id']}/permissions",
+          body={"type": "anyone", "role": "reader"})
+    return info
+
+
+# ---------- 슬랙 ----------
+def send_slack(text: str) -> None:
+    hook = os.environ.get("SLACK_WEBHOOK_URL") or (
+        keyring.get_password("carefor-auto", "slack_webhook_url") if keyring else None)
+    if not hook:
+        raise SystemExit("slack_webhook_url 자격증명이 없습니다.")
+    body = json.dumps({"text": text}).encode("utf-8")
+    req = urllib.request.Request(hook, data=body,
+                                 headers={"Content-Type": "application/json; charset=utf-8"})
+    out = urllib.request.urlopen(req, timeout=30).read().decode("utf-8")
+    if out.strip() != "ok":
+        raise SystemExit(f"슬랙 전송 실패: {out}")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--dry-run", action="store_true")
+    args = ap.parse_args()
+
+    today = date.today()
+    out_dir, paths = consult_excel.generate(today)
+
+    token = google_token()
+    root_id = find_or_create_folder(token, ROOT_FOLDER)
+    day_id = find_or_create_folder(token, today.isoformat(), root_id)
+
+    links = []
+    for p in paths:
+        info = upload_file(token, p, day_id)
+        links.append((p.stem.split("_")[0], info["webViewLink"]))
+        print(f"업로드: {p.name}")
+
+    weekday = "월화수목금토일"[today.weekday()]
+    lines = [f"📎 상담 상세 명단 엑셀 {today.strftime('%Y.%m.%d')}({weekday})",
+             "각 파일: 신규상담 미입력(구분·연락처 포함) + 상담 대기명단(아웃콜 차수·기한)"]
+    for name, link in links:
+        lines.append(f"· {name}: <{link}|다운로드>")
+    msg = "\n".join(lines)
+
+    print("--- 슬랙 메시지 ---")
+    print(msg)
+    if args.dry_run:
+        print("(dry-run: 전송 안 함)")
+        return
+    send_slack(msg)
+    print("전송 완료 → #차량관리 (webhook)")
+
+
+if __name__ == "__main__":
+    main()
