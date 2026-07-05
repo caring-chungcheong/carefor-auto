@@ -48,10 +48,24 @@ from audit.collector import run_branch_audit
 from audit.items import BRANCH_CUTOFFS
 
 cfg = Config.load(cfg_path)
-limit = int(os.environ.get("AUDIT_LIMIT", "0"))  # 테스트용: 지점당 N명 제한
+limit = int(os.environ.get("AUDIT_LIMIT", "0"))          # 지점당 N명 제한 (0=전체)
+test_mode = os.environ.get("AUDIT_TEST", "").lower() == "true"  # 테스트: 저장·업로드·요약 전부 생략
+branch_filter = os.environ.get("AUDIT_BRANCH", "").strip()      # 특정 지점만 (부분 일치)
+
+if test_mode and limit == 0:
+    limit = 3  # 테스트 모드 기본: 3명만
+if test_mode:
+    print("🧪 테스트 모드 — 결과 저장/구글시트 업로드/요약페이지 갱신을 모두 생략합니다.", flush=True)
+
+branches = cfg.branches
+if branch_filter:
+    branches = [b for b in branches if branch_filter in b.name]
+    if not branches:
+        print(f"ERROR: 지점 '{branch_filter}' 을 찾을 수 없습니다.")
+        sys.exit(1)
 
 failed = []
-for b in cfg.branches:
+for b in branches:
     cutoff = BRANCH_CUTOFFS.get(b.name, "2024.01.01")
     print(f"\n===== {b.name} 점검 시작 (기준일 {cutoff}) =====", flush=True)
     try:
@@ -62,23 +76,25 @@ for b in cfg.branches:
             limit=limit,
             headless=True,
             progress_cb=lambda m: print(m, flush=True),
+            save=not test_mode,
         )
         ir = out["item_results"]
-        for no in ("20", "21", "22"):
+        for no in sorted(ir, key=int):
             print(f"  항목 {no}: {ir[no]['status']} — {ir[no]['detail']}")
     except Exception as e:
         print(f"[{b.name}] 실패: {e}")
         failed.append(b.name)
 
-# ── 구글시트 업로드 ───────────────────────────────────────────────────────
-try:
-    from audit.sheet_upload import upload
-    upload()
-except Exception as e:
-    print(f"구글시트 업로드 실패: {e}")
-    failed.append("시트업로드")
+# ── 구글시트 업로드 (테스트 모드에서는 생략) ─────────────────────────────
+if not test_mode:
+    try:
+        from audit.sheet_upload import upload
+        upload()
+    except Exception as e:
+        print(f"구글시트 업로드 실패: {e}")
+        failed.append("시트업로드")
 
 if failed:
     print(f"\n일부 실패: {failed}")
     sys.exit(1)
-print("\n전체 점검 완료")
+print("\n🧪 테스트 성공 — 전 단계 정상 동작" if test_mode else "\n전체 점검 완료")

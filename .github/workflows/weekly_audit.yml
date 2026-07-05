@@ -6,8 +6,20 @@ on:
     - cron: '0 22 * * 0'
   workflow_dispatch:
     inputs:
+      test_mode:
+        description: '테스트 모드 (저장·시트업로드·요약갱신 없이 동작만 확인)'
+        required: false
+        default: 'true'
+        type: choice
+        options: ['true', 'false']
+      branch:
+        description: '점검할 지점 (전체 또는 지점명)'
+        required: false
+        default: '전체'
+        type: choice
+        options: ['전체', '둔산점', '서구점', '천안점', '청주 오창점']
       limit:
-        description: '테스트용: 지점당 인원 제한 (0=전체)'
+        description: '지점당 인원 제한 (0=전체, 테스트 모드 기본 3명)'
         required: false
         default: '0'
 
@@ -42,10 +54,13 @@ jobs:
           CONFIG_YAML:       ${{ secrets.CONFIG_YAML }}
           AUDIT_WEBHOOK_URL: ${{ secrets.AUDIT_WEBHOOK_URL }}
           AUDIT_LIMIT:       ${{ github.event.inputs.limit || '0' }}
+          AUDIT_TEST:        ${{ github.event.inputs.test_mode || 'false' }}
+          AUDIT_BRANCH:      ${{ github.event.inputs.branch == '전체' && '' || github.event.inputs.branch }}
           CI: "true"
         run: python run_audit_headless.py
 
       - name: 요약페이지 커밋 (개인정보 없음)
+        if: ${{ github.event.inputs.test_mode != 'true' }}
         run: |
           git config user.name "audit-bot"
           git config user.email "actions@github.com"
