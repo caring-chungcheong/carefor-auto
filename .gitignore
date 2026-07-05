@@ -13,3 +13,5 @@ secrets/
 # 지점점검 개인정보 데이터 — 절대 커밋 금지
 audit_results/
 share_path.txt
+
+apps_script/consult_read.gs

@@ -1,0 +1,35 @@
+name: 신규상담 상담시트 입력현황 슬랙공지
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "슬랙 채널 ID"
+        required: false
+        default: "C0BC37EB38C"
+      dry_run:
+        description: "true면 전송 없이 미리보기만"
+        required: false
+        default: "false"
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 공지 실행
+        env:
+          CONSULT_WEBHOOK_URL: ${{ secrets.CONSULT_WEBHOOK_URL }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            python consult_report.py --channel "${{ github.event.inputs.channel }}" --dry-run
+          else
+            python consult_report.py --channel "${{ github.event.inputs.channel }}"
+          fi
