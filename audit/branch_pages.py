@@ -20,7 +20,18 @@ PAGES = {
     "edu":       ("left_sub8", "/share/staff/view.staff_education", "8-7.교육일지"),
     "refresher": ("left_sub8", "/share/staff/view.staff_refresher_training", "8-7-1.요양보호사 보수교육"),
     "checks":    ("left_sub6", "/share/safe/view.regularly_check", "6-3.정기점검"),
+    "guide":     ("left_sub1", "/patient/view.patient_guide", "1-6.수급자 안내사항/예방접종"),
 }
+
+CLOSE_MODAL_JS = """
+(() => {
+  const btn = Array.from(document.querySelectorAll('div.m_button, .m_button'))
+    .find(el => el.textContent.trim() === '창닫기');
+  if (btn) btn.click();
+  const mask = document.getElementById('mask_div');
+  if (mask) mask.style.display = 'none';
+})()
+"""
 
 GET_TEXT_JS = "(() => { const el = document.querySelector('#r_padding') || document.body; return el.innerText; })()"
 GET_YEAR_JS = "(() => { const el = document.querySelector('.datepicker .datearea'); return el ? el.textContent.trim() : ''; })()"
@@ -43,7 +54,7 @@ def _set_year(page, year: int) -> None:
 
 def scrape_branch_pages(page, g_pammgno: str, years: list[int], progress_cb=print) -> dict:
     """세 페이지를 연도별로 순회하며 innerText 원문 수집."""
-    out = {"edu": {}, "checks": {}, "refresher": None}
+    out = {"edu": {}, "checks": {}, "refresher": None, "rights": None}
 
     _goto(page, "edu", g_pammgno)
     for y in years:
@@ -60,6 +71,23 @@ def scrape_branch_pages(page, g_pammgno: str, years: list[int], progress_cb=prin
         _set_year(page, y)
         out["checks"][str(y)] = page.evaluate(GET_TEXT_JS)
         progress_cb(f"  6-3 정기점검 {y}년 수집")
+
+    # 1-6 직원인권 보호지침 탭 (2026 신설 지표 — 2026년부터만)
+    if max(years) >= 2026:
+        try:
+            _goto(page, "guide", g_pammgno)
+            page.evaluate(CLOSE_MODAL_JS)
+            page.wait_for_timeout(800)
+            page.click(".tabmenu2 li:has-text('직원인권')", timeout=10000)
+            page.wait_for_timeout(4000)
+            out["rights"] = page.evaluate(
+                "(() => { const el = document.querySelector('#tab_div_guide_offer_when_join');"
+                " return el ? el.innerText : ''; })()"
+            )
+            progress_cb("  1-6 직원인권 보호지침 수집")
+        except Exception as e:
+            out["rights"] = ""
+            progress_cb(f"  1-6 직원인권 보호지침 수집 실패: {e}")
 
     return out
 
@@ -161,6 +189,42 @@ def parse_refresher(text: str) -> dict:
             if name:
                 rows.append({"name": name, "status": ln})
     return {"target": target, "done": done, "rows": rows}
+
+
+def parse_rights(text: str) -> dict:
+    """1-6 직원인권 보호지침 탭: 수급자별 [현황, 이름, 급여개시일, 제공일|퇴소(날짜)]."""
+    lines = [ln.strip() for ln in text.split("\n")]
+    date_re = re.compile(r"^\d{4}\.\d{2}\.\d{2}$")
+
+    done = total = None
+    for ln in lines[:40]:
+        m = re.match(r"^(\d+)\s*/\s*(\d+)$", ln)
+        if m:
+            done, total = int(m.group(1)), int(m.group(2))
+            break
+
+    rows = []
+    i = 0
+    while i < len(lines):
+        if lines[i].isdigit():
+            seq = lines[i + 1:i + 8]
+            if len(seq) >= 5 and seq[0] in ("수급중", "퇴소", "보류", "대기", "입소대기"):
+                status, group, name, grade, start = seq[0], seq[1], seq[2], seq[3], seq[4]
+                if date_re.match(start):
+                    provided = left_before = None
+                    nxt = seq[5] if len(seq) > 5 else ""
+                    if date_re.match(nxt):
+                        provided = nxt
+                    else:
+                        mm = re.match(r"퇴소\((\d{4}\.\d{2}\.\d{2})\)", nxt)
+                        if mm:
+                            left_before = mm.group(1)
+                    rows.append({"status": status, "name": name, "grade": grade,
+                                 "start": start, "provided": provided, "left_before": left_before})
+                    i += 6
+                    continue
+        i += 1
+    return {"done": done, "total": total, "rows": rows}
 
 
 # ---------------- 판정 ----------------
@@ -266,10 +330,38 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
             if not dis[q - 1]:
                 dis_miss.append(f"{y} {q}분기")
 
+    # ---- 항목 7: 직원인권 보호지침 (2026 신설 — 2026년부터) ----
+    rights = parse_rights(data.get("rights") or "")
+    r7_missing, r7_late = [], []
+    for r in rights["rows"]:
+        if r["left_before"]:
+            continue  # 안내일 이전 퇴소자 제외 (사용자 확정)
+        if not r["provided"]:
+            r7_missing.append(f"{r['name']}({r['status']})")
+        elif r["start"] >= "2026" and r["provided"] > r["start"]:
+            # 2026년 급여개시 수급자: 개시일까지 안내돼 있어야 (미리 안내는 정상)
+            r7_late.append(f"{r['name']} 개시{r['start']}→제공{r['provided']}")
+
     def st(miss):
         return "양호" if not miss else "미흡"
 
-    item_results = {
+    item_results = {}
+    if data.get("rights"):
+        parts = []
+        if rights["done"] is not None:
+            parts.append(f"완료 {rights['done']}/{rights['total']}명")
+        if r7_missing:
+            parts.append("미제공: " + ", ".join(r7_missing))
+        if r7_late:
+            parts.append("개시 후 지연제공: " + ", ".join(r7_late))
+        if not r7_missing and not r7_late:
+            parts.append("전 수급자 제공 확인 (안내 전 퇴소자 제외)")
+        item_results["7"] = {
+            "status": st(r7_missing + r7_late),
+            "detail": "2026년 기준 — " + " · ".join(parts),
+        }
+
+    item_results |= {
         "5": {
             "status": st(ref_miss),
             "detail": (f"대상 {ref_target}명 중 작성 {ref_done}명"
@@ -310,5 +402,6 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
             "newstaff": cur_ns,
             "refresher": refresher,
             "checks": {y: chk_parsed[y] for y in years},
+            "rights": rights,
         },
     }

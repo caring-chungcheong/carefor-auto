@@ -81,6 +81,7 @@ PAGES = {
     "8-7-1": ("left_sub8", "/share/staff/view.staff_refresher_training", "8-7-1.요양보호사 보수교육"),
     "6-3":   ("left_sub6", "/share/safe/view.regularly_check", "6-3.정기점검"),
     "6-2":   ("left_sub6", "/share/safe/view.daily_check", "6-2.일일점검"),
+    "1-6":   ("left_sub1", "/patient/view.patient_guide", "1-6.수급자 안내사항/예방접종"),
 }
 
 
