@@ -35,6 +35,7 @@ def run_branch_audit(
     limit: int = 0,
     headless: bool = True,
     progress_cb=print,
+    save: bool = True,
 ) -> dict:
     cutoff = cutoff or BRANCH_CUTOFFS.get(branch_name, "2024.01.01")
     cut_year = int(cutoff[:4])
@@ -134,11 +135,14 @@ def run_branch_audit(
         "branch_pages": branch_pages["detail"] if branch_pages else None,
     }
 
-    AUDIT_DIR.mkdir(exist_ok=True)
-    json_path = AUDIT_DIR / f"{branch_name}.json"
-    json_path.write_text(json.dumps(out, ensure_ascii=False), encoding="utf-8")
-    _write_dashboard_data()
-    progress_cb(f"[{branch_name}] 저장 완료 → {json_path}")
+    if save:
+        AUDIT_DIR.mkdir(exist_ok=True)
+        json_path = AUDIT_DIR / f"{branch_name}.json"
+        json_path.write_text(json.dumps(out, ensure_ascii=False), encoding="utf-8")
+        _write_dashboard_data()
+        progress_cb(f"[{branch_name}] 저장 완료 → {json_path}")
+    else:
+        progress_cb(f"[{branch_name}] 테스트 모드 — 결과를 저장하지 않음 (대시보드 데이터 보존)")
     return out
 
 
