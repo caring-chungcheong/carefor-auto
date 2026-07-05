@@ -48,7 +48,9 @@ def generate() -> Path:
         except Exception:
             continue
 
-    items_slim = [{"no": it["no"], "name": it["name"], "method": it["method"]} for it in ITEMS]
+    items_slim = [{"no": it["no"], "name": it["name"], "method": it["method"],
+                   "total": it.get("total", 0),
+                   "criteria": it.get("criteria", "")} for it in ITEMS]
     payload = json.dumps({"branches": data, "items": items_slim,
                           "generated": datetime.now().strftime("%Y-%m-%d %H:%M")}, ensure_ascii=False)
 
@@ -119,9 +121,12 @@ function cell(b, it){
   if(r.status==='양호') return '<span class="dot d-ok"></span><span class="ok">양호</span>';
   return `<span class="dot d-bad"></span><span class="bad" title="${r.detail}">미흡</span>`;
 }
-let h = '<tr><th style="width:30px">#</th><th style="width:170px">항목</th>' + BR.map(b=>`<th>${b}</th>`).join('') + '</tr>';
+let h = '<tr><th style="width:30px">#</th><th style="width:190px">항목</th><th style="width:44px">배점</th>' + BR.map(b=>`<th>${b}</th>`).join('') + '</tr>';
 DATA.items.forEach(it => {
-  h += `<tr><td>${it.no}</td><td class="name">${it.name}</td>` + BR.map(b=>`<td>${cell(b,it)}</td>`).join('') + '</tr>';
+  h += `<tr><td>${it.no}</td>
+    <td class="name"><details><summary style="cursor:pointer"><b>${it.name}</b> <span style="color:#999;font-size:11px">${it.method==='manual'?'수기':'자동'}</span></summary>
+      <div style="font-size:11px;color:#666;line-height:1.5;margin-top:4px;white-space:normal">${it.criteria}</div></details></td>
+    <td>${it.total||'-'}</td>` + BR.map(b=>`<td>${cell(b,it)}</td>`).join('') + '</tr>';
 });
 document.getElementById('tbl').innerHTML = h;
 </script></body></html>"""
