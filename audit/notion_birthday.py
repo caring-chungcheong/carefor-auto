@@ -172,8 +172,7 @@ def compare(branch_name: str, birthday_log: dict, today: date | None = None,
         if today < date(ny, nm, 8):
             continue
         expected = [n for br, names in data[ym].items() if key in br or br in key for n in names]
-        if not expected:
-            continue
+        # 해당 월 생일자가 없어도 대조는 수행한 것으로 기록 (지급 없음 = 정상)
         months.append(ym)
         given = set(birthday_log.get(ym, []))
         for n in expected:

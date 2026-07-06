@@ -135,7 +135,8 @@ def run_branch_audit(
                         r8["sub_status"]["③"] = "미흡"
                         r8["detail"] += f" · 생일쿠폰 미지급 의심: {', '.join(missing)}"
                     elif months:
-                        r8["detail"] += f" · 생일쿠폰 노션 대조 일치({months[0]}~{months[-1]})"
+                        r8["detail"] += (f" · 생일쿠폰 노션 대조 {len(months)}개월 일치"
+                                         f"({months[0]}~{months[-1]}, 생일자 없는 달 포함)")
         except Exception as e:
             progress_cb(f"[{branch_name}] 생일쿠폰 대조 건너뜀: {e}")
 
