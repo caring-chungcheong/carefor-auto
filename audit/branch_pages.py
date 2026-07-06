@@ -35,6 +35,7 @@ PAGES = {
     "progdaily": ("left_sub5", "/share/program/view.program_service_daily", "5-1.프로그램 제공기록"),
     "consult":   ("left_sub1", "/share/patient/view.patient_consult", "1-4.상담일지"),
     "case":      ("left_sub8", "/share/patient/view.patient_case_meeting_tab", "8-5.사례관리 회의록"),
+    "connect":   ("left_sub1", "/share/patient/view.patient_connection_send_report", "1-10.연계기록지 발송 리포트"),
 }
 
 # 1-4 상담일지: 수급자별 분기 셀 complete/none + 행 data-info(연간 상담수·급여반영수)
@@ -286,6 +287,23 @@ def scrape_branch_pages(page, g_pammgno: str, years: list[int], progress_cb=prin
         progress_cb(f"  8-5 사례관리 회의록 {len(out['case'])}개년 수집")
     except Exception as e:
         progress_cb(f"  8-5 사례관리 수집 실패(건너뜀): {e}")
+
+    # 1-10 연계기록지 발송 리포트 (항목 30② — 퇴소자 연계기록지 제공, 2024~)
+    try:
+        _goto(page, "connect", g_pammgno)
+        page.evaluate(CLOSE_MODAL_JS)
+        s0 = (cutoff or "2024.01.01").replace(".", "")
+        s0 = max(s0, "20240101")
+        e0 = _date.today().strftime("%Y%m%d")
+        page.evaluate(f"document.querySelector('#id_s_date').value='{s0}';"
+                      f"document.querySelector('#id_e_date').value='{e0}';"
+                      "load_contents_form('ptcSendReport')")
+        page.wait_for_timeout(2500)
+        out["connect"] = page.evaluate(GET_TEXT_JS)
+        progress_cb(f"  1-10 연계기록지 수집 ({s0}~{e0})")
+    except Exception as e:
+        out["connect"] = ""
+        progress_cb(f"  1-10 연계기록지 수집 실패(건너뜀): {e}")
 
     # 1-6 수급자 안전관리 설명 탭 (항목 19④ — 연 1회, 2024~. 기본 탭이라 연도만 전환)
     out["safe"] = {}
@@ -590,6 +608,51 @@ def parse_case(text: str) -> dict:
                         ok += 1
                 out["reflect"][hi] = f"{ok} / {len(hr)}"
     return out
+
+
+def parse_connect(text: str) -> dict:
+    """1-10 연계기록지: 행(수급자·퇴소일·사유·작성일·제공일·방법) + 발송완료/미발송 집계."""
+    lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
+    date_re = re.compile(r"^\d{4}\.\d{2}\.\d{2}$")
+    total = sent = unsent = None
+    flat = re.sub(r"\s+", " ", text)
+    m = re.search(r"연계기록지\s*:\s*(\d+)\s*건", flat)
+    if m:
+        total = int(m.group(1))
+    m = re.search(r"발송완료\s*:\s*(\d+)", flat)
+    if m:
+        sent = int(m.group(1))
+    m = re.search(r"미발송\s*:\s*(\d+)", flat)
+    if m:
+        unsent = int(m.group(1))
+    rows, seen = [], set()
+    i = 0
+    while i < len(lines):
+        if (lines[i].isdigit() and i + 2 < len(lines)
+                and not date_re.match(lines[i + 1]) and lines[i + 2] in ("남", "여")):
+            name = lines[i + 1]
+            seg = lines[i + 3:i + 14]
+            dates, reason, method = [], "", ""
+            for j, s in enumerate(seg):
+                if s.isdigit() and j + 2 < len(seg) and seg[j + 2] in ("남", "여"):
+                    break  # 다음 행 시작
+                if date_re.match(s):
+                    dates.append(s)
+                elif len(dates) == 2 and not reason:
+                    reason = s  # 퇴소일 다음 = 연계사유
+                elif len(dates) == 4 and not method:
+                    method = s  # 제공일 다음 = 제공방법... (제공자명 앞)
+            row = {"name": name, "leave": dates[1] if len(dates) > 1 else "",
+                   "reason": reason, "written": dates[2] if len(dates) > 2 else "",
+                   "provided": dates[3] if len(dates) > 3 else "", "method": method}
+            key = (row["name"], row["written"], row["provided"])
+            if key not in seen:
+                seen.add(key)
+                rows.append(row)
+            i += 3
+            continue
+        i += 1
+    return {"total": total, "sent": sent, "unsent": unsent, "rows": rows}
 
 
 def parse_health(text: str) -> dict:
@@ -1109,6 +1172,23 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
                 case_note.append(f"{r['date']} 회의 서명 {r['sign']}")
     case_note = case_note[:8]
 
+    # ---- 항목 30②: 퇴소자 연계기록지 작성·제공 (1-10, 2024~) ----
+    connect = parse_connect(data.get("connect") or "")
+    conn_miss = []
+    if data.get("connect"):
+        eff_s = eff.strftime("%Y.%m.%d")
+        # 인수 시점 일괄 퇴소(기준일 이전) 건은 제외 — 천안 2024.05.30 일괄 퇴소 등
+        judge_rows = [r for r in connect["rows"] if r["leave"] and r["leave"] > eff_s]
+        un_names = [r["name"] for r in judge_rows if not r["provided"]]
+        if un_names:
+            conn_miss.append(f"미발송 {len(un_names)}건 ({', '.join(un_names[:5])}{'…' if len(un_names) > 5 else ''})")
+        for r in judge_rows:
+            # 계약 종료일(퇴소일)까지 제공해야 인정 — 기한 초과 = 미흡
+            if r["provided"] and r["provided"] > r["leave"]:
+                conn_miss.append(f"{r['name']} 퇴소 {r['leave']}→제공 {r['provided']}(기한초과)")
+        if len(conn_miss) > 8:
+            conn_miss = conn_miss[:8] + [f"외 {len(conn_miss) - 8}건"]
+
     # ---- 항목 15: 건강검진 ①연간(연1회, 항목누락 포함) + ②입사전 제출 ----
     health_parsed = {int(y): parse_health(t) for y, t in (data.get("health") or {}).items()}
     prejoin_parsed = {int(y): parse_prejoin(t) for y, t in (data.get("health_pre") or {}).items()}
@@ -1212,6 +1292,14 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
             "sub_status": {"②": st(r7_missing + r7_late)},
             "detail": "2026년 기준 — " + " · ".join(parts),
         }
+    if data.get("connect"):
+        item_results["30"] = {
+            "status": st(conn_miss),
+            "sub_status": {"②": st(conn_miss)},
+            "detail": f"[부분판정: ②연계기록지] 작성 {connect['total'] or 0}건 · 발송완료 {connect['sent'] or 0}건 — "
+                      + ("; ".join(conn_miss) or "전건 기한 내 발송 완료")
+                      + " (미작성 퇴소자 존재 여부·①동행진료 기록은 수기 확인)",
+        }
     if case_parsed:
         item_results["29"] = {
             "status": st(case_miss),
@@ -1308,6 +1396,7 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
             "safe": safe_parsed,
             "consult": consult_detail,
             "case": case_parsed,
+            "connect": connect,
             "welfare": welfare_parsed,
             "birthday_log": birthday_log,
             "daily_miss": {"supply": supply_miss_m, "hygiene": hygiene_miss_m},
