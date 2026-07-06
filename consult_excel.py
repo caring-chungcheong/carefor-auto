@@ -32,7 +32,8 @@ HEADER_FONT = Font(bold=True, color="FFFFFF")
 URGENT_FILL = PatternFill("solid", fgColor="FFC7CE")   # 입소완료 미입력 / 기한 지남
 TODAY_FILL = PatternFill("solid", fgColor="FFEB9C")    # 오늘 예정
 
-MISS_COLS = ["센터명", "구분", "연월", "해당 주차", "상담일자", "급여개시일자", "고객 번호", "입소 여부", "AI 요약"]
+MISS_COLS = ["센터명", "구분", "연월", "해당 주차", "상담일자", "급여개시일자", "고객 번호", "입소 여부",
+             "케어포 등록", "케어포 지점", "수급자명", "수급현황", "케어포 개시일", "AI 요약"]
 WAIT_COLS = ["센터명", "아웃콜 차수", "예정일자", "기한 경과(일)", "연락처", "첫 상담일"]
 SUMMARY_COLS = ["센터", "신규상담(누적)", "시트 미입력", "미입력률", "⚠️ 입소완료 미입력", "당월 미입력",
                 "상담 대기", "기한 지남"]
@@ -66,7 +67,7 @@ def add_summary_sheet(wb: Workbook, srows: list[dict]) -> None:
     _style_sheet(ws, [13, 14, 12, 10, 17, 11, 10, 10])
 
 
-def add_miss_sheet(wb: Workbook, rows: list[dict], ym: str) -> None:
+def add_miss_sheet(wb: Workbook, rows: list[dict], ym: str, carefor_lookup=None) -> None:
     ws = wb.create_sheet("신규상담 미입력")
     ws.append(MISS_COLS)
     for r in rows:
@@ -76,12 +77,19 @@ def add_miss_sheet(wb: Workbook, rows: list[dict], ym: str) -> None:
             kind = "당월 미입력"
         else:
             kind = "이전 미입력"
+        # 케어포 수급자 대조 (마지막 다운로드본 기준)
+        cf = carefor_lookup(r["phone"]) if carefor_lookup else None
+        if cf:
+            pt, _label = cf
+            cf_cols = ["Y", pt["branch"], pt["name"], pt["status"], pt["start"]]
+        else:
+            cf_cols = ["N" if carefor_lookup else "", "", "", "", ""]
         ws.append([r["center"], kind, r["yearmonth"], r["week"], r["consult_date"],
-                   r["start_date"], r["phone"], r["admitted"], r["summary"]])
+                   r["start_date"], r["phone"], r["admitted"], *cf_cols, r["summary"]])
         if r["admitted"] == "Y":
             for cell in ws[ws.max_row]:
                 cell.fill = URGENT_FILL
-    _style_sheet(ws, [12, 17, 12, 16, 12, 13, 14, 9, 80])
+    _style_sheet(ws, [12, 17, 12, 16, 12, 13, 14, 9, 10, 11, 11, 10, 12, 60])
 
 
 def add_wait_sheet(wb: Workbook, items: list[dict]) -> None:
@@ -100,13 +108,35 @@ def add_wait_sheet(wb: Workbook, items: list[dict]) -> None:
     _style_sheet(ws, [12, 14, 14, 13, 15, 13])
 
 
-def make_book(path: Path, srows: list[dict], miss: list[dict], wait: list[dict], ym: str) -> None:
+def make_book(path: Path, srows: list[dict], miss: list[dict], wait: list[dict], ym: str,
+              carefor_lookup=None) -> None:
     wb = Workbook()
     wb.remove(wb.active)
     add_summary_sheet(wb, srows)
-    add_miss_sheet(wb, miss, ym)
+    add_miss_sheet(wb, miss, ym, carefor_lookup)
     add_wait_sheet(wb, wait)
     wb.save(path)
+
+
+def _make_carefor_lookup():
+    """케어포 수급자 색인 — 케이포 재조회 없이 기존 다운로드 파일만 사용. 없으면 None(컬럼 비움)."""
+    try:
+        from carefor_phone_check import DL_DIR, parse_report, digits
+        files = sorted(DL_DIR.glob("*_수급자현황_연간.xlsx"))
+        if not files:
+            return None
+        patients = []
+        for f in files:
+            patients += parse_report(f, f.stem.split("_")[0])
+        idx = {}
+        for pt in patients:
+            for label, d in pt["phones"].items():
+                idx.setdefault(d, []).append((pt, label))
+        print(f"케어포 대조 사용: 수급자 {len(patients)}명 (다운로드본 {len(files)}개)")
+        return lambda phone: (idx.get(digits(phone)) or [None])[0]
+    except Exception as e:
+        print(f"케어포 대조 생략 (데이터 없음/오류): {e}")
+        return None
 
 
 def _summary_row(name: str, grp: list[dict], wait: list[dict], ym: str) -> dict:
@@ -166,9 +196,11 @@ def generate(today: date | None = None) -> tuple[Path, list[Path], list[dict]]:
         summaries.append(_summary_row(full, grp, wait, ym))
     total_summary = _summary_row("합계", a_rows, wait_all, ym)
 
+    carefor_lookup = _make_carefor_lookup()
+
     # 전체 통합본 (요약 시트에 센터별 + 합계)
     total_path = out_dir / f"전체_상담공지_{today:%Y%m%d}.xlsx"
-    make_book(total_path, summaries + [total_summary], miss_all, wait_all, ym)
+    make_book(total_path, summaries + [total_summary], miss_all, wait_all, ym, carefor_lookup)
     paths.append(total_path)
     print(f"생성: {total_path.name}  (미입력 {len(miss_all)} / 대기 {len(wait_all)})")
 
@@ -176,7 +208,7 @@ def generate(today: date | None = None) -> tuple[Path, list[Path], list[dict]]:
     for s, (short, full) in zip(summaries, cr.CENTER_ORDER):
         miss, wait = center_data[full]
         p = out_dir / f"{full}_상담공지_{today:%Y%m%d}.xlsx"
-        make_book(p, [s], miss, wait, ym)
+        make_book(p, [s], miss, wait, ym, carefor_lookup)
         paths.append(p)
         print(f"생성: {p.name}  (미입력 {len(miss)} / 대기 {len(wait)})")
 

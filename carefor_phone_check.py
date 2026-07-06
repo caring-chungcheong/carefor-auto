@@ -171,7 +171,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit-branch", help="특정 지점만 (예: 둔산점)")
     ap.add_argument("--skip-download", action="store_true", help="기존 다운로드 파일 재사용")
-    ap.add_argument("--no-slack", action="store_true", help="드라이브 업로드·슬랙 공지 생략")
+    ap.add_argument("--slack", action="store_true",
+                    help="드라이브 업로드+슬랙 공지 (기본 생략 — 공지 엑셀 미입력 시트에 통합됨)")
     args = ap.parse_args()
 
     phone_index = build_phone_index(skip_download=args.skip_download, limit_branch=args.limit_branch)
@@ -230,8 +231,8 @@ def main():
     wb.save(out)
     print(f"\n결과 저장: {out}")
 
-    # 4) 드라이브 업로드(고정 파일, 링크 불변) + 슬랙 링크 공지
-    if not args.no_slack:
+    # 4) 드라이브 업로드(고정 파일, 링크 불변) + 슬랙 링크 공지 (--slack 지정 시에만)
+    if args.slack:
         from publish_excel import google_token, find_or_create_folder, upload_file, send_slack, ROOT_FOLDER
         token = google_token()
         root_id = find_or_create_folder(token, ROOT_FOLDER)
