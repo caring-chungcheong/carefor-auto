@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from src.carefor_client import build_spa_hash, _navigate_spa
 
@@ -32,6 +32,7 @@ PAGES = {
     "health":    ("left_sub8", "/share/staff/view.staff_yearly_report", "8-10.건강검진관리"),
     "master":    ("left_sub9", "/basic/view.center_master", "9-1.시설정보설정"),
     "welfare":   ("left_sub8", "/share/staff/view.welfare_reward_manage", "8-1-1.복지(포상) 제공대장 관리"),
+    "progdaily": ("left_sub5", "/share/program/view.program_service_daily", "5-1.프로그램 제공기록"),
 }
 
 # 6-2 일일점검: 행(일자)×열(위생점검1/주방소독2/간호비품3/급식4) — class complete/none 로 작성 여부
@@ -178,6 +179,28 @@ def scrape_branch_pages(page, g_pammgno: str, years: list[int], progress_cb=prin
         progress_cb(f"  8-10 건강검진 {len(years)}개년 수집 (2개 탭)")
     except Exception as e:
         progress_cb(f"  8-10 건강검진 수집 실패(건너뜀): {e}")
+
+    # 5-1 프로그램 제공기록 (2026년~, 월간 보기 순회 — 항목 24~26② 실시횟수)
+    out["progdaily"] = {}
+    try:
+        _goto(page, "progdaily", g_pammgno)
+        page.evaluate(CLOSE_MODAL_JS)
+        page.evaluate("change_view('monthly')")
+        page.wait_for_timeout(2500)
+        pm_start = max(date(2026, 1, 1), date(int(cutoff[:4]), int(cutoff[5:7]), 1) if cutoff else date(2026, 1, 1))
+        y, m = pm_start.year, pm_start.month
+        n_m = 0
+        while (y, m) <= (_date.today().year, _date.today().month):
+            page.evaluate(f"reloadPage({{'yy':'{y}','mm':'{m:02d}','dd':'01'}})")
+            page.wait_for_timeout(2500)
+            out["progdaily"][f"{y}-{m:02d}"] = page.evaluate(GET_TEXT_JS)
+            n_m += 1
+            m += 1
+            if m > 12:
+                y, m = y + 1, 1
+        progress_cb(f"  5-1 프로그램 제공기록 {n_m}개월 수집")
+    except Exception as e:
+        progress_cb(f"  5-1 프로그램 제공기록 수집 실패(건너뜀): {e}")
 
     # 6-2 일일점검 (기준일 이후 월별 순회)
     if cutoff:
@@ -453,6 +476,33 @@ def parse_prejoin(text: str) -> list:
     return rows
 
 
+def parse_progdaily(text: str) -> list:
+    """5-1 프로그램 제공기록(월간 보기): [{date, type(신체/인지/사회…), journal(✓)}]."""
+    lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
+    date_re = re.compile(r"^(\d{4})\.(\d{2})\.(\d{2})\(")
+    out = []
+    i = 0
+    while i < len(lines):
+        if lines[i] == "알림사항":
+            break
+        m = date_re.match(lines[i])
+        if m:
+            d = date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+            ptype, journal = "", False
+            for j in range(i + 1, min(i + 12, len(lines))):
+                s = lines[j]
+                if date_re.match(s):
+                    break
+                if not ptype and s in ("신체", "인지", "사회", "사회적응", "정서", "기타"):
+                    ptype = s
+                if s == "✓":
+                    journal = True
+                    break
+            out.append({"date": d, "type": ptype, "journal": journal})
+        i += 1
+    return out
+
+
 PROG_TYPES = ("신체기능", "인지기능", "사회적응")
 
 
@@ -690,7 +740,39 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
                 prog_op_miss[t].append(f"{y} 의견반영 없음")
             elif y == today.year and not op["reflect"]:
                 prog_note[t].append(f"{y} 의견반영 미작성(진행중)")
-    prog_miss = {t: prog_plan_miss[t] + prog_op_miss[t] for t in PROG_TYPES}
+    # ② 실시횟수 (5-1 제공기록, 2026년~): 신체·인지 주3회, 사회적응 월1회 — 일지(✓) 작성분만 인정
+    prog_exec_miss = {t: [] for t in PROG_TYPES}
+    prog_records = []
+    for _ym, txt in (data.get("progdaily") or {}).items():
+        prog_records += parse_progdaily(txt)
+    if prog_records or data.get("progdaily"):
+        TYPE_KEY = {"신체기능": "신체", "인지기능": "인지", "사회적응": "사회"}
+        exec_start = max(date(2026, 1, 1), eff)
+        for t in PROG_TYPES:
+            tk = TYPE_KEY[t]
+            recs = [r for r in prog_records if r["type"].startswith(tk) and r["journal"]]
+            if t in ("신체기능", "인지기능"):
+                wk = exec_start - timedelta(days=exec_start.weekday())  # 시작 주 월요일
+                while wk + timedelta(days=6) <= today:
+                    cnt = sum(1 for r in recs if wk <= r["date"] <= wk + timedelta(days=6))
+                    if cnt < 3:
+                        prog_exec_miss[t].append(f"{wk.month}/{wk.day}주 {cnt}회")
+                    wk += timedelta(days=7)
+            else:
+                mc = date(exec_start.year, exec_start.month, 1)
+                while (mc.year, mc.month) < (today.year, today.month):
+                    cnt = sum(1 for r in recs if (r["date"].year, r["date"].month) == (mc.year, mc.month))
+                    if cnt < 1:
+                        prog_exec_miss[t].append(f"{mc.year}-{mc.month:02d} 0회")
+                    mc = date(mc.year + (1 if mc.month == 12 else 0), (mc.month % 12) + 1, 1)
+            # ① 연간계획 미수립 시 ② 연동 불인정 (매뉴얼)
+            if prog_plan_miss[t] and not prog_exec_miss[t]:
+                prog_exec_miss[t].append("①미수립 → ② 연동 불인정")
+
+    def _cap(lst, n=6):
+        return lst[:n] + ([f"외 {len(lst) - n}건"] if len(lst) > n else [])
+
+    prog_miss = {t: prog_plan_miss[t] + _cap(prog_exec_miss[t]) + prog_op_miss[t] for t in PROG_TYPES}
 
     # ---- 항목 7: 직원인권 보호지침 (2026 신설 — 2026년부터) ----
     rights = parse_rights(data.get("rights") or "")
@@ -858,13 +940,17 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
                       + " (②안내사항·③기록지는 3~4차 구현 예정)",
         },
     }
+    has_exec = bool(data.get("progdaily"))
     for no, t, freq in (("24", "신체기능", "주3회"), ("25", "인지기능", "주3회"), ("26", "사회적응", "월1회")):
+        sub = {"①": st(prog_plan_miss[t]), "③": st(prog_op_miss[t])}
+        if has_exec:
+            sub["②"] = st(prog_exec_miss[t])
         item_results[no] = {
             "status": st(prog_miss[t]),
-            "sub_status": {"①": st(prog_plan_miss[t]), "③": st(prog_op_miss[t])},
-            "detail": "[부분판정: ①계획·③의견, 2026년~] "
-                      + ("; ".join(prog_miss[t] + prog_note[t]) or "연간계획·의견수렴/반영 충족")
-                      + f" (②{freq} 실시는 다음 단계)",
+            "sub_status": sub,
+            "detail": (f"[①계획·②{freq}·③의견, 2026년~] " if has_exec else "[부분판정: ①계획·③의견, 2026년~] ")
+                      + ("; ".join(prog_miss[t] + prog_note[t]) or f"연간계획·{freq} 실시·의견수렴/반영 충족")
+                      + ("" if has_exec else f" (②{freq} 실시는 다음 단계)"),
         }
 
     return {
