@@ -1,5 +1,5 @@
 // 서비스 워커 - 오프라인 지원 + 빠른 로딩 + 자동 업데이트
-const CACHE_NAME = 'car-mgmt-v3-fresh';
+const CACHE_NAME = 'car-mgmt-v4';
 const CACHE_FILES = [
   './',
   './index.html',
@@ -24,6 +24,10 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  // 첨부파일 뷰어·대전점 입력 페이지는 SW가 절대 건드리지 않음 (항상 네트워크 직행)
+  if (e.request.url.includes('/file.html') || e.request.url.includes('/daejeon.html')) {
+    return;
+  }
   // Apps Script(시트 API)는 캐싱 안 함 — 항상 최신 시트 데이터
   if (e.request.url.includes('script.google.com') ||
       e.request.url.includes('script.googleusercontent.com') ||
