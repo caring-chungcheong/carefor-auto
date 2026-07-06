@@ -453,21 +453,26 @@ async function submitRepair() {
 
   try {
     let fileUrl = '';
+    let fileWarn = '';
 
-    // 파일 업로드
+    // 파일 업로드 — 실패해도 정비기록 저장은 계속 진행 (기록 유실 방지)
     if (selectedFile) {
-      const base64 = await toBase64(selectedFile);
-      const upRes = await fetch(DRIVE_LOG_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          action: 'uploadFile',
-          data: { base64: base64.split(',')[1], mimeType: selectedFile.type, fileName: selectedFile.name, type: 'repair' }
-        })
-      });
-      const upData = await upRes.json();
-      if (!upData.ok) throw new Error('파일 업로드 실패: ' + upData.error);
-      fileUrl = upData.data.url;
+      try {
+        const base64 = await toBase64(selectedFile);
+        const upRes = await fetch(DRIVE_LOG_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'uploadFile',
+            data: { base64: base64.split(',')[1], mimeType: selectedFile.type, fileName: selectedFile.name, type: 'repair' }
+          })
+        });
+        const upData = await upRes.json();
+        if (!upData.ok) throw new Error(upData.error || '업로드 실패');
+        fileUrl = upData.data.url;
+      } catch(e) {
+        fileWarn = ' (⚠️ 파일 업로드는 실패 — 기록만 저장됨)';
+      }
       showLoading(true, '정비기록 저장 중...');
     }
 
@@ -497,7 +502,7 @@ async function submitRepair() {
     document.getElementById('repairDetail').value = '';
     document.getElementById('repairMemo').value = '';
     removeFile();
-    showToast(oilSynced ? '정비기록 저장 + 오일 정보 본부 반영 완료! ✅' : '정비기록 저장 완료! ✅', 'success');
+    showToast((oilSynced ? '정비기록 저장 + 오일 정보 본부 반영 완료! ✅' : '정비기록 저장 완료! ✅') + fileWarn, fileWarn ? 'error' : 'success');
   } catch(e) {
     showToast('저장 실패: ' + e.message, 'error');
   } finally {
