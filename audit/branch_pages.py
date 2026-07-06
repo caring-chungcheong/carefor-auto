@@ -551,7 +551,7 @@ def parse_progdaily(text: str) -> list:
                 s = lines[j]
                 if date_re.match(s):
                     break
-                if not ptype and s in ("신체", "인지", "사회", "사회적응", "정서", "기타"):
+                if not ptype and s in ("신체", "인지", "사회", "사회적응", "정서", "가족", "기타"):
                     ptype = s
                 if s == "✓":
                     journal = True

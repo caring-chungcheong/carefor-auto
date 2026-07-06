@@ -81,6 +81,7 @@ PAGES = {
     "8-7-1": ("left_sub8", "/share/staff/view.staff_refresher_training", "8-7-1.요양보호사 보수교육"),
     "6-3":   ("left_sub6", "/share/safe/view.regularly_check", "6-3.정기점검"),
     "6-2":   ("left_sub6", "/share/safe/view.daily_check", "6-2.일일점검"),
+    "1-4":   ("left_sub1", "/share/patient/view.patient_consult", "1-4.상담일지"),
     "1-6":   ("left_sub1", "/patient/view.patient_guide", "1-6.수급자 안내사항/예방접종"),
     "5-1":   ("left_sub5", "/share/program/view.program_service_daily", "5-1.프로그램 제공기록"),
     "5-5":   ("left_sub5", "/share/program/view.program_evaluation", "5-5.프로그램 의견수렴 및 반영"),
