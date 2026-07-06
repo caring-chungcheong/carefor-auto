@@ -215,6 +215,24 @@ def scrape_branch_pages(page, g_pammgno: str, years: list[int], progress_cb=prin
         except Exception as e:
             progress_cb(f"  6-2 일일점검 수집 실패(건너뜀): {e}")
 
+    # 1-6 수급자 안전관리 설명 탭 (항목 19④ — 연 1회, 2024~. 기본 탭이라 연도만 전환)
+    out["safe"] = {}
+    try:
+        _goto(page, "guide", g_pammgno)
+        for y in [yy for yy in years if yy >= 2024]:
+            page.evaluate(f"reloadPage({{'yy':'{y}'}})")
+            txt = ""
+            for _ in range(8):
+                page.wait_for_timeout(800)
+                page.evaluate(CLOSE_MODAL_JS)
+                txt = page.evaluate(SAFE_TAB_JS)
+                if "총인원" in txt:
+                    break
+            out["safe"][str(y)] = txt
+        progress_cb(f"  1-6 수급자 안전관리 {len(out['safe'])}개년 수집")
+    except Exception as e:
+        progress_cb(f"  1-6 수급자 안전관리 수집 실패(건너뜀): {e}")
+
     # 1-6 직원인권 보호지침 탭 (2026 신설 지표 — 2026년부터만)
     if max(years) >= 2026:
         try:
@@ -226,6 +244,10 @@ def scrape_branch_pages(page, g_pammgno: str, years: list[int], progress_cb=prin
             progress_cb(f"  1-6 직원인권 보호지침 수집 실패: {e}")
 
     return out
+
+
+SAFE_TAB_JS = ("(() => { const el = document.querySelector('#div_safe');"
+               " return el ? el.innerText : ''; })()")
 
 
 def scrape_rights(page, g_pammgno: str) -> str:
@@ -381,6 +403,41 @@ def parse_rights(text: str) -> dict:
                     continue
         i += 1
     return {"done": done, "total": total, "rows": rows}
+
+
+def parse_safe(text: str) -> dict:
+    """1-6 수급자 안전관리 설명 탭: 요약(총인원/설명/미설명) + [{date, names, staff}]."""
+    lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
+    total = done = undone = None
+    for i, ln in enumerate(lines):
+        if ln == "총인원":
+            nums = []
+            for s in lines[i:i + 8]:
+                m = re.match(r"^(\d+)명$", s)
+                if m:
+                    nums.append(int(m.group(1)))
+            if len(nums) >= 3:
+                total, done, undone = nums[0], nums[1], nums[2]
+            break
+    date_re = re.compile(r"^\d{4}\.\d{2}\.\d{2}$")
+    person_re = re.compile(r"^(.+?)\((.+?)\)$")
+    rows = []
+    i = 0
+    while i < len(lines):
+        if lines[i].isdigit() and i + 1 < len(lines) and date_re.match(lines[i + 1]):
+            d = lines[i + 1]
+            names = []
+            j = i + 2
+            while j < len(lines) and person_re.match(lines[j]):
+                names.append(person_re.match(lines[j]).group(1))
+                j += 1
+            if names:
+                staff = lines[j] if j < len(lines) and not lines[j].isdigit() else ""
+                rows.append({"date": d, "names": names, "staff": staff})
+                i = j + 1
+                continue
+        i += 1
+    return {"total": total, "done": done, "undone": undone, "rows": rows}
 
 
 def parse_health(text: str) -> dict:
@@ -789,6 +846,46 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
             # 2026년 급여개시 수급자: 개시일까지 안내돼 있어야 (미리 안내는 정상)
             r7_late.append(f"{r['name']} 개시{r['start']}→제공{r['provided']}")
 
+    # ---- 항목 19④: 수급자 안전관리 설명 연 1회 (1-6 안전관리 탭, 2024~) ----
+    safe_parsed = {int(y): parse_safe(t) for y, t in (data.get("safe") or {}).items() if t}
+    safe_miss, safe_note = [], []
+    for y in sorted(safe_parsed):
+        if not _period_ok(date(y, 1, 1), date(y, 12, 31)):
+            continue
+        s = safe_parsed[y]
+        if s["total"] is None:
+            safe_note.append(f"{y}년 안전관리 요약 파싱 실패")
+            continue
+        if s["undone"]:
+            if y < today.year:
+                safe_miss.append(f"{y}년 미설명 {s['undone']}명")
+            else:
+                safe_note.append(f"{y}년 미설명 {s['undone']}명(진행중)")
+    # 신규수급자(2026~) 급여개시 14일 이내 설명 대조 — 개시일은 직원인권 탭 rows 재사용
+    if safe_parsed and rights["rows"]:
+        expl = {}
+        for s in safe_parsed.values():
+            for r in s["rows"]:
+                for nm in r["names"]:
+                    expl.setdefault(nm, []).append(r["date"])
+        for rr in rights["rows"]:
+            if not rr["start"] or rr["start"][:4] < "2026" or rr["left_before"]:
+                continue
+            try:
+                sd = datetime.strptime(rr["start"], "%Y.%m.%d").date()
+            except ValueError:
+                continue
+            due = sd + timedelta(days=14)
+            dates = sorted(dd for dd in expl.get(rr["name"], []) if dd >= rr["start"])
+            if not dates:
+                if today > due:
+                    safe_miss.append(f"{rr['name']} 신규(개시 {rr['start']}) 설명 없음")
+            elif datetime.strptime(dates[0], "%Y.%m.%d").date() > due:
+                safe_note.append(f"{rr['name']} 신규 14일 초과(개시 {rr['start']}→설명 {dates[0]})")
+    if len(safe_miss) > 8:
+        safe_miss = safe_miss[:8] + [f"외 {len(safe_miss) - 8}건"]
+    safe_note = safe_note[:8]
+
     # ---- 항목 15: 건강검진 ①연간(연1회, 항목누락 포함) + ②입사전 제출 ----
     health_parsed = {int(y): parse_health(t) for y, t in (data.get("health") or {}).items()}
     prejoin_parsed = {int(y): parse_prejoin(t) for y, t in (data.get("health_pre") or {}).items()}
@@ -935,12 +1032,13 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
                       + " (①보관함 잠금·③적정투약은 현장/수기 확인)",
         },
         "19": {
-            "status": st(rights_miss),
-            "sub_status": {"①": st(rights_miss)},
-            "detail": "[부분판정: ①교육일지만] "
-                      + (("누락: " + ", ".join(rights_miss)) if rights_miss else "반기별 노인인권 교육 확인")
-                      + (" / " + "; ".join(rights_note) if rights_note else "")
-                      + " (②안내사항·③기록지는 3~4차 구현 예정)",
+            "status": st(rights_miss + safe_miss),
+            "sub_status": {"①": st(rights_miss)} | ({"④": st(safe_miss)} if safe_parsed else {}),
+            "detail": "[부분판정: ①교육일지" + ("·④안전관리 설명" if safe_parsed else "") + "] "
+                      + (("누락: " + ", ".join(rights_miss + safe_miss)) if (rights_miss or safe_miss)
+                         else "반기별 노인인권 교육" + ("·수급자 안전관리 설명(연1회)" if safe_parsed else "") + " 확인")
+                      + (" / " + "; ".join(rights_note + safe_note) if (rights_note or safe_note) else "")
+                      + " (②숙지·⑤존중은 면담, ③예방활동은 수기/3-1 기록지 연동 예정)",
         },
     }
     has_exec = bool(data.get("progdaily"))
@@ -965,6 +1063,7 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
             "refresher": refresher,
             "checks": {y: chk_parsed[y] for y in years},
             "rights": rights,
+            "safe": safe_parsed,
             "welfare": welfare_parsed,
             "birthday_log": birthday_log,
             "daily_miss": {"supply": supply_miss_m, "hygiene": hygiene_miss_m},
