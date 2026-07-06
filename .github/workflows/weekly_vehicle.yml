@@ -1,7 +1,14 @@
 name: 차량관리 주간 보고
-# schedule refresh
+
+# 자동 발송은 매주 월요일 11:10 KST의 schedule cron 한 곳에서만 나간다.
+# cron-job.org의 기존 호출(workflow_dispatch, 기본 입력)은 아래 게이트에서
+# 무조건 스킵된다 — 중복 발송 없음. 수동 실행이 필요하면:
+#   - 미리보기: dry_run=true (슬랙 전송 없음)
+#   - 실제 발송: force=true
 
 on:
+  schedule:
+    - cron: '10 2 * * 1'  # 매주 월 KST 11:10 (UTC 02:10)
   workflow_dispatch:
     inputs:
       dry_run:
@@ -12,10 +19,21 @@ on:
         options:
           - 'false'
           - 'true'
+      force:
+        description: '수동 실제 발송 (이걸 true로 해야만 dispatch로 발송됨)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 jobs:
   vehicle-report:
     runs-on: ubuntu-latest
+    # schedule(월 11:10)은 항상 실행. workflow_dispatch는 force=true(실제 발송) 또는
+    # dry_run=true(미리보기)일 때만 실행 — 기본 입력으로 들어오는 외부 호출 차단.
+    if: github.event_name == 'schedule' || github.event.inputs.force == 'true' || github.event.inputs.dry_run == 'true'
 
     steps:
       - name: 코드 체크아웃
