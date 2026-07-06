@@ -36,6 +36,7 @@ PAGES = {
     "consult":   ("left_sub1", "/share/patient/view.patient_consult", "1-4.상담일지"),
     "case":      ("left_sub8", "/share/patient/view.patient_case_meeting_tab", "8-5.사례관리 회의록"),
     "connect":   ("left_sub1", "/share/patient/view.patient_connection_send_report", "1-10.연계기록지 발송 리포트"),
+    "status":    ("left_sub3", "/share/care/view.status_change_report", "3-2.상태변화 기록"),
 }
 
 # 1-4 상담일지: 수급자별 분기 셀 complete/none + 행 data-info(연간 상담수·급여반영수)
@@ -287,6 +288,26 @@ def scrape_branch_pages(page, g_pammgno: str, years: list[int], progress_cb=prin
         progress_cb(f"  8-5 사례관리 회의록 {len(out['case'])}개년 수집")
     except Exception as e:
         progress_cb(f"  8-5 사례관리 수집 실패(건너뜀): {e}")
+
+    # 3-2 상태변화 기록 (항목 34④ — 주 1회 작성, 월별 순회 2024~)
+    out["status"] = {}
+    try:
+        _goto(page, "status", g_pammgno)
+        page.evaluate(CLOSE_MODAL_JS)
+        sm = max((cutoff or "2024.01").replace(".", "")[:6], "202401")
+        y, m = int(sm[:4]), int(sm[4:6])
+        n_m = 0
+        while (y, m) <= (_date.today().year, _date.today().month):
+            page.evaluate(f"reloadPage({{'yyyymm':'{y}{m:02d}'}})")
+            page.wait_for_timeout(2000)
+            out["status"][f"{y}-{m:02d}"] = page.evaluate(GET_TEXT_JS)
+            n_m += 1
+            m += 1
+            if m > 12:
+                y, m = y + 1, 1
+        progress_cb(f"  3-2 상태변화 기록 {n_m}개월 수집")
+    except Exception as e:
+        progress_cb(f"  3-2 상태변화 수집 실패(건너뜀): {e}")
 
     # 1-10 연계기록지 발송 리포트 (항목 30② — 퇴소자 연계기록지 제공, 2024~)
     try:
@@ -608,6 +629,42 @@ def parse_case(text: str) -> dict:
                         ok += 1
                 out["reflect"][hi] = f"{ok} / {len(hr)}"
     return out
+
+
+def parse_status(text: str, view_ym: str) -> list:
+    """3-2 상태변화(월 뷰): 주별 [{start(date), end(date), done, total}].
+    주 시작 월이 뷰 월과 같은 주만 반환 (월 경계 중복 제거)."""
+    lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
+    vy, vm = int(view_ym[:4]), int(view_ym[5:7])
+    week_re = re.compile(r"^(\d{2})\.(\d{2})\s*~\s*(\d{2})\.(\d{2})$")
+    ratio_re = re.compile(r"^(\d+)\s*/\s*(\d+)$")
+    weeks = []
+    for i, ln in enumerate(lines):
+        m = week_re.match(ln)
+        if m:
+            weeks.append((i, m))
+        if "작성건수" in ln:
+            counts = []
+            for s in lines[i + 1:i + 1 + len(weeks) + 2]:
+                r = ratio_re.match(s)
+                if r:
+                    counts.append((int(r.group(1)), int(r.group(2))))
+                if len(counts) == len(weeks):
+                    break
+            out = []
+            for (_, wm), (done, total) in zip(weeks, counts):
+                sm_, sd_, em_, ed_ = (int(wm.group(k)) for k in range(1, 5))
+                sy = vy - 1 if sm_ > vm else vy
+                ey = vy + 1 if em_ < vm else vy
+                if sm_ != vm:
+                    continue  # 주 시작이 뷰 월 밖 → 이전 달 뷰에서 처리 (중복 제거)
+                try:
+                    out.append({"start": date(sy, sm_, sd_), "end": date(ey, em_, ed_),
+                                "done": done, "total": total})
+                except ValueError:
+                    pass
+            return out
+    return []
 
 
 def parse_connect(text: str) -> dict:
@@ -1172,6 +1229,20 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
                 case_note.append(f"{r['date']} 회의 서명 {r['sign']}")
     case_note = case_note[:8]
 
+    # ---- 항목 34④: 상태변화 주1회 기록 (3-2, 2024~) ----
+    status_weeks = []
+    for ym in sorted(data.get("status") or {}):
+        status_weeks += parse_status((data["status"] or {})[ym], ym)
+    status_miss = []
+    for w in status_weeks:
+        if w["end"] >= today or w["start"] < eff:
+            continue  # 진행중 주·개소 전 주 제외
+        if w["total"] and w["done"] < w["total"]:
+            status_miss.append(f"{w['start'].strftime('%y.%m.%d')}주 {w['done']}/{w['total']}")
+    n_status_miss = len(status_miss)
+    if n_status_miss > 10:
+        status_miss = status_miss[:10] + [f"외 {n_status_miss - 10}주"]
+
     # ---- 항목 30②: 퇴소자 연계기록지 작성·제공 (1-10, 2024~) ----
     connect = parse_connect(data.get("connect") or "")
     conn_miss = []
@@ -1292,6 +1363,14 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
             "sub_status": {"②": st(r7_missing + r7_late)},
             "detail": "2026년 기준 — " + " · ".join(parts),
         }
+    if data.get("status"):
+        item_results["34"] = {
+            "status": st(status_miss),
+            "sub_status": {"④": st(status_miss)},
+            "detail": f"[부분판정: ④주1회 상태변화 기록, {len(status_weeks)}주 검사] "
+                      + (("미달 주: " + ", ".join(status_miss)) if status_miss else "전 주 작성 충족")
+                      + " (기록 충실성·①반기 결과평가·②30일 재작성·③기록지 제공은 추후/수기)",
+        }
     if data.get("connect"):
         item_results["30"] = {
             "status": st(conn_miss),
@@ -1397,6 +1476,7 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
             "consult": consult_detail,
             "case": case_parsed,
             "connect": connect,
+            "status": {"weeks": len(status_weeks), "miss_weeks": n_status_miss},
             "welfare": welfare_parsed,
             "birthday_log": birthday_log,
             "daily_miss": {"supply": supply_miss_m, "hygiene": hygiene_miss_m},
