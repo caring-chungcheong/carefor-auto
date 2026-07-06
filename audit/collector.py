@@ -121,6 +121,24 @@ def run_branch_audit(
     if branch_pages:
         analysis["item_results"].update(branch_pages["item_results"])
 
+        # 항목 8③ 보강: 노션 생일쿠폰 대조 (토큰 있을 때만 — 클라우드 전용)
+        try:
+            from .notion_birthday import compare as notion_compare
+            r8 = analysis["item_results"].get("8")
+            blog = (branch_pages.get("detail") or {}).get("birthday_log", {})
+            if r8:
+                res = notion_compare(branch_name, blog, progress_cb=progress_cb)
+                if res is not None:
+                    missing, months = res
+                    if missing:
+                        r8["status"] = "미흡"
+                        r8["sub_status"]["③"] = "미흡"
+                        r8["detail"] += f" · 생일쿠폰 미지급 의심: {', '.join(missing)}"
+                    elif months:
+                        r8["detail"] += f" · 생일쿠폰 노션 대조 일치({months[0]}~{months[-1]})"
+        except Exception as e:
+            progress_cb(f"[{branch_name}] 생일쿠폰 대조 건너뜀: {e}")
+
     out = {
         "branch": branch_name,
         "ctmnumb": ctmnumb,

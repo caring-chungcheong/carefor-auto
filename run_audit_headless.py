@@ -79,8 +79,9 @@ for b in branches:
             save=not test_mode,
         )
         ir = out["item_results"]
+        # 공개 저장소 로그에 직원·수급자 이름이 남지 않도록 상태만 출력
         for no in sorted(ir, key=int):
-            print(f"  항목 {no}: {ir[no]['status']} — {ir[no]['detail']}")
+            print(f"  항목 {no}: {ir[no]['status']}")
     except Exception as e:
         print(f"[{b.name}] 실패: {e}")
         failed.append(b.name)

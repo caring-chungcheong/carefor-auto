@@ -42,7 +42,7 @@ jobs:
           cache: 'pip'
 
       - name: 패키지 설치
-        run: pip install requests PyYAML playwright keyring keyrings.alt
+        run: pip install requests PyYAML playwright keyring keyrings.alt openpyxl
 
       - name: Playwright 브라우저 설치
         run: playwright install chromium --with-deps
@@ -53,6 +53,7 @@ jobs:
           CAREFOR_PW:        ${{ secrets.CAREFOR_PW }}
           CONFIG_YAML:       ${{ secrets.CONFIG_YAML }}
           AUDIT_WEBHOOK_URL: ${{ secrets.AUDIT_WEBHOOK_URL }}
+          NOTION_TOKEN:      ${{ secrets.NOTION_TOKEN }}
           AUDIT_LIMIT:       ${{ github.event.inputs.limit || '0' }}
           AUDIT_TEST:        ${{ github.event.inputs.test_mode || 'false' }}
           AUDIT_BRANCH:      ${{ github.event.inputs.branch }}
