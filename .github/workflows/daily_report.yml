@@ -1,9 +1,10 @@
 name: 출석관리
 
-# 발송 시각: 매일 월~토 10:45 KST (schedule cron)
-# cron-job.org의 기존 11:00 호출(workflow_dispatch)은 남아 있어도 아래 중복 발송 확인
-# 로직이 "오늘 이미 발송함"을 감지하고 스킵하므로 이중 발송되지 않는다.
-# 10:45 실행이 실패하거나 GitHub cron이 안 울린 날은 11:00 호출이 자동 백업으로 발송한다.
+# 자동 발송은 매일 월~토 10:45 KST의 schedule cron 한 곳에서만 나간다.
+# cron-job.org의 기존 11:00 호출(workflow_dispatch, 기본 입력)은 아래 게이트에서
+# 무조건 스킵된다 — 백업 발송 없음. 수동 실행이 필요하면:
+#   - 미리보기: dry_run=true (슬랙 전송 없음)
+#   - 실제 발송: force=true
 
 on:
   schedule:
@@ -19,7 +20,7 @@ on:
           - 'false'
           - 'true'
       force:
-        description: '오늘 이미 발송했어도 강제 실행'
+        description: '수동 실제 발송 (이걸 true로 해야만 dispatch로 발송됨)'
         required: false
         default: 'false'
         type: choice
@@ -30,64 +31,30 @@ on:
 jobs:
   report:
     runs-on: ubuntu-latest
+    # schedule(10:45)은 항상 실행. workflow_dispatch는 force=true(실제 발송) 또는
+    # dry_run=true(미리보기)일 때만 실행 — 기본 입력으로 들어오는 11:00 외부 호출 차단.
+    if: github.event_name == 'schedule' || github.event.inputs.force == 'true' || github.event.inputs.dry_run == 'true'
 
     steps:
-      - name: 날짜 계산 (KST)
-        id: date
-        run: echo "kst=$(TZ=Asia/Seoul date +%F)" >> "$GITHUB_OUTPUT"
-
-      - name: 중복 발송 확인
-        id: dedup
-        if: github.event.inputs.force != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          KST_TODAY: ${{ steps.date.outputs.kst }}
-        run: |
-          # 1) 오늘 실제 발송을 마친 실행이 남긴 마커 아티팩트가 있는가
-          sent=$(gh api -X GET "repos/${GITHUB_REPOSITORY}/actions/artifacts" \
-            -f name="sent-${KST_TODAY}" --jq '.total_count')
-
-          # 2) 나보다 먼저 시작된 다른 실행이 아직 돌고 있는가 (곧 발송 예정)
-          me=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" --jq '.created_at')
-          running=$(gh api -X GET "repos/${GITHUB_REPOSITORY}/actions/workflows/daily_report.yml/runs" \
-            -f created=">=${KST_TODAY}T00:00:00+09:00" -f per_page=50 \
-            --jq "[.workflow_runs[]
-                   | select(.id != ${GITHUB_RUN_ID})
-                   | select(.status == \"queued\" or .status == \"in_progress\")
-                   | select(.created_at < \"${me}\" or (.created_at == \"${me}\" and .id < ${GITHUB_RUN_ID}))
-                  ] | length")
-
-          echo "오늘(${KST_TODAY}) 발송 마커: ${sent}건 / 먼저 시작된 진행 중 실행: ${running}건"
-          if [ "${sent}" -gt 0 ] || [ "${running}" -gt 0 ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "오늘 이미 발송했거나 먼저 시작된 실행이 있어 중복 발송을 막기 위해 종료합니다."
-          fi
-
       - name: 코드 체크아웃
-        if: steps.dedup.outputs.skip != 'true'
         uses: actions/checkout@v4
 
       - name: Python 설치
-        if: steps.dedup.outputs.skip != 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
 
       - name: 패키지 설치
-        if: steps.dedup.outputs.skip != 'true'
         run: pip install -r requirements.txt
 
       - name: 한글 폰트 설치
-        if: steps.dedup.outputs.skip != 'true'
         run: sudo apt-get install -y fonts-nanum
 
       - name: Playwright 브라우저 설치
-        if: steps.dedup.outputs.skip != 'true'
         run: playwright install chromium --with-deps
 
       - name: 출석 현황 수집 및 슬랙 전송
-        if: steps.dedup.outputs.skip != 'true'
         env:
           CAREFOR_ID:       ${{ secrets.CAREFOR_ID }}
           CAREFOR_PW:       ${{ secrets.CAREFOR_PW }}
@@ -97,17 +64,3 @@ jobs:
           CI: "true"
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
         run: python run_headless.py
-
-      # 실제 발송(dry_run 아님)이 성공했을 때만 마커를 남긴다.
-      # 이후 오늘 다시 시작되는 실행(예: cron-job.org 11:00 호출)은 이 마커를 보고 스킵한다.
-      - name: 발송 완료 마커 기록
-        if: steps.dedup.outputs.skip != 'true' && (github.event.inputs.dry_run || 'false') != 'true'
-        run: TZ=Asia/Seoul date > sent_marker.txt
-
-      - name: 발송 완료 마커 업로드
-        if: steps.dedup.outputs.skip != 'true' && (github.event.inputs.dry_run || 'false') != 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: sent-${{ steps.date.outputs.kst }}
-          path: sent_marker.txt
-          retention-days: 3
