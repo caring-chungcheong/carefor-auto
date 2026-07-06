@@ -340,6 +340,7 @@ const CAR_MGMT_API = 'https://script.google.com/macros/s/AKfycbzlrOLKx9_Cs4LnWYP
 const CAR_NUMBER = '233다9797';
 
 let selectedFile = null;
+let currentTotalKm = null;
 
 window.onload = () => {
   document.getElementById('driveDate').value = today();
@@ -365,8 +366,9 @@ async function loadCurrentKm() {
     const allCars = Object.values(branchData).flat();
     const car = allCars.find(c => c.carNumber && c.carNumber.replace(/\s/g,'') === CAR_NUMBER.replace(/\s/g,''));
     if (car && car.totalKm) {
-      document.getElementById('currentKmText').textContent = `현재 누적주행거리: ${Number(car.totalKm).toLocaleString()} km`;
-      document.getElementById('startKm').placeholder = Number(car.totalKm).toLocaleString();
+      currentTotalKm = Number(car.totalKm);
+      document.getElementById('currentKmText').textContent = `현재 누적주행거리: ${currentTotalKm.toLocaleString()} km`;
+      document.getElementById('startKm').placeholder = currentTotalKm.toLocaleString();
     } else {
       document.getElementById('currentKmText').textContent = '누적주행거리 정보 없음';
     }
@@ -420,6 +422,7 @@ async function submitDrive() {
       body: JSON.stringify({ action: 'updateMileage', data: [{ carNumber: CAR_NUMBER, totalKm, kmDate: date }] })
     });
 
+    currentTotalKm = totalKm;
     localStorage.setItem('lastDriver', driver);
     document.getElementById('driveReason').value = '';
     document.getElementById('startKm').value = totalKm;
@@ -476,10 +479,25 @@ async function submitRepair() {
     const repairData = await repairRes.json();
     if (!repairData.ok) throw new Error(repairData.error || '저장 실패');
 
+    // 오일 교환 정비면 본부 차량관리 시트의 오일 데이터도 갱신 (주간 보고 판정에 사용됨)
+    let oilSynced = false;
+    if (/오일/.test(repairDetail)) {
+      try {
+        const oil = { carNumber: CAR_NUMBER, oilDate: repairDate };
+        if (currentTotalKm) { oil.oilKm = currentTotalKm; oil.oilNextKm = currentTotalKm + 8000; }
+        const oilRes = await fetch(CAR_MGMT_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'updateMileage', data: [oil] })
+        });
+        oilSynced = (await oilRes.json()).ok;
+      } catch(e) { /* 오일 연동 실패해도 정비 저장은 완료 */ }
+    }
+
     document.getElementById('repairDetail').value = '';
     document.getElementById('repairMemo').value = '';
     removeFile();
-    showToast('정비기록 저장 완료! ✅', 'success');
+    showToast(oilSynced ? '정비기록 저장 + 오일 정보 본부 반영 완료! ✅' : '정비기록 저장 완료! ✅', 'success');
   } catch(e) {
     showToast('저장 실패: ' + e.message, 'error');
   } finally {
@@ -494,15 +512,20 @@ async function loadDriveHistory() {
     const res = await fetch(DRIVE_LOG_API, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'getDriveLogs', limit: 30 })
+      body: JSON.stringify({ action: 'getDriveLogs', limit: 500 })
     });
     const data = await res.json();
-    if (!data.ok || !data.data || data.data.length === 0) {
+    // 시트에 연번만 있는 빈 행이 섞여 있으므로 실제 기록만 걸러 최신순 30건 표시
+    const rows = (data.data || [])
+      .filter(r => r.date && String(r.date).trim() && r.seq !== '합계')
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 30);
+    if (!data.ok || rows.length === 0) {
       document.getElementById('driveHistoryList').innerHTML = '<div class="empty-state">기록이 없습니다</div>'; return;
     }
-    document.getElementById('driveHistoryList').innerHTML = data.data.map(r => `
+    document.getElementById('driveHistoryList').innerHTML = rows.map(r => `
       <div class="history-item">
-        <div class="history-date">${r.date}</div>
+        <div class="history-date">${fmtDate(r.date)}</div>
         <div class="history-main">${r.driver} · ${r.reason}</div>
         <div class="history-detail">
           <span class="badge">${Number(r.startKm).toLocaleString()}km 출발</span>
@@ -523,20 +546,25 @@ async function loadRepairHistory() {
     const res = await fetch(DRIVE_LOG_API, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'getRepairLogs', limit: 30 })
+      body: JSON.stringify({ action: 'getRepairLogs', limit: 500 })
     });
     const data = await res.json();
-    if (!data.ok || !data.data || data.data.length === 0) {
+    // 시트에 연번만 있는 빈 행이 섞여 있으므로 실제 기록만 걸러 최신순 30건 표시
+    const rows = (data.data || [])
+      .filter(r => r.repairDate && String(r.repairDate).trim() && r.seq !== '합계')
+      .sort((a, b) => new Date(b.repairDate) - new Date(a.repairDate))
+      .slice(0, 30);
+    if (!data.ok || rows.length === 0) {
       document.getElementById('repairHistoryList').innerHTML = '<div class="empty-state">기록이 없습니다</div>'; return;
     }
-    document.getElementById('repairHistoryList').innerHTML = data.data.map(r => `
+    document.getElementById('repairHistoryList').innerHTML = rows.map(r => `
       <div class="history-item repair-item">
-        <div class="history-date">${r.repairDate}</div>
+        <div class="history-date">${fmtDate(r.repairDate)}</div>
         <div class="history-main">${r.repairDetail}</div>
         <div class="history-detail">
           <span class="badge badge-red">🔧 정비</span>
           ${r.memo ? `· ${r.memo}` : ''}
-          ${r.fileUrl ? `<br><a class="file-link" href="${r.fileUrl}" target="_blank">📎 첨부파일 보기</a>` : ''}
+          ${r.fileUrl && /^https?:/.test(r.fileUrl) ? `<br><a class="file-link" href="${r.fileUrl}" target="_blank">📎 첨부파일 보기</a>` : ''}
         </div>
       </div>`).join('');
   } catch(e) {
@@ -571,6 +599,12 @@ function toBase64(file) {
 }
 
 // ── 유틸 ──
+function fmtDate(v) {
+  const d = new Date(v);
+  if (isNaN(d)) return v || '';
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
 function showToast(msg, type = '') {
   const t = document.getElementById('toast');
   t.textContent = msg;
