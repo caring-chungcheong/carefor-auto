@@ -336,7 +336,7 @@
 
 <script>
 // 대전점 운행일지/정비기록 시트: https://docs.google.com/spreadsheets/d/1NTuH71zIK2ej_D8eEKceHndCKzC69R9aE27vtLT6bpw/edit
-const DRIVE_LOG_API = 'https://script.google.com/macros/s/AKfycbzFw1rdl5BY5WUcGpzk5QtfTlI81TX2wMHzkPZ1HxSNjBR2F2hiNDOzYcbLo8tSILX5/exec';
+const DRIVE_LOG_API = 'https://script.google.com/macros/s/AKfycbyy_fjmDN8LiuEu2FzPOxhjbPDL_bEloCmNP0aXnf1w3JS0MPzkieAAsKfT8F7yb4Xh/exec';
 const CAR_MGMT_API = 'https://script.google.com/macros/s/AKfycbzlrOLKx9_Cs4LnWYPMi9bySTPPpjOHy4pxcwXKJ7F7c4eulGOWs3SZmdRdAgL7sDFi/exec';
 const CAR_NUMBER = '233다9797';
 
@@ -579,11 +579,35 @@ async function loadRepairHistory() {
         <div class="history-detail">
           <span class="badge badge-red">🔧 정비</span>
           ${r.memo ? `· ${r.memo}` : ''}
-          ${r.fileUrl && /^https?:/.test(r.fileUrl) ? `<br><a class="file-link" href="${r.fileUrl}" target="_blank">📎 첨부파일 보기</a>` : ''}
+          ${r.fileUrl && /^https?:/.test(r.fileUrl) ? `<br><a class="file-link" href="${r.fileUrl}" target="_blank">📎 첨부파일 보기</a>`
+            : r.fileUrl && /^file:/.test(r.fileUrl) ? `<br><a class="file-link" href="#" onclick="viewFile('${r.fileUrl}');return false">📎 첨부파일 보기</a>` : ''}
         </div>
       </div>`).join('');
   } catch(e) {
     document.getElementById('repairHistoryList').innerHTML = '<div class="empty-state">불러오기 실패</div>';
+  }
+}
+
+// ── 시트에 저장된 첨부파일 열기 ──
+async function viewFile(id) {
+  showLoading(true, '첨부파일 불러오는 중...');
+  try {
+    const res = await fetch(DRIVE_LOG_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'getFile', data: { id } })
+    });
+    const d = await res.json();
+    if (!d.ok) throw new Error(d.error || '불러오기 실패');
+    const bin = atob(d.data.base64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    const blob = new Blob([arr], { type: d.data.mimeType || 'application/octet-stream' });
+    window.open(URL.createObjectURL(blob), '_blank');
+  } catch(e) {
+    showToast('첨부파일 열기 실패: ' + e.message, 'error');
+  } finally {
+    showLoading(false);
   }
 }
 
