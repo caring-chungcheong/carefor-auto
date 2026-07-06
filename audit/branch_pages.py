@@ -18,6 +18,9 @@ from src.carefor_client import build_spa_hash, _navigate_spa
 
 DN_BASE = "https://dn.carefor.co.kr/"
 
+# 기관 점검용 가상 계정 — 직원 판정에서 제외 (사용자 확정 2026-07-06)
+EXCLUDE_STAFF = {"관리팀", "평가자"}
+
 PAGES = {
     "edu":       ("left_sub8", "/share/staff/view.staff_education", "8-7.교육일지"),
     "refresher": ("left_sub8", "/share/staff/view.staff_refresher_training", "8-7-1.요양보호사 보수교육"),
@@ -609,9 +612,11 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
     edu6_cur = [s for s in edu6_miss if "진행중" not in s]
 
     # ---- 항목 5: 보수교육 ----
-    ref_miss = [r["name"] for r in refresher["rows"] if r["status"] == "미작성"]
+    ref_miss = [r["name"] for r in refresher["rows"]
+                if r["status"] == "미작성" and r["name"] not in EXCLUDE_STAFF]
     ref_target, ref_done = refresher.get("target"), refresher.get("done")
-    ref_cur_miss = [r["name"] for r in refresher_cur["rows"] if r["status"] == "미작성"]
+    ref_cur_miss = [r["name"] for r in refresher_cur["rows"]
+                    if r["status"] == "미작성" and r["name"] not in EXCLUDE_STAFF]
 
     # ---- 항목 13: 소방시설 월 1회 (매월 28일 기준) ----
     fire_miss = []
@@ -710,12 +715,16 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
         if not rows:
             continue
         # ① 연간: 미작성 + 항목누락(작성했지만 세부자료 미입력 — "눌렀을 때 자료가 있어야") — 재직·휴직 대상
-        miss_names = [r["name"] for r in rows if r["health"] == "미작성" and r["status"] != "퇴사"]
-        incomplete = [r["name"] for r in rows if r["health"] == "항목누락" and r["status"] != "퇴사"]
-        # 교차검증: 페이지 상단 '작성/항목누락/대상' 집계와 행 파싱 결과 대조
+        # 점검용 계정(관리팀·평가자)은 제외
+        miss_names = [r["name"] for r in rows
+                      if r["health"] == "미작성" and r["status"] != "퇴사" and r["name"] not in EXCLUDE_STAFF]
+        incomplete = [r["name"] for r in rows
+                      if r["health"] == "항목누락" and r["status"] != "퇴사" and r["name"] not in EXCLUDE_STAFF]
+        # 교차검증: 페이지 상단 '작성/항목누락/대상' 집계와 행 파싱 결과 대조 (제외계정 무관 원본끼리)
         counts = health_parsed[y].get("counts")
-        if counts and counts[1] != len([r for r in rows if r["health"] == "항목누락"]):
-            health_note.append(f"{y}년 항목누락 집계 불일치(페이지 {counts[1]} vs 파싱 {len(incomplete)}) — 확인 필요")
+        raw_incomplete = len([r for r in rows if r["health"] == "항목누락"])
+        if counts and counts[1] != raw_incomplete:
+            health_note.append(f"{y}년 항목누락 집계 불일치(페이지 {counts[1]} vs 파싱 {raw_incomplete}) — 확인 필요")
         if y < today.year:
             if miss_names:
                 health_miss.append(f"{y}년 미작성 {len(miss_names)}명({', '.join(miss_names[:8])}{'…' if len(miss_names) > 8 else ''})")
@@ -726,9 +735,9 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
                 health_note.append(f"{y}년 미작성 {len(miss_names)}명(연내 진행중)")
             if incomplete:
                 health_miss.append(f"{y}년 항목누락 {len(incomplete)}명({', '.join(incomplete[:5])})")
-        # ② 입사전 제출: 재직 신규입사자가 입사일 지나도록 미작성 → 미흡
+        # ② 입사전 제출: 재직 신규입사자가 입사일 지나도록 미작성 → 미흡 (점검용 계정 제외)
         for r in prejoin_parsed.get(y, []):
-            if r["left"] or r["status"] == "작성":
+            if r["left"] or r["status"] == "작성" or r["name"] in EXCLUDE_STAFF:
                 continue
             if r["join"] and datetime.strptime(r["join"], "%Y.%m.%d").date() <= today:
                 health_miss.append(f"입사전 미제출: {r['name']}(입사 {r['join']})")
