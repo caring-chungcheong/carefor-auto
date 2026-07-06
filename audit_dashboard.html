@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <title>지점관리 점검 대시보드</title>
 <script src="audit_results/dashboard_data.js" onerror="window.AUDIT_DATA={};window.AUDIT_ITEMS=null;"></script>
+<script src="vendor/xlsx.full.min.js"></script>
 <style>
   * { box-sizing: border-box; }
   body { font-family: '맑은 고딕', 'Malgun Gothic', sans-serif; margin: 0; background: #f4f6fa; color: #222; }
@@ -161,8 +162,13 @@ function render(){
 
   html += `<div class="btnrow">
     <button onclick="uploadScores()">📤 본부 공유 (점수 업로드)</button>
+    <select id="expScope" class="mstat" style="align-self:center">
+      <option value="cur">현재 지점 (${cur})</option>
+      <option value="all">전체 지점</option>
+    </select>
+    <button onclick="exportExcel()">📗 엑셀 내보내기</button>
+    <button onclick="exportPDF()">📕 PDF 내보내기</button>
     <button class="gray" onclick="location.reload()">🔄 새로고침</button>
-    <span style="align-self:center;font-size:12px;color:#888">엑셀·PDF 점검표: 📤 공유 후 "점검표_내보내기.bat" 더블클릭</span>
     <span id="upmsg" style="align-self:center;font-size:12px;color:#2c8a41"></span>
   </div>`;
 
@@ -263,6 +269,117 @@ function setManual(no, key, val){
   m[no][key] = val;
   saveManual(cur, m);
   render();
+}
+// ---- 사이트 내 점검표 내보내기 (엑셀/PDF) ----
+function expBranches(){
+  const sc = document.getElementById('expScope');
+  return (sc && sc.value === 'all') ? BRANCHES.slice() : [cur];
+}
+function subStatusOf(v, sub){
+  if(v === undefined || v === '') return '미입력';
+  if(v === 'NA') return '해당없음';
+  const x = parseFloat(v);
+  if(x >= sub.score) return '충족';
+  return x === 0 ? '미충족' : '부분충족';
+}
+function branchRows(b){
+  const manual = loadManual(b);
+  const d = DATA[b];
+  const rows = [];
+  let earned = 0, filled = 0, total = 0, naPts = 0;
+  ITEMS.forEach(it=>{
+    (it.subs||[]).forEach((s, si)=>{
+      const e = effVal(it, s, manual, d);
+      total++;
+      let scoreCell = '';
+      if(e.v !== undefined){
+        filled++;
+        if(e.v === 'NA'){ naPts += s.score; scoreCell = '해당없음'; }
+        else { earned += parseFloat(e.v); scoreCell = parseFloat(e.v); }
+      }
+      const r = d && d.item_results && d.item_results[String(it.no)];
+      const m = manual[it.no] || {};
+      rows.push([si===0 ? it.no : '', si===0 ? it.name : '', s.label, s.text, s.score,
+                 scoreCell, subStatusOf(e.v, s), e.v===undefined?'':(e.auto?'자동':'수기'),
+                 r ? r.status : '', si===0 ? (m.memo||'') : '']);
+    });
+  });
+  return {rows, earned: Math.round(earned*100)/100, filled, total, naPts: Math.round(naPts*100)/100};
+}
+function exportExcel(){
+  if(typeof XLSX === 'undefined'){ alert('엑셀 라이브러리(vendor/xlsx.full.min.js)를 찾을 수 없습니다.'); return; }
+  const brs = expBranches();
+  const wb = XLSX.utils.book_new();
+  const sum = [["지점","총점(100점)","기준 입력","해당없음 배점","자동수집 시각","기관 지정일"]];
+  const packs = {};
+  brs.forEach(b=>{
+    const p = branchRows(b);
+    packs[b] = p;
+    const d = DATA[b] || {};
+    sum.push([b, p.earned, `${p.filled}/${p.total}`, p.naPts, d.run_at||'-', d.opened||'-']);
+  });
+  const wsSum = XLSX.utils.aoa_to_sheet(sum);
+  wsSum['!cols'] = [{wch:14},{wch:12},{wch:10},{wch:12},{wch:17},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, wsSum, '요약');
+  brs.forEach(b=>{
+    const aoa = [["번호","항목","기준","기준 내용","배점","점수","판정","채점","자동판정","메모"], ...packs[b].rows];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{wch:6},{wch:16},{wch:5},{wch:55},{wch:6},{wch:8},{wch:9},{wch:6},{wch:9},{wch:24}];
+    XLSX.utils.book_append_sheet(wb, ws, b);
+  });
+  const tag = brs.length===1 ? brs[0]+'_' : '';
+  const dt = new Date();
+  const ymd = dt.getFullYear() + String(dt.getMonth()+1).padStart(2,'0') + String(dt.getDate()).padStart(2,'0');
+  XLSX.writeFile(wb, `지점점검표_${tag}${ymd}.xlsx`);
+}
+function exportPDF(){
+  const brs = expBranches();
+  let body = '';
+  brs.forEach((b, bi)=>{
+    const manual = loadManual(b);
+    const d = DATA[b];
+    let earned=0, naPts=0, filled=0, total=0;
+    let rows = '';
+    ITEMS.forEach(it=>{
+      let itE=0, itNa=0, itF=0;
+      (it.subs||[]).forEach(s=>{
+        const e = effVal(it, s, manual, d);
+        total++;
+        if(e.v !== undefined){
+          filled++; itF++;
+          if(e.v==='NA'){ itNa+=s.score; naPts+=s.score; }
+          else { itE+=parseFloat(e.v); earned+=parseFloat(e.v); }
+        }
+      });
+      const possible = (it.total||0) - itNa;
+      const verdict = itF===0 ? '미입력' : (possible<=0 ? '해당없음' : (itE>=possible ? '충족' : '미달'));
+      const cls = verdict==='충족' ? 'ok' : (verdict==='미달' ? 'bad' : 'na');
+      const r = d && d.item_results && d.item_results[String(it.no)];
+      rows += `<tr><td>${it.no}</td><td class="l">${it.name}</td><td>${it.total||'-'}</td>
+        <td>${itF===0?'-':fmt(itE)}</td><td class="${cls}">${verdict}</td><td>${r?r.status:''}</td></tr>`;
+    });
+    body += `<div class="page${bi<brs.length-1?' brk':''}">
+      <h1>지점 점검표 — ${b}</h1>
+      <div class="meta">생성 ${new Date().toLocaleDateString('ko-KR')} · 총점 <b>${fmt(earned)}점</b> / 만점 ${fmt(100-naPts)}점(해당없음 ${fmt(naPts)}점 제외)
+        · 기준 입력 ${filled}/${total} · 자동수집 ${(d||{}).run_at||'-'} · 기관 지정일 ${(d||{}).opened||'-'}</div>
+      <table><tr><th style="width:36px">번호</th><th>항목</th><th style="width:50px">배점</th><th style="width:50px">득점</th><th style="width:60px">판정</th><th style="width:66px">자동판정</th></tr>${rows}</table>
+    </div>`;
+  });
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><title>지점점검표</title><style>
+    body{font-family:'맑은 고딕',sans-serif;margin:14px;color:#222}
+    h1{font-size:17px;margin:0 0 4px}
+    .meta{font-size:11px;color:#666;margin-bottom:8px}
+    table{border-collapse:collapse;width:100%;font-size:10.5px}
+    th,td{border:1px solid #b9c4d8;padding:3px 6px;text-align:center}
+    th{background:#2f5496;color:#fff}
+    td.l{text-align:left}
+    .ok{color:#2c8a41;font-weight:bold}.bad{color:#c02020;font-weight:bold}.na{color:#888}
+    .brk{page-break-after:always}
+    @media print { body{margin:6mm} }
+  </style></head><body>${body}
+  <script>window.onload = () => setTimeout(() => window.print(), 300);<\/script></body></html>`);
+  w.document.close();
 }
 function setSub(no, label, val){
   const m = loadManual(cur);
