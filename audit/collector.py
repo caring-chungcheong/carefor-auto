@@ -114,6 +114,15 @@ def run_branch_audit(
             branch_pages = analyze_branch_pages(bp_raw, cutoff)
         except Exception as e:
             progress_cb(f"[{branch_name}] 지점 페이지 수집 실패(수급자 분석은 계속): {e}")
+
+        # 항목 33 식사(간식)제공결과: 3-1-4 만족도조사 + 6-1 주간식단표 (시설 단위, ②③⑤ 자동)
+        item33 = None
+        try:
+            from .collect_item33 import collect_branch as _collect33, judge_item33
+            progress_cb(f"[{branch_name}] 33번 식사제공결과 (3-1-4 만족도·6-1 식단표)...")
+            item33 = judge_item33(_collect33(page, g_pammgno), datetime.now())
+        except Exception as e:
+            progress_cb(f"[{branch_name}] 33번 수집 실패(계속): {e}")
         browser.close()
 
     progress_cb(f"[{branch_name}] 분석 중... ({len(results)}명)")
@@ -139,6 +148,9 @@ def run_branch_audit(
                                          f"({months[0]}~{months[-1]}, 생일자 없는 달 포함)")
         except Exception as e:
             progress_cb(f"[{branch_name}] 생일쿠폰 대조 건너뜀: {e}")
+
+    if item33:
+        analysis["item_results"]["33"] = item33
 
     out = {
         "branch": branch_name,
