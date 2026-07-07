@@ -1,14 +1,18 @@
 name: 출석관리
 
-# 자동 발송은 매일 월~토 10:45 KST의 schedule cron 한 곳에서만 나간다.
-# cron-job.org의 기존 11:00 호출(workflow_dispatch, 기본 입력)은 아래 게이트에서
-# 무조건 스킵된다 — 백업 발송 없음. 수동 실행이 필요하면:
-#   - 미리보기: dry_run=true (슬랙 전송 없음)
-#   - 실제 발송: force=true
+# 발송 보장 구조 (2026-07-07):
+#   1차: 10:45 KST 예약 (GitHub cron은 몇 분 지연될 수 있음)
+#   2차: 11:00 KST 예약 — 1차가 이미 발송했으면 gate에서 자동 스킵
+#   3차: 외부(cron-job.org 등) workflow_dispatch 기본 호출 — 미발송일 때만 발송
+#   실패 시: 슬랙으로 실패 알림 전송 ("조용한 미발송" 방지)
+# 수동 실행: dry_run=true(미리보기) / force=true(무조건 발송)
+# 주의: 발송 전 시간대(10:45 이전)에 dry_run 성공 이력이 있으면 gate가 발송된 것으로
+#       오인할 수 있으므로, 오전에는 dry_run을 돌리지 말 것.
 
 on:
   schedule:
-    - cron: '45 1 * * 1-6'  # 월~토 KST 10:45 (UTC 01:45)
+    - cron: '45 1 * * 1-6'  # 월~토 KST 10:45 (UTC 01:45) — 본발송
+    - cron: '0 2 * * 1-6'   # 월~토 KST 11:00 (UTC 02:00) — 백업 (미발송 시에만)
   workflow_dispatch:
     inputs:
       dry_run:
@@ -20,7 +24,7 @@ on:
           - 'false'
           - 'true'
       force:
-        description: '수동 실제 발송 (이걸 true로 해야만 dispatch로 발송됨)'
+        description: '무조건 발송 (이미 발송됐어도)'
         required: false
         default: 'false'
         type: choice
@@ -28,12 +32,62 @@ on:
           - 'false'
           - 'true'
 
+# 동시 실행 방지: 10:45 지연분과 11:00 백업이 겹치면 순차 실행 → 뒤쪽은 gate에서 스킵
+concurrency:
+  group: daily-report
+  cancel-in-progress: false
+
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      send: ${{ steps.decide.outputs.send }}
+    steps:
+      - name: 오늘 발송 여부 판단
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          FORCE: ${{ github.event.inputs.force || 'false' }}
+          DRYRUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: |
+          python3 - <<'EOF'
+          import json, os, urllib.request
+          from datetime import datetime, timedelta, timezone
+
+          force = os.environ["FORCE"] == "true"
+          dryrun = os.environ["DRYRUN"] == "true"
+          out = open(os.environ["GITHUB_OUTPUT"], "a")
+
+          if dryrun or force:
+              out.write("send=yes\n")
+              print("강제/미리보기 — 발송 진행")
+              raise SystemExit(0)
+
+          # 오늘(KST) 이미 성공한 실행이 있으면 스킵
+          kst = timezone(timedelta(hours=9))
+          midnight = datetime.now(kst).replace(hour=0, minute=0, second=0, microsecond=0)
+          since = midnight.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+          url = (f"https://api.github.com/repos/{os.environ['REPO']}/actions/workflows/"
+                 f"daily_report.yml/runs?status=success&created=%3E%3D{since}&per_page=20")
+          req = urllib.request.Request(url, headers={
+              "Authorization": "Bearer " + os.environ["GH_TOKEN"],
+              "Accept": "application/vnd.github+json"})
+          runs = json.loads(urllib.request.urlopen(req, timeout=30).read())["workflow_runs"]
+          prior = [r for r in runs if str(r["id"]) != os.environ["RUN_ID"]]
+          if prior:
+              out.write("send=no\n")
+              print(f"오늘 이미 발송됨 ({prior[0]['run_started_at']}) — 스킵")
+          else:
+              out.write("send=yes\n")
+              print("오늘 발송 이력 없음 — 발송 진행")
+          EOF
+
   report:
     runs-on: ubuntu-latest
-    # schedule(10:45)은 항상 실행. workflow_dispatch는 force=true(실제 발송) 또는
-    # dry_run=true(미리보기)일 때만 실행 — 기본 입력으로 들어오는 11:00 외부 호출 차단.
-    if: github.event_name == 'schedule' || github.event.inputs.force == 'true' || github.event.inputs.dry_run == 'true'
+    needs: gate
+    if: needs.gate.outputs.send == 'yes'
 
     steps:
       - name: 코드 체크아웃
@@ -64,3 +118,11 @@ jobs:
           CI: "true"
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
         run: python run_headless.py
+
+      - name: 실패 알림 (슬랙)
+        if: failure()
+        env:
+          HOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -s -X POST -H 'Content-Type: application/json' \
+            -d '{"text":"⚠️ 출석관리 자동 발송 실패 — GitHub Actions 로그 확인 필요 (daily_report)"}' "$HOOK"
