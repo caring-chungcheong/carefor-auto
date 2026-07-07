@@ -70,29 +70,31 @@ def judge_item33(data, today):
     y, mth = today.year, today.month
     subs, notes = {}, []
 
-    # ② 만족도 반기별 1회 (완료된 반기만 대상)
+    # ② 만족도 반기별 1회 (3-1-4 조사 기준). 없어도 미흡 단정 불가 — 면담·상담으로도 파악 가능 → '주의'(확인요망)
     fh = len(sat.get("firstHalf", [])); sh = len(sat.get("secondHalf", []))
     p2 = []
-    if mth > 6 and fh == 0: p2.append(f"{y} 상반기 만족도조사 없음")
-    if mth == 12 and sh == 0: p2.append(f"{y} 하반기 만족도조사 없음")
-    subs["②"] = "미흡" if p2 else "양호"
-    notes.append(f"만족도조사 상반기 {fh}건·하반기 {sh}건")
+    if mth > 6 and fh == 0: p2.append(f"{y} 상반기")
+    if mth == 12 and sh == 0: p2.append(f"{y} 하반기")
+    subs["②"] = "주의" if p2 else "양호"
+    notes.append(f"만족도조사 상반기 {fh}건·하반기 {sh}건" + (f" → {'·'.join(p2)} 상담/면담 확인요망" if p2 else ""))
 
-    # ③ 결과반영 월1회 (완료된 월 중 '미작성')
+    # ③ 결과반영 월1회. 3-1-4 결과반영 칸이 비어도 실무상 상담일지(1-4)+요양기록지(3-1)에 매달 작성하므로
+    #    자동 미흡 아님 → '주의'(상담일지+요양기록지 확인요망). (사용자 확정 2026-07: 통상 1~5월 상담일지+요양기록지 작성)
     months = sat.get("months", {})
     p3 = [f"{m:02d}월" for m in range(1, mth) if months.get(f"{m:02d}") == "미작성"]
-    subs["③"] = "미흡" if p3 else "양호"
-    if p3: notes.append("결과반영 미작성: " + "·".join(p3))
+    subs["③"] = "주의" if p3 else "양호"
+    if p3: notes.append("결과반영 3-1-4 미기재 " + "·".join(p3) + " → 상담일지+요양기록지 확인요망")
 
-    # ⑤ 1식4찬 식단표 게시 (점심 밥+국+4찬 = 5개 이상)
+    # ⑤ 1식4찬 식단표 게시 (점심 밥+국+4찬 = 5개 이상) — 케어포 6-1에서 확실히 확인되므로 하드 판정
     lunch = menu.get("lunchDishes", 0)
     ok5 = bool(menu.get("hasMenu")) and lunch >= 5
     subs["⑤"] = "양호" if ok5 else "미흡"
     notes.append(f"식단표 게시 {'O' if menu.get('hasMenu') else 'X'}(점심 {lunch}찬)")
 
     bad = [k for k, v in subs.items() if v == "미흡"]
-    status = "미흡" if bad else "양호"
-    detail = ("[자동: ②만족도조사·③결과반영·⑤식단표1식4찬 / ①기피식품·④만족도면담은 수기] "
+    warn = [k for k, v in subs.items() if v == "주의"]
+    status = "미흡" if bad else ("주의" if warn else "양호")
+    detail = ("[자동: ②만족도조사·⑤식단표1식4찬 / ③결과반영은 3-1-4 미기재 시 상담일지+요양기록지 확인요망 / ①기피식품·④면담 수기] "
               + " · ".join(notes))
     return {"status": status, "sub_status": subs, "detail": detail}
 
