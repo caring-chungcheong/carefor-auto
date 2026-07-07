@@ -23,6 +23,11 @@ on:
         required: false
         default: '0'
 
+# 동시 실행 방지: cron과 수동 dispatch가 겹쳐도 순차 실행
+concurrency:
+  group: branch-audit
+  cancel-in-progress: false
+
 permissions:
   contents: write   # 요약페이지(docs/audit_summary.html) 커밋용
 
@@ -72,3 +77,11 @@ jobs:
             git commit -m "chore: 지점점검 요약페이지 자동 갱신 [skip ci]"
             git push
           fi
+
+      - name: 실패 알림 (슬랙)
+        if: failure()
+        env:
+          HOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -s -X POST -H 'Content-Type: application/json' \
+            -d '{"text":"⚠️ 지점점검 자동 실행 실패 — GitHub Actions 로그 확인 필요 (weekly_audit)"}' "$HOOK"

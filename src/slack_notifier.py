@@ -14,6 +14,7 @@ import pyperclip
 import requests
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
+from slack_sdk.http_retry.builtin_handlers import RateLimitErrorRetryHandler
 
 
 def _display_width(s: str) -> int:
@@ -121,7 +122,11 @@ def send_image_via_api(
     mention_text: str | None = None,
 ) -> None:
     """Slack Token으로 이미지를 채널에 파일로 업로드."""
-    client = WebClient(token=bot_token, retry_handlers=[])
+    # 슬랙 429(rate limit) 시 Retry-After를 읽어 자동 재시도
+    client = WebClient(
+        token=bot_token,
+        retry_handlers=[RateLimitErrorRetryHandler(max_retry_count=3)],
+    )
     channel_id = _resolve_channel_id(client, channel)
     client.files_upload_v2(
         channel=channel_id,

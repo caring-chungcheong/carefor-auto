@@ -6,6 +6,11 @@ name: 차량관리 주간 보고
 #   - 미리보기: dry_run=true (슬랙 전송 없음)
 #   - 실제 발송: force=true
 
+# 동시 실행 방지: cron과 수동/외부 dispatch가 겹쳐도 순차 실행
+concurrency:
+  group: vehicle-report
+  cancel-in-progress: false
+
 on:
   schedule:
     - cron: '10 2 * * 1'  # 매주 월 KST 11:10 (UTC 02:10)
@@ -31,6 +36,7 @@ on:
 jobs:
   vehicle-report:
     runs-on: ubuntu-latest
+    timeout-minutes: 30   # 멈춘 브라우저가 최대 6시간 방치되는 것 방지
     # schedule(월 11:10)은 항상 실행. workflow_dispatch는 force=true(실제 발송) 또는
     # dry_run=true(미리보기)일 때만 실행 — 기본 입력으로 들어오는 외부 호출 차단.
     if: github.event_name == 'schedule' || github.event.inputs.force == 'true' || github.event.inputs.dry_run == 'true'
@@ -60,3 +66,11 @@ jobs:
           DRY_RUN:         ${{ github.event.inputs.dry_run || 'false' }}
           NOTION_TOKEN:    ${{ secrets.NOTION_TOKEN }}
         run: python run_vehicle_headless.py
+
+      - name: 실패 알림 (슬랙)
+        if: failure()
+        env:
+          HOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -s -X POST -H 'Content-Type: application/json' \
+            -d '{"text":"⚠️ 차량관리 주간 보고 실패 — GitHub Actions 로그 확인 필요 (weekly_vehicle)"}' "$HOOK"
