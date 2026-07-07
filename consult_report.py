@@ -77,7 +77,8 @@ def load_rows_from_webhook() -> list[dict]:
     url = _secret("CONSULT_WEBHOOK_URL", KEY_CONSULT_WEBHOOK)
     if not url:
         raise SystemExit("consult_webhook_url 자격증명이 없습니다. Apps Script 배포 후 등록하세요.")
-    req = urllib.request.Request(f"{url}{'&' if '?' in url else '?'}sheet={urllib.parse.quote(SHEET_NAME)}")
+    # ss=main: 웹앱이 대상 스프레드시트를 고르는 필수 파라미터 (없으면 404)
+    req = urllib.request.Request(f"{url}{'&' if '?' in url else '?'}ss=main&sheet={urllib.parse.quote(SHEET_NAME)}")
     with urllib.request.urlopen(req, timeout=60) as res:
         data = json.loads(res.read().decode("utf-8"))
     if not data.get("ok"):
