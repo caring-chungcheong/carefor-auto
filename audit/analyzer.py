@@ -106,17 +106,22 @@ def analyze(results: list[dict], cutoff: str) -> dict:
             rows_check.append([p["name"], p.get("status", ""), period_txt, "기간외", "기간외", "기간외", "기간외", "기간외", "기간외"])
             continue
 
-        # ---- 항목 21: 반기별 낙상/욕창/인지 ----
+        # ---- 항목 21: 낙상/욕창/인지 (2026~ 반기별 1회 / 2024~25 연 1회) ----
+        # 매뉴얼: "'반기별 1회'는 2026.1월부터 적용" — 이전 연도를 반기로 보면 허위 누락 급증
         evals = p.get("evals", {})
         for s, e in periods:
             if _d(e) < cut_d:
                 continue
             y0 = max(_d(s).year, cut_d.year)
             for y in range(y0, cur_year + 1):
-                for half, (h_s, h_e) in {"상반기": (date(y, 1, 1), date(y, 6, 30)), "하반기": (date(y, 7, 1), date(y, 12, 31))}.items():
+                if y >= 2026:
+                    spans = {"상반기": (date(y, 1, 1), date(y, 6, 30)), "하반기": (date(y, 7, 1), date(y, 12, 31))}
+                else:
+                    spans = {"연간": (date(y, 1, 1), date(y, 12, 31))}
+                for half, (h_s, h_e) in spans.items():
                     h_s2 = max(h_s, max(_d(s), cut_d))
                     h_e2 = min(h_e, min(_d(e), date.today()))
-                    if h_s2 > h_e2 or (h_e2 - h_s2).days < 30:  # 30일 미만 재적 반기는 제외
+                    if h_s2 > h_e2 or (h_e2 - h_s2).days < 30:  # 30일 미만 재적 기간은 제외
                         continue
                     for kind, key in (("낙상", "fall"), ("욕창", "sore"), ("인지", "cog")):
                         has = any(h_s <= _d(dd) <= h_e for dd in evals.get(key, []))
