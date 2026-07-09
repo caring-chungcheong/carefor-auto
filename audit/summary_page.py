@@ -128,7 +128,7 @@ td.name{text-align:left;white-space:nowrap}
 <input id="pin" type="password" maxlength="12" inputmode="numeric" autofocus></div>
 <header><h1>📋 지점 점검 요약 (본부 공유용)</h1><div class="sub" id="gen"></div></header>
 <div class="wrap">
-<a class="back" href="hq.html">🏢 본부 허브</a>
+<a class="back" href="hq.html">← 🏢 본부 허브</a>
 <div class="cards" id="cards"></div>
 <table id="tbl"></table>
 <div class="note">· 이 페이지에는 수급자 개인정보가 포함되어 있지 않습니다 (지점 단위 집계만).<br>

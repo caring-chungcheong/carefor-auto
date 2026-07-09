@@ -145,7 +145,7 @@ tr.sum td{background:#f6f8fc;font-weight:bold}
 <input id="pin" type="password" maxlength="12" inputmode="numeric" autofocus></div>
 <header><h1>☎️ 상담 현황 요약 (본부 공유용)</h1><div class="sub">생성: __GEN__ · __CUTOFF__~ 누적 · 전일자 기준</div></header>
 <div class="wrap">
-<a class="back" href="hq.html">🏢 본부 허브</a>
+<a class="back" href="hq.html">← 🏢 본부 허브</a>
 <h2>📋 신규상담 상담시트 입력 현황</h2>
 __CONSULT_TABLE__
 <h2>📞 센터별 상담 대기 명단</h2>
