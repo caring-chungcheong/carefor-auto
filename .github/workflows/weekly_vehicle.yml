@@ -1,12 +1,14 @@
 name: 차량관리 (매일 시트갱신 · 월요일 보고)
 
 # run-name에 '갱신만'인지 '보고'인지 남겨 실행 목록에서 바로 구분.
-run-name: "차량관리 ${{ (github.event.schedule == '0 0 * * *' || github.event.inputs.dry_run == 'true') && '[시트갱신]' || '[보고]' }}"
+run-name: "차량관리 ${{ (github.event.schedule == '0 0 * * 1-6' || github.event.inputs.dry_run == 'true') && '[시트갱신]' || '[보고]' }}"
 
 # 스케줄 2개:
-#   · 매일 09:00 KST — 케어포 주행거리/오일 + cyberts 검사기간을 구글시트에 갱신만
-#     (DRY_RUN=true → 슬랙 발송 없음. 시트 저장은 그대로 수행)
+#   · 월~토 09:00 KST — 케어포 주행거리/오일 + cyberts 검사기간을 구글시트에 갱신만
+#     (DRY_RUN=true → 슬랙 발송 없음. 시트 저장은 그대로 수행. 일요일은 안 돎)
 #   · 매주 월 11:10 KST — 위와 동일 수집 후 슬랙 보고까지 발송
+# ⚠️ 위 갱신 크론 문자열을 바꾸면 run-name·DRY_RUN 식의 비교값도 함께 고쳐야 한다
+#    (안 고치면 갱신 런이 슬랙을 발송한다).
 # cron-job.org의 기존 호출(workflow_dispatch, 기본 입력)은 아래 게이트에서
 # 무조건 스킵된다 — 중복 발송 없음. 수동 실행이 필요하면:
 #   - 미리보기(시트만 갱신): dry_run=true
@@ -19,7 +21,7 @@ concurrency:
 
 on:
   schedule:
-    - cron: '0 0 * * *'   # 매일 KST 09:00 (UTC 00:00) — 시트 갱신만
+    - cron: '0 0 * * 1-6'  # 월~토 KST 09:00 (UTC 00:00) — 시트 갱신만 (일요일 제외)
     - cron: '10 2 * * 1'  # 매주 월 KST 11:10 (UTC 02:10) — 슬랙 보고 발송
   workflow_dispatch:
     inputs:
@@ -72,7 +74,7 @@ jobs:
           CAREFOR_ID:      ${{ secrets.CAREFOR_ID }}
           CAREFOR_PW:      ${{ secrets.CAREFOR_PW }}
           # 매일 09:00 크론은 시트 갱신만(슬랙 발송 없음). 월 11:10 크론·force는 발송.
-          DRY_RUN: ${{ (github.event.schedule == '0 0 * * *' || github.event.inputs.dry_run == 'true') && 'true' || 'false' }}
+          DRY_RUN: ${{ (github.event.schedule == '0 0 * * 1-6' || github.event.inputs.dry_run == 'true') && 'true' || 'false' }}
           NOTION_TOKEN:    ${{ secrets.NOTION_TOKEN }}
         run: python run_vehicle_headless.py
 
