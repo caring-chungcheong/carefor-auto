@@ -87,6 +87,21 @@
     });
     return out;
   }
+  function parseCog(html) {
+    // 인지 평가 팝업: 점수 있는 행을 {라벨:{score,text}} + 총점/합계 추출 (구조 미상이라 방어적)
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const out = {}; let total = -1;
+    Array.from(doc.querySelectorAll('tr')).forEach(r => {
+      const t = r.textContent.replace(/\s+/g, ' ').trim();
+      const sm = t.match(/(\d+)\s*점\s*$/);
+      if (!sm) return;
+      const label = t.split(' ')[0];
+      if (label && !out[label]) out[label] = { score: +sm[1], text: t.substring(0, 90) };
+      if (/총점|CIST\s*총|합계점수/.test(t)) total = +sm[1];
+    });
+    if (total < 0) { total = Object.values(out).reduce((s, v) => s + (v.score || 0), 0); }  // 총점행 없으면 문항합
+    return { scores: out, total };
+  }
   function parseNeeds(html) {
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const res = { sit: '?', tr: '?', toilet: '?', nutrition: '?' };
@@ -232,7 +247,7 @@
         if (await clickTab('표준약관')) { await sleep(400); contracts = parseContracts(); }
 
         const evals = { fall: [], sore: [], cog: [] };
-        const falls = [], needsArr = [], plans = [], sores = [];
+        const falls = [], needsArr = [], plans = [], sores = [], cogs = [];
         if (await clickTab('기초평가')) {
           for (const yr of yearTabs) {
             const tabs = Array.from(document.querySelectorAll('span.btn_month, span.btn_month_on'));
@@ -271,6 +286,20 @@
                 }
                 closeModalSync();
               }
+              if (cd && !cogs.some(c => c.date === cd)) {
+                closeModalSync();
+                const p2c = anyXhrWait('지남력', 15000);  // 인지(CIST) 팝업 응답 (지남력 항상 포함)
+                const cogCell = (rd.fallCell && rd.fallCell.nextElementSibling && rd.fallCell.nextElementSibling.nextElementSibling) ? rd.fallCell.nextElementSibling.nextElementSibling : null;
+                if (cogCell) {
+                  cogCell.click();
+                  const htmlC = await p2c;
+                  if (htmlC) {
+                    if (!window.__AUDIT.cogSample) window.__AUDIT.cogSample = htmlC.substring(0, 8000);
+                    const pc = parseCog(htmlC); cogs.push({ date: cd, scores: pc.scores, total: pc.total });
+                  } else cogs.push({ date: cd, scores: null, total: -1 });
+                }
+                closeModalSync();
+              }
               const nd = /재사정|신규/.test(rd.needs) ? dateOf(rd.needs) : '';
               if (nd && !needsArr.some(n => n.date === nd)) {
                 closeModalSync();
@@ -302,7 +331,7 @@
             }
           }
         }
-        window.__AUDIT.results.push({ name, status, enroll, contracts, evals, falls, sores, needs: needsArr, plans });
+        window.__AUDIT.results.push({ name, status, enroll, contracts, evals, falls, sores, cogs, needs: needsArr, plans });
       }
       closeModalSync();
       window.__AUDIT.progress = 'DONE';

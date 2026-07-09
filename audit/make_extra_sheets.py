@@ -1,7 +1,7 @@
 # 6개 추가 대조 규칙 분석 → 지점별 엑셀에 '추가대조' 시트 생성
 # R1: 낙상 배변>=1 → 화장실 완전자립 불가
 # R2: 욕창 영양상태 !=4 → 욕구 영양상태 '양호' 불가
-# R3: 욕창 움직임 <=3 → 일어나/옮겨 완전자립 불가
+# R3: 욕창 움직임 <=2 → 일어나/옮겨 완전자립 불가 (3점=약간제한은 완전자립과 양립, 제외 — 사용자 확정 2026-07-09)
 # R4: 낙상 정신상태>=1 → 일어나/옮겨 완전자립 불가
 # R5: 낙상 합계>=11 → 옮겨앉기 완전자립 불가
 # R6: 욕창 습기여부 !=4 → 화장실 완전자립 불가
@@ -14,12 +14,12 @@ sys.stdout.reconfigure(encoding="utf-8")
 from openpyxl import load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
-BASE = r"C:\Users\alsgm\Desktop\클로드코드"
+BASE = r"C:\Users\alsgm\OneDrive\Desktop\클로드코드"
 BRANCHES = {
     "둔산점": (rf"{BASE}\carefor-auto\audit_results\둔산점.json", rf"{BASE}\둔산점_낙상위험도_욕구사정_대조결과.xlsx", "2024.01.01"),
     "서구점": (rf"{BASE}\carefor-auto\audit_results\서구점.json", rf"{BASE}\서구점_낙상위험도_욕구사정_대조결과.xlsx", "2025.01.01"),
     "천안점": (rf"{BASE}\carefor-auto\audit_results\천안점.json", rf"{BASE}\천안점_낙상위험도_욕구사정_대조결과.xlsx", "2024.05.31"),
-    "청주 오창점": (rf"{BASE}\carefor-auto\audit_results\청주 오창점.json", rf"{BASE}\낙상위험도_욕구사정_대조결과.xlsx", "2024.07.31"),
+    "청주 오창점": (rf"{BASE}\carefor-auto\audit_results\청주 오창점.json", rf"{BASE}\청주점_낙상위험도_욕구사정_대조결과.xlsx", "2024.07.31"),
 }
 
 toN = lambda d: int(str(d).replace(".", ""))
@@ -99,7 +99,7 @@ def analyze_branch(branch, src, cutoff):
             if nut_s is not None and nut_s != 4:
                 rows.append([name, status, "R2 영양상태→욕구영양", s["date"], f"영양상태 {nut_s}점", nd,
                              f"욕구 영양: {nut_n}", verdict(True, nut_n, "양호")])
-            if mob_s is not None and mob_s <= 3:
+            if mob_s is not None and mob_s <= 2:
                 v_sit = verdict(True, sit, "완전자립")
                 v_tr = verdict(True, tr, "완전자립")
                 v = "불일치" if "불일치" in (v_sit, v_tr) else ("확인필요(미체크)" if "확인필요(미체크)" in (v_sit, v_tr) else "일치")
@@ -133,7 +133,7 @@ def write_sheet(xlsx, branch, cutoff, rows):
 
     ws["A1"] = f"추가 대조 6개 규칙 — {branch} (기준일 {cutoff}~)"
     ws["A1"].font = Font(name="맑은 고딕", bold=True, size=13)
-    ws["A2"] = ("R1 배변≥1→화장실 | R2 욕창영양≠4→욕구영양'양호'불가 | R3 움직임≤3→일어나/옮겨 | "
+    ws["A2"] = ("R1 배변≥1→화장실 | R2 욕창영양≠4→욕구영양'양호'불가 | R3 움직임≤2→일어나/옮겨 | "
                 "R4 정신상태≥1→일어나/옮겨 | R5 낙상합계≥11→옮겨 | R6 습기≠4→화장실")
     ws["A2"].font = base_font
     ws["A3"] = f"전체 {len(rows)}건 중 불일치 {n_disc}건 — " + ", ".join(f"{k} {v}건" for k, v in sorted(per_rule.items())) \

@@ -375,32 +375,60 @@ def scrape_car_oil_change(page: Page, default_interval: int = 8000) -> dict:
     반환: {"oilDate": "2026-02-06", "oilKm": 40567, "oilNextKm": 48567}
     기록 없으면 {}
     """
-    rows = page.evaluate("""
-        Array.from(document.querySelectorAll('tr')).map(tr =>
-            Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim())
-        ).filter(r => r.length >= 3)
-    """)
+    # 정비기록이 <tr>/<td> 테이블이 아닌 커스텀 구조라 innerText에서 직접 파싱
+    body = page.evaluate("document.body.innerText")
+    # 보이지 않는 제어문자 제거 (U+200E 등)
+    body = re.sub(u"[​-‏  ﻿]", "", body)
+    lines = [l.strip() for l in body.split('\n')]
 
-    oil_rows = [r for r in rows if any('엔진오일' in c and '교환' in c for c in r)]
+    # 레코드 = 날짜(YYYY.MM.DD) 줄부터 다음 날짜 줄(또는 '조회' 구분) 전까지
+    date_pat = re.compile(r'^\d{4}\.\d{2}\.\d{2}$')
+    records: list[str] = []
+    cur: list[str] | None = None
+    for line in lines:
+        if date_pat.match(line):
+            if cur:
+                records.append(' '.join(cur))
+            cur = [line]
+        elif cur is not None:
+            if line == '조회':
+                records.append(' '.join(cur))
+                cur = None
+            elif line:
+                cur.append(line)
+    if cur:
+        records.append(' '.join(cur))
+
+    oil_rows = [r for r in records if ('엔진오일' in r and '교환' in r)]
     if not oil_rows:
         return {}
 
-    # 최신 기록 = 첫 번째 행 (내림차순 정렬 기준)
-    row_text = ' '.join(oil_rows[0])
+    # 최신 기록 = 첫 번째 (내림차순 정렬 기준)
+    row_text = oil_rows[0]
+    print(f"  [OIL] 최신 오일 기록: {row_text[:150]}")
 
     date_m = re.search(r'(\d{4})\.(\d{2})\.(\d{2})', row_text)
     oil_date = f"{date_m.group(1)}-{date_m.group(2)}-{date_m.group(3)}" if date_m else None
 
-    km_m = re.search(r'엔진오일\s*교환\s*[\(（]?\s*([\d,]+)\s*km', row_text)
+    # 교환 km: 형식1) 현 주행거리 80,829km  형식2) 엔진오일 교환(1000km)
+    # '현 주행거리'를 먼저 확인 — '차후 엔진오일 교환 NNkm'이 교환km 패턴에 잘못 걸리는 것 방지
+    km_m = re.search(r'현\s*주행거리\s*([\d,]+)\s*km', row_text) \
+        or re.search(r'(?<!차후)(?<!차후\s)엔진오일\s*교환\s*[\(（]?\s*([\d,]+)\s*km', row_text)
     oil_km = int(km_m.group(1).replace(',', '')) if km_m else None
 
-    next_km_m = re.search(r'다음교체주기\s*([\d,]+)\s*km', row_text)
+    # 다음 교환 km: 형식1) 다음교체주기 9000km  형식2) 차후 엔진오일 교환 88,829km
+    next_km_m = re.search(r'다음교체주기\s*([\d,]+)\s*km', row_text) \
+        or re.search(r'차후\s*엔진오일\s*교환\s*([\d,]+)\s*km', row_text)
     if next_km_m:
         oil_next_km = int(next_km_m.group(1).replace(',', ''))
     elif oil_km is not None:
         oil_next_km = oil_km + default_interval
     else:
         oil_next_km = None
+
+    # 교환 km를 못 찾았지만 다음 교환 km는 있으면 역산으로 추정
+    if oil_km is None and oil_next_km is not None:
+        oil_km = oil_next_km - default_interval
 
     result = {}
     if oil_date:
