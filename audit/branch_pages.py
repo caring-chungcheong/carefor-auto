@@ -1034,23 +1034,33 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
             if not any(lo <= r["date"] <= hi for r in recs):
                 disaster_miss.append(f"{y} {half}")
 
-    # ---- 항목 19①: 노인인권 교육 반기별 ----
+    # ---- 항목 19①: 노인인권 교육 (2026~ 반기별 / 2024~25 연1회) ----
     rights_miss = []
     rights_note = []
     for y in years:
         recs = [r for r in edu_parsed[y]["records"] if "노인인권" in r["name"] or "학대" in r["name"]]
-        for half, lo, hi, h_start, end in (
-            ("상반기", f"{y}.01.01", f"{y}.06.30", date(y, 1, 1), date(y, 6, 30)),
-            ("하반기", f"{y}.07.01", f"{y}.12.31", date(y, 7, 1), date(y, 12, 31)),
-        ):
-            if not _period_ok(h_start, end):
-                continue
-            has = any(lo <= r["date"] <= hi for r in recs)
-            if not has:
-                if end < today:
-                    rights_miss.append(f"{y} {half}")
-                elif date(today.year, today.month, 1) > datetime.strptime(lo, "%Y.%m.%d").date():
-                    rights_note.append(f"{y} {half} 미작성(진행중)")
+        if y >= 2026:
+            # 매뉴얼상 '반기별 1회' 기준은 2026.1월부터 적용
+            for half, lo, hi, h_start, end in (
+                ("상반기", f"{y}.01.01", f"{y}.06.30", date(y, 1, 1), date(y, 6, 30)),
+                ("하반기", f"{y}.07.01", f"{y}.12.31", date(y, 7, 1), date(y, 12, 31)),
+            ):
+                if not _period_ok(h_start, end):
+                    continue
+                has = any(lo <= r["date"] <= hi for r in recs)
+                if not has:
+                    if end < today:
+                        rights_miss.append(f"{y} {half}")
+                    elif date(today.year, today.month, 1) > datetime.strptime(lo, "%Y.%m.%d").date():
+                        rights_note.append(f"{y} {half} 미작성(진행중)")
+        else:
+            # 2024~2025는 연 1회 기준 — 반기로 판정하면 허위 미흡(예: 하반기만 실시)
+            if _period_ok(date(y, 1, 1), date(y, 12, 31)):
+                if not any(f"{y}.01.01" <= r["date"] <= f"{y}.12.31" for r in recs):
+                    if y < today.year:
+                        rights_miss.append(f"{y}년 노인인권교육 없음(연1회 기준)")
+                    else:
+                        rights_note.append(f"{y}년 노인인권교육 미실시(진행중)")
         # 서명 미완: n/m 합계 기준
         for r in recs:
             if r["sign"] and r["sign"][1] - r["sign"][0] > 0:
