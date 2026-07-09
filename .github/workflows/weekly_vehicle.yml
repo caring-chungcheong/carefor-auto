@@ -1,9 +1,15 @@
-name: 차량관리 주간 보고
+name: 차량관리 (매일 시트갱신 · 월요일 보고)
 
-# 자동 발송은 매주 월요일 11:10 KST의 schedule cron 한 곳에서만 나간다.
+# run-name에 '갱신만'인지 '보고'인지 남겨 실행 목록에서 바로 구분.
+run-name: "차량관리 ${{ (github.event.schedule == '0 0 * * *' || github.event.inputs.dry_run == 'true') && '[시트갱신]' || '[보고]' }}"
+
+# 스케줄 2개:
+#   · 매일 09:00 KST — 케어포 주행거리/오일 + cyberts 검사기간을 구글시트에 갱신만
+#     (DRY_RUN=true → 슬랙 발송 없음. 시트 저장은 그대로 수행)
+#   · 매주 월 11:10 KST — 위와 동일 수집 후 슬랙 보고까지 발송
 # cron-job.org의 기존 호출(workflow_dispatch, 기본 입력)은 아래 게이트에서
 # 무조건 스킵된다 — 중복 발송 없음. 수동 실행이 필요하면:
-#   - 미리보기: dry_run=true (슬랙 전송 없음)
+#   - 미리보기(시트만 갱신): dry_run=true
 #   - 실제 발송: force=true
 
 # 동시 실행 방지: cron과 수동/외부 dispatch가 겹쳐도 순차 실행
@@ -13,7 +19,8 @@ concurrency:
 
 on:
   schedule:
-    - cron: '10 2 * * 1'  # 매주 월 KST 11:10 (UTC 02:10)
+    - cron: '0 0 * * *'   # 매일 KST 09:00 (UTC 00:00) — 시트 갱신만
+    - cron: '10 2 * * 1'  # 매주 월 KST 11:10 (UTC 02:10) — 슬랙 보고 발송
   workflow_dispatch:
     inputs:
       dry_run:
@@ -37,8 +44,9 @@ jobs:
   vehicle-report:
     runs-on: ubuntu-latest
     timeout-minutes: 30   # 멈춘 브라우저가 최대 6시간 방치되는 것 방지
-    # schedule(월 11:10)은 항상 실행. workflow_dispatch는 force=true(실제 발송) 또는
-    # dry_run=true(미리보기)일 때만 실행 — 기본 입력으로 들어오는 외부 호출 차단.
+    # schedule(매일 09:00 갱신 / 월 11:10 보고)은 항상 실행. workflow_dispatch는
+    # force=true(실제 발송) 또는 dry_run=true(미리보기)일 때만 실행
+    # — 기본 입력으로 들어오는 외부 호출 차단.
     if: github.event_name == 'schedule' || github.event.inputs.force == 'true' || github.event.inputs.dry_run == 'true'
 
     steps:
@@ -63,7 +71,8 @@ jobs:
           SLACK_CHANNEL:   C0870HLTG9Z
           CAREFOR_ID:      ${{ secrets.CAREFOR_ID }}
           CAREFOR_PW:      ${{ secrets.CAREFOR_PW }}
-          DRY_RUN:         ${{ github.event.inputs.dry_run || 'false' }}
+          # 매일 09:00 크론은 시트 갱신만(슬랙 발송 없음). 월 11:10 크론·force는 발송.
+          DRY_RUN: ${{ (github.event.schedule == '0 0 * * *' || github.event.inputs.dry_run == 'true') && 'true' || 'false' }}
           NOTION_TOKEN:    ${{ secrets.NOTION_TOKEN }}
         run: python run_vehicle_headless.py
 

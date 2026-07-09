@@ -171,6 +171,26 @@ def load_excluded_phones() -> set:
     return s
 
 
+def load_wait_counts() -> dict:
+    """지점별 상담 대기(아웃콜) 건수 — '센터별 상담 대기 명단' 시트에서 집계.
+    실패해도 빈 dict 반환(대기 줄 생략, 공지 본체는 정상 발송)."""
+    try:
+        import waitlist_report as wr
+        rows = wr.load_rows()
+    except Exception as e:
+        print(f"[경고] 대기명단 로드 실패(대기 줄 생략): {e}")
+        return {}
+    counts = {short: 0 for short, _ in CENTER_ORDER}
+    for row in rows[2:]:  # 헤더 2줄
+        if len(row) >= 9 and str(row[0]).strip():
+            center = wr.parse_center(str(row[0])).replace(" ", "")
+            for short, _ in CENTER_ORDER:
+                if center.startswith(short):
+                    counts[short] += 1
+                    break
+    return counts
+
+
 def annotate_missing(rows: list) -> list:
     """각 행에 r['missing'] 설정 = 번호가 상담시트에 없고 제외번호도 아님.
     상담시트/제외번호 로드 실패 시 기존 본사 Y/N(sheet_entered)로 안전 대체(공지 끊김 방지)."""
@@ -189,8 +209,9 @@ def annotate_missing(rows: list) -> list:
 
 
 # ---------- 메시지 생성 ----------
-def build_message(rows: list[dict], today: date) -> dict:
-    """슬랙 Block Kit 페이로드 생성 (text는 알림용 폴백)."""
+def build_message(rows: list[dict], today: date, wait_counts: dict | None = None) -> dict:
+    """슬랙 Block Kit 페이로드 생성 (text는 알림용 폴백).
+    wait_counts: {짧은센터명: 대기(아웃콜) 건수} — 있으면 표에 한 줄 추가."""
     weekday = "월화수목금토일"[today.weekday()]
     title = "☎️ 신규상담 시트 입력 현황(아롱이)"
     subtitle = f"{today.strftime('%Y.%m.%d')}({weekday}) · 전일자 기준 · 2026년 5월~ 누적"
@@ -216,6 +237,10 @@ def build_message(rows: list[dict], today: date) -> dict:
     lines = [header, sep]
     for label, vals in [("신규상담(누적)", totals), ("시트 미입력", misses), ("미입력률", rates)]:
         lines.append(_rpad(label, LABEL_W) + "".join(_lpad(v, w) for v, w in zip(vals, col_ws)))
+    if wait_counts:  # 지점별 상담 대기(아웃콜) 건수 한 줄
+        wait_vals = [str(wait_counts.get(n, 0)) for n in names]
+        lines.append(sep)
+        lines.append(_rpad("대기(아웃콜)", LABEL_W) + "".join(_lpad(v, w) for v, w in zip(wait_vals, col_ws)))
     table = "\n".join(lines)
 
     blocks = [
@@ -225,7 +250,7 @@ def build_message(rows: list[dict], today: date) -> dict:
             "text": "💛 상담 한 분 한 분이 소중한 인연입니다 — 오늘의 상담 한 통이 어르신과의 첫 만남이 됩니다."}},
         {"type": "section", "text": {"type": "mrkdwn", "text": f"```\n{table}\n```"}},
         {"type": "context", "elements": [{"type": "mrkdwn",
-            "text": "📝 상담시트 입력 부탁드립니다. 상세 명단(연락처 포함)은 엑셀 링크 공지 참조."}]},
+            "text": "📝 상담시트 입력 부탁드립니다. 미입력·대기(아웃콜) 상세 명단(연락처 포함)은 엑셀 링크 공지 참조."}]},
     ]
     fallback = f"{title} {subtitle}"
     return {"text": fallback, "blocks": blocks}
@@ -255,7 +280,8 @@ def main():
     rows = load_rows_from_tsv(args.tsv) if args.tsv else load_rows_from_webhook()
     print(f"데이터 {len(rows)}건 로드")
 
-    msg = build_message(rows, date.today())
+    wait_counts = {} if args.tsv else load_wait_counts()  # TSV(테스트)는 네트워크 생략
+    msg = build_message(rows, date.today(), wait_counts)
     if os.environ.get("GITHUB_ACTIONS"):
         # 공개 저장소 로그에 연락처가 남지 않도록 전문은 출력하지 않음
         print("메시지 생성 완료")
