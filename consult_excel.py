@@ -19,8 +19,10 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
 
 from openpyxl import Workbook
+from openpyxl.comments import Comment
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.datavalidation import DataValidation
 
 import consult_report as cr
 import waitlist_report as wr
@@ -32,9 +34,9 @@ HEADER_FONT = Font(bold=True, color="FFFFFF")
 URGENT_FILL = PatternFill("solid", fgColor="FFC7CE")   # 입소완료 미입력 / 기한 지남
 TODAY_FILL = PatternFill("solid", fgColor="FFEB9C")    # 오늘 예정
 
-# 맨 앞 '제외(O)' 열: 지점이 주간보호 아닌 건에 O(또는 아무 표시) → 다음 발송 때 제외번호 자동 등록.
-MISS_COLS = ["제외(O)", "센터명", "구분", "연월", "해당 주차", "상담일자", "급여개시일자", "고객 번호", "입소 여부",
-             "케어포 등록", "케어포 지점", "수급자명", "수급현황", "케어포 개시일", "AI 요약"]
+# 맨 뒤 '제외 ✔' 열: 지점이 주간보호 아닌 건에 ✔ 선택(클릭) → 다음 발송 때 제외번호 자동 등록.
+MISS_COLS = ["센터명", "구분", "연월", "해당 주차", "상담일자", "급여개시일자", "고객 번호", "입소 여부",
+             "케어포 등록", "케어포 지점", "수급자명", "수급현황", "케어포 개시일", "AI 요약", "제외 ✔"]
 WAIT_COLS = ["센터명", "아웃콜 차수", "예정일자", "기한 경과(일)", "연락처", "첫 상담일"]
 SUMMARY_COLS = ["센터", "신규상담(누적)", "시트 미입력", "미입력률", "⚠️ 입소완료 미입력", "당월 미입력",
                 "상담 대기", "기한 지남"]
@@ -85,15 +87,28 @@ def add_miss_sheet(wb: Workbook, rows: list[dict], ym: str, carefor_lookup=None)
             cf_cols = ["Y", pt["branch"], pt["name"], pt["status"], pt["start"]]
         else:
             cf_cols = ["N" if carefor_lookup else "", "", "", "", ""]
-        ws.append(["", r["center"], kind, r["yearmonth"], r["week"], r["consult_date"],
-                   r["start_date"], r["phone"], r["admitted"], *cf_cols, r["summary"]])
+        ws.append([r["center"], kind, r["yearmonth"], r["week"], r["consult_date"],
+                   r["start_date"], r["phone"], r["admitted"], *cf_cols, r["summary"], ""])
         if r["admitted"] == "Y":
             for cell in ws[ws.max_row]:
                 cell.fill = URGENT_FILL
-    _style_sheet(ws, [9, 12, 17, 12, 16, 12, 13, 14, 9, 10, 11, 11, 10, 12, 60])
-    # '제외(O)' 열 안내색 (연노랑) — 지점이 여기에 O 표시
-    for cell in ws["A"][1:]:
+    _style_sheet(ws, [12, 17, 12, 16, 12, 13, 14, 9, 10, 11, 11, 10, 12, 60, 10])
+    # 맨 뒤 '제외 ✔' 열: 클릭→✔ 선택(드롭다운) → 다음 발송 때 자동 제외
+    ex_col = get_column_letter(len(MISS_COLS))          # 제외 열
+    note_col = get_column_letter(len(MISS_COLS) + 1)    # 옆 안내 열
+    last = ws.max_row
+    for cell in ws[ex_col][1:]:
         cell.fill = TODAY_FILL
+    if last >= 2:
+        dv = DataValidation(type="list", formula1='"✔"', allow_blank=True)
+        ws.add_data_validation(dv)
+        dv.add(f"{ex_col}2:{ex_col}{last}")
+    ws[f"{ex_col}1"].comment = Comment(
+        "주간보호가 아닌 건(요양원 문의·요양보호사 구인·방문요양 등)이면\n"
+        "이 칸을 클릭해 ✔ 선택 → 다음 발송 때 자동으로 제외됩니다.", "안내")
+    ws[f"{note_col}1"] = "◀ 예시) 요양원 문의·요양보호사 구인·방문요양 등 주간보호 아닌 건은 클릭해 ✔ (다음날 자동 제외)"
+    ws[f"{note_col}1"].font = Font(color="C00000", bold=True)
+    ws.column_dimensions[note_col].width = 50
 
 
 def add_wait_sheet(wb: Workbook, items: list[dict]) -> None:
