@@ -18,7 +18,7 @@ td.brk{text-align:left;color:#555;font-size:12px}
 tr.sum td{background:#f6f8fc;font-weight:bold}
 .ok{color:#2c8a41}.bad{color:#c02020;font-weight:bold}.warn{color:#b57a00;font-weight:bold}
 .empty{background:#fff;border-radius:8px;padding:24px;text-align:center;color:#888;box-shadow:0 2px 6px rgba(0,0,0,.08)}
-.back{display:inline-block;margin:14px 0 0;color:#2f5496;text-decoration:none;font-size:13px}
+.back{display:inline-block;margin:0 0 12px;background:#eef2f9;color:#2f5496;padding:6px 14px;border-radius:16px;text-decoration:none;font-size:13px;font-weight:bold}
 .note{font-size:11px;color:#777;margin-top:16px;line-height:1.7}
 #gate{position:fixed;inset:0;background:#2f5496;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#fff}
 #gate input{font-size:22px;padding:8px 14px;border-radius:8px;border:0;width:130px;text-align:center;letter-spacing:6px}
@@ -27,11 +27,11 @@ tr.sum td{background:#f6f8fc;font-weight:bold}
 <input id="pin" type="password" maxlength="12" inputmode="numeric" autofocus></div>
 <header><h1>☎️ 상담 현황 요약 (본부 공유용)</h1><div class="sub">생성: 2026-07-09 · 2026년 05월~ 누적 · 전일자 기준</div></header>
 <div class="wrap">
+<a class="back" href="hq.html">🏢 본부 허브</a>
 <h2>📋 신규상담 상담시트 입력 현황</h2>
-<table><tr><th>센터</th><th>신규상담(누적)</th><th>시트 미입력</th><th>미입력률</th></tr><tr><td class="name">둔산</td><td>49</td><td class="bad">29</td><td class="bad">59%</td></tr><tr><td class="name">서구</td><td>46</td><td class="bad">12</td><td class="warn">26%</td></tr><tr><td class="name">천안</td><td>45</td><td class="bad">3</td><td class="warn">7%</td></tr><tr><td class="name">청주오창</td><td>12</td><td class="bad">2</td><td class="warn">17%</td></tr><tr class="sum"><td class="name">합계</td><td>152</td><td class="bad">46</td><td>30%</td></tr></table>
+<table><tr><th>센터</th><th>신규상담(누적)</th><th>시트 미입력</th><th>미입력률</th></tr><tr><td class="name">둔산</td><td>49</td><td class="bad">29</td><td class="bad">59%</td></tr><tr><td class="name">서구</td><td>46</td><td class="bad">12</td><td class="warn">26%</td></tr><tr><td class="name">천안</td><td>45</td><td class="ok">0</td><td class="ok">0%</td></tr><tr><td class="name">청주오창</td><td>12</td><td class="bad">2</td><td class="warn">17%</td></tr><tr class="sum"><td class="name">합계</td><td>152</td><td class="bad">43</td><td>28%</td></tr></table>
 <h2>📞 센터별 상담 대기 명단</h2>
-<table><tr><th>센터</th><th>대기 건수</th><th>기한경과</th><th>아웃콜 차수 분포</th></tr><tr><td class="name">서구점</td><td>5</td><td class="bad">5</td><td class="brk">1차 아웃콜 1 · 2차 아웃콜 3 · 3차 아웃콜 1</td></tr><tr><td class="name">천안점</td><td>11</td><td class="bad">11</td><td class="brk">1차 아웃콜 8 · 2차 아웃콜 1 · 3차 아웃콜 1 · 대면상담 1</td></tr><tr class="sum"><td class="name">합계</td><td>16</td><td colspan="2"></td></tr></table>
-<a class="back" href="hq.html">← 본부 공유 허브로</a>
+<table><tr><th>센터</th><th>대기 건수</th><th>기한경과</th><th>아웃콜 차수 분포</th></tr><tr><td class="name">서구점</td><td>5</td><td class="bad">5</td><td class="brk">1차 아웃콜 1 · 2차 아웃콜 3 · 3차 아웃콜 1</td></tr><tr><td class="name">천안점</td><td>8</td><td class="bad">8</td><td class="brk">1차 아웃콜 6 · 2차 아웃콜 1 · 3차 아웃콜 1</td></tr><tr class="sum"><td class="name">합계</td><td>13</td><td colspan="2"></td></tr></table>
 <div class="note">· 이 페이지에는 수급자 개인정보(이름·연락처)가 포함되어 있지 않습니다 — 센터 단위 집계만.<br>
 · 건별 상세(첫상담일·예정일·연락처)는 슬랙 엑셀 링크 공지에서만 확인할 수 있습니다.<br>
 · 미입력률 <span class="bad">30% 이상</span> 붉은색 · 대기 명단은 결과 입력 시 자동 제외.</div>

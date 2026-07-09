@@ -136,7 +136,7 @@ td.brk{text-align:left;color:#555;font-size:12px}
 tr.sum td{background:#f6f8fc;font-weight:bold}
 .ok{color:#2c8a41}.bad{color:#c02020;font-weight:bold}.warn{color:#b57a00;font-weight:bold}
 .empty{background:#fff;border-radius:8px;padding:24px;text-align:center;color:#888;box-shadow:0 2px 6px rgba(0,0,0,.08)}
-.back{display:inline-block;margin:14px 0 0;color:#2f5496;text-decoration:none;font-size:13px}
+.back{display:inline-block;margin:0 0 12px;background:#eef2f9;color:#2f5496;padding:6px 14px;border-radius:16px;text-decoration:none;font-size:13px;font-weight:bold}
 .note{font-size:11px;color:#777;margin-top:16px;line-height:1.7}
 #gate{position:fixed;inset:0;background:#2f5496;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#fff}
 #gate input{font-size:22px;padding:8px 14px;border-radius:8px;border:0;width:130px;text-align:center;letter-spacing:6px}
@@ -145,11 +145,11 @@ tr.sum td{background:#f6f8fc;font-weight:bold}
 <input id="pin" type="password" maxlength="12" inputmode="numeric" autofocus></div>
 <header><h1>☎️ 상담 현황 요약 (본부 공유용)</h1><div class="sub">생성: __GEN__ · __CUTOFF__~ 누적 · 전일자 기준</div></header>
 <div class="wrap">
+<a class="back" href="hq.html">🏢 본부 허브</a>
 <h2>📋 신규상담 상담시트 입력 현황</h2>
 __CONSULT_TABLE__
 <h2>📞 센터별 상담 대기 명단</h2>
 __WAITLIST_TABLE__
-<a class="back" href="hq.html">← 본부 공유 허브로</a>
 <div class="note">· 이 페이지에는 수급자 개인정보(이름·연락처)가 포함되어 있지 않습니다 — 센터 단위 집계만.<br>
 · 건별 상세(첫상담일·예정일·연락처)는 슬랙 엑셀 링크 공지에서만 확인할 수 있습니다.<br>
 · 미입력률 <span class="bad">30% 이상</span> 붉은색 · 대기 명단은 결과 입력 시 자동 제외.</div>

@@ -34,13 +34,15 @@ _GATE_HEAD = """<meta name="robots" content="noindex, nofollow">
 #hqgate{position:fixed;inset:0;background:#2f5496;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#fff}
 #hqgate input{font-size:22px;padding:8px 14px;border-radius:8px;border:0;width:130px;text-align:center;letter-spacing:6px}
 button[onclick^="uploadScores"]{display:none!important}
+.hqback{background:#fff;color:#2f5496;padding:6px 14px;border-radius:16px;text-decoration:none;font-size:13px;font-weight:bold;white-space:nowrap;align-self:center;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.2)}
 </style>
 """
 _GATE_BODY = """<div id="hqgate"><h2 style="color:#fff">🔒 지점 점검 대시보드 (본부 공유)</h2>
 <div>접속 번호를 입력하세요</div>
 <input id="hqpin" type="password" maxlength="12" inputmode="numeric" autofocus></div>
-<a href="hq.html" title="본부 공유 허브로" style="position:fixed;left:12px;bottom:12px;z-index:500;background:#2f5496;color:#fff;padding:9px 15px;border-radius:22px;text-decoration:none;font-size:13px;font-weight:bold;box-shadow:0 2px 10px rgba(0,0,0,.25)">← 허브</a>
 """
+# 헤더 맨 앞(좌측)에 '🏢 본부 허브' — 제목은 오른쪽으로 밀림
+_HEADER_BACK = '<a href="hq.html" class="hqback">🏢 본부 허브</a>'
 # 본부 공유 모드 스크립트: 게이트 + 업로드 비활성화 + 업로드된 점수 자동 로드(읽기 전용)
 _HQ_SCRIPT = """<script>
 (function(){
@@ -81,6 +83,7 @@ def publish_dashboard_html():
     html = html.replace('src="audit_results/dashboard_data.js"', 'src="dashboard_data.js"')
     html = html.replace("</head>", _GATE_HEAD + "</head>", 1)
     html = html.replace("<body>", "<body>" + _GATE_BODY, 1)
+    html = html.replace("<header>", "<header>" + _HEADER_BACK, 1)  # 상단에 ← 허브
     # 주의: exportPDF() 문자열 안에도 </body>가 있으므로 반드시 '마지막' </body>에 주입
     idx = html.rfind("</body>")
     html = html[:idx] + _HQ_SCRIPT + html[idx:]
