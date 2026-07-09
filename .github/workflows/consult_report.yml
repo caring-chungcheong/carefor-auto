@@ -87,6 +87,14 @@ jobs:
               print("오늘 발송 이력 없음 — 발송 진행")
           EOF
 
+      - name: 게이트 실패 알림 (조용한 미발송 방지)
+        if: failure()
+        run: |
+          curl -s -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer ${{ secrets.SLACK_BOT_TOKEN }}" \
+            -H 'Content-type: application/json; charset=utf-8' \
+            -d '{"channel":"C0BC37EB38C","text":"⚠️ 상담 공지 게이트 실패 — 발송 여부 미판정(오늘 미발송 가능). 로그 확인 (consult_report gate)"}'
+
   report:
     runs-on: ubuntu-latest
     needs: gate
@@ -117,29 +125,35 @@ jobs:
             python waitlist_report.py $FLAG
           fi
 
+      # 아래 두 스텝은 '발송 이후' 작업 — 실패해도 런을 실패로 만들지 않음(continue-on-error).
+      # 이유: 발송은 이미 성공했는데 여기서 실패로 런이 죽으면, 백업 런의 gate가
+      #       '오늘 성공 없음'으로 보고 공지를 중복 발송함. 발송 무결성 > 요약 최신성.
       - name: 본부 공유 요약페이지 생성 (개인정보 없음)
         if: ${{ github.event.inputs.dry_run != 'true' }}
+        continue-on-error: true
         env:
           CONSULT_WEBHOOK_URL: ${{ secrets.CONSULT_WEBHOOK_URL }}
         run: python consult_summary_page.py
 
       - name: 요약페이지 커밋 (docs/consult_summary.html)
         if: ${{ github.event.inputs.dry_run != 'true' }}
+        continue-on-error: true
         run: |
           git config user.name "consult-bot"
           git config user.email "actions@github.com"
           git add docs/consult_summary.html
           if git diff --cached --quiet; then
-            echo "요약페이지 변경 없음"
-          else
-            git commit -m "chore: 상담 현황 요약페이지 자동 갱신 [skip ci]"
-            # 지점점검 봇 등과 동시 push 경합 대비 rebase 후 재시도
-            for i in 1 2 3; do
-              git pull --rebase origin ${{ github.ref_name }} \
-                && git push origin HEAD:${{ github.ref_name }} && break
-              echo "push 재시도 $i"; sleep 5
-            done
+            echo "요약페이지 변경 없음"; exit 0
           fi
+          git commit -m "chore: 상담 현황 요약페이지 자동 갱신 [skip ci]"
+          # 지점점검 봇 등과 동시 push 경합 대비 rebase 후 재시도
+          ok=0
+          for i in 1 2 3; do
+            if git pull --rebase origin ${{ github.ref_name }} \
+               && git push origin HEAD:${{ github.ref_name }}; then ok=1; break; fi
+            echo "push 재시도 $i"; sleep 5
+          done
+          [ "$ok" = 1 ] || { echo "::warning::요약페이지 push 실패 — 다음 실행에서 갱신됨"; exit 1; }
 
       - name: 실패 알림 (슬랙, 통합 알림 채널)
         if: failure()

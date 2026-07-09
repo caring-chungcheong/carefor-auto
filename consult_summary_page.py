@@ -11,6 +11,7 @@
 """
 from __future__ import annotations
 
+import html
 import json
 import sys
 from datetime import date
@@ -87,7 +88,7 @@ def _consult_table_html(rows: list[dict]) -> str:
         miss_all += r["miss"]
         miss_cls = "bad" if r["miss"] else "ok"
         rate_cls = "bad" if r["rate"] >= 30 else ("warn" if r["rate"] > 0 else "ok")
-        body += (f'<tr><td class="name">{r["center"]}</td>'
+        body += (f'<tr><td class="name">{html.escape(str(r["center"]))}</td>'
                  f'<td>{r["total"]}</td>'
                  f'<td class="{miss_cls}">{r["miss"]}</td>'
                  f'<td class="{rate_cls}">{r["rate"]}%</td></tr>')
@@ -105,10 +106,10 @@ def _waitlist_table_html(w: dict) -> str:
     body = ""
     for c in w["centers"]:
         ov_cls = "bad" if c["overdue"] else "ok"
-        body += (f'<tr><td class="name">{c["center"]}</td>'
+        body += (f'<tr><td class="name">{html.escape(str(c["center"]))}</td>'
                  f'<td>{c["count"]}</td>'
                  f'<td class="{ov_cls}">{c["overdue"]}</td>'
-                 f'<td class="brk">{c["breakdown"]}</td></tr>')
+                 f'<td class="brk">{html.escape(str(c["breakdown"]))}</td></tr>')
     body += (f'<tr class="sum"><td class="name">합계</td><td>{w["total"]}</td>'
              f'<td colspan="2"></td></tr>')
     return ('<table><tr><th>센터</th><th>대기 건수</th>'

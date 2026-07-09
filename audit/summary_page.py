@@ -5,6 +5,7 @@ audit_results/*.json → docs/audit_summary.html (지점별 36항목 신호등 +
 """
 from __future__ import annotations
 
+import html
 import json
 import re
 from datetime import datetime
@@ -60,7 +61,8 @@ def _branch_summary(d: dict) -> dict:
     for no, r in (d.get("item_results") or {}).items():
         rr = dict(r) if isinstance(r, dict) else r
         if isinstance(rr, dict) and rr.get("detail"):
-            rr["detail"] = clean_detail(rr["detail"])
+            # 이름 제거 후 HTML 이스케이프(<, &, > 로 표 렌더 깨짐/주입 방지 — innerHTML 삽입됨)
+            rr["detail"] = html.escape(clean_detail(rr["detail"]))
         safe_items[no] = rr
     return {
         "run_at": d.get("run_at", ""),
