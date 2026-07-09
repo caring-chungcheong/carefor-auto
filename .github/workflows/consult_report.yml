@@ -144,6 +144,14 @@ jobs:
           CONSULT_WEBHOOK_URL: ${{ secrets.CONSULT_WEBHOOK_URL }}
         run: python consult_summary_page.py
 
+      - name: 상세 엑셀 재생성 + 드라이브 갱신 (슬랙 발송 없음, 번호대조 반영)
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        continue-on-error: true
+        env:
+          CONSULT_WEBHOOK_URL: ${{ secrets.CONSULT_WEBHOOK_URL }}
+          GOOGLE_OAUTH_JSON: ${{ secrets.GOOGLE_OAUTH_JSON }}
+        run: python publish_excel.py --dry-run
+
       - name: 요약페이지 커밋 (docs/consult_summary.html)
         if: ${{ github.event.inputs.dry_run != 'true' }}
         continue-on-error: true
