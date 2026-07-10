@@ -1151,7 +1151,10 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
             continue
         for t in PROG_TYPES:
             if plan_parsed.get(y) is not None and not plan_parsed[y].get(t):
-                prog_plan_miss[t].append(f"{y} 연간계획 없음")
+                # 프로그램 연간계획서는 수기(종이) 파일로 수립·보관 → 케어포 미등록이어도
+                # 예외 인정하고 ①은 충족 처리 (사용자 확정 2026-07-10).
+                # 미흡(prog_plan_miss)이 아니라 노트로 남겨야 ② '①미수립 연동 불인정'도 걸리지 않음.
+                prog_note[t].append(f"{y} 연간계획 케어포 미등록 — 수기 파일 보관(예외 인정)")
             op = op_parsed.get(y, {}).get(t, {"collect_dates": [], "reflect": False})
             for half, lo_d, hi_d, h_start, end in (
                 ("상반기", f"{y}.01.01", f"{y}.06.30", date(y, 1, 1), date(y, 6, 30)),
@@ -1232,11 +1235,19 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
                 safe_note.append(msg + "(진행중)")
     # 신규수급자(2026~) 급여개시 14일 이내 설명 대조 — 개시일은 직원인권 탭 rows 재사용
     if safe_parsed and rights["rows"]:
+        # 설명탭 이름은 구분자 없음('김경자'), 로스터는 동명이인 구분자 포함('김경자(각)') → 괄호 제거 후 대조
+        def _base(n: str) -> str:
+            return re.sub(r"\(.*?\)", "", n or "").strip()
+
         expl = {}
         for s in safe_parsed.values():
             for r in s["rows"]:
                 for nm in r["names"]:
-                    expl.setdefault(nm, []).append(r["date"])
+                    expl.setdefault(_base(nm), []).append(r["date"])
+        # 케어포 설명탭이 '미설명 0명'이면 기관 집계상 전원 설명 완료 →
+        # 이름대조 실패는 표기·집계 차이일 수 있으므로 미흡이 아니라 확인용 노트로만 남긴다.
+        cur = safe_parsed.get(today.year)
+        tab_all_done = bool(cur and cur.get("total") is not None and not cur.get("undone"))
         for rr in rights["rows"]:
             if not rr["start"] or rr["start"][:4] < "2026" or rr["left_before"]:
                 continue
@@ -1245,10 +1256,13 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
             except ValueError:
                 continue
             due = sd + timedelta(days=14)
-            dates = sorted(dd for dd in expl.get(rr["name"], []) if dd >= rr["start"])
+            dates = sorted(dd for dd in expl.get(_base(rr["name"]), []) if dd >= rr["start"])
             if not dates:
                 if today > due:
-                    safe_miss.append(f"{rr['name']} 신규(개시 {rr['start']}) 설명 없음")
+                    if tab_all_done:
+                        safe_note.append(f"{rr['name']} 신규(개시 {rr['start']}) 설명기록 미확인 — 설명탭 미설명 0명(확인용)")
+                    else:
+                        safe_miss.append(f"{rr['name']} 신규(개시 {rr['start']}) 설명 없음")
             elif datetime.strptime(dates[0], "%Y.%m.%d").date() > due:
                 safe_note.append(f"{rr['name']} 신규 14일 초과(개시 {rr['start']}→설명 {dates[0]})")
     if len(safe_miss) > 8:
