@@ -80,15 +80,20 @@ def analyze(results: list[dict], cutoff: str) -> dict:
             if eff is None:
                 eff = next((nn for nn in needs if _d(nn["date"]) > _d(f["date"])), None)
             a, g = f.get("a", -9), f.get("g", -9)
-            if a < 1 and g < 1:
-                if eff and eff["sit"] not in ("완전자립", "?") and eff["tr"] not in ("완전자립", "?"):
-                    verdict = "확인(0점인데 도움기재)"
-                else:
-                    verdict = "정상(0점·완전자립)"
+            # 낙상평가 '활동' 점수는 최저가 1점(보조기구 없음 = 자립)이며 0점은 존재하지 않는다.
+            # (실측: 활동 1/3/4점만 관측) → 기존 a<1 조건은 절대 성립하지 않아 자립 케이스가
+            # 통째로 '불일치'로 뒤집혔음. a<=1 을 '낙상평가상 자립'으로 판정한다.
+            if a < 0:
+                verdict = "확인필요(낙상평가 수집실패)"
             elif eff is None:
                 verdict = "욕구사정없음"
             elif eff["sit"] == "?" or eff["tr"] == "?":
                 verdict = "확인필요(미체크)"
+            elif a <= 1:
+                if eff["sit"] != "완전자립" and eff["tr"] != "완전자립":
+                    verdict = "확인(낙상 자립인데 욕구는 도움)"
+                else:
+                    verdict = "일치"
             elif eff["sit"] == "완전자립" or eff["tr"] == "완전자립":
                 verdict = "불일치"
             else:
