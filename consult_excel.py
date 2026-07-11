@@ -30,7 +30,7 @@ import waitlist_report as wr
 OUT_ROOT = Path(__file__).resolve().parent / "상담공지_엑셀"
 
 FONT_NAME = "맑은 고딕"
-BASE_SZ = 11
+BASE_SZ = 12
 HEADER_FILL = PatternFill("solid", fgColor="4472C4")
 HEADER_FONT = Font(name=FONT_NAME, size=BASE_SZ, bold=True, color="FFFFFF")
 BASE_FONT = Font(name=FONT_NAME, size=BASE_SZ)
@@ -47,16 +47,26 @@ SUMMARY_COLS = ["센터", "신규상담(누적)", "시트 미입력", "미입력
                 "상담 대기", "기한 지남"]
 
 
+def _hdr_width(text: str) -> float:
+    """헤더가 한 줄에 들어오는 최소 열너비(한글=2, 그 외=1.1 폭 + 여유)."""
+    w = sum(2.0 if ord(ch) > 0x2000 else 1.1 for ch in str(text or ""))
+    return w + 2.6  # 좌우 여백
+
+
 def _style_sheet(ws, widths: list[int]) -> None:
-    for i, w in enumerate(widths, start=1):
-        ws.column_dimensions[get_column_letter(i)].width = w
-    # 헤더 열 이름 → 좌측정렬 대상 인덱스
     headers = [c.value for c in ws[1]]
+    # 헤더가 한 줄로 다 보이도록, 지정 너비와 헤더 필요너비 중 큰 값 사용
+    for i, w in enumerate(widths, start=1):
+        need = _hdr_width(headers[i - 1]) if i - 1 < len(headers) else 0
+        eff = max(w, need)
+        ws.column_dimensions[get_column_letter(i)].width = eff
+        widths[i - 1] = eff  # 행높이 계산도 보정된 너비 기준
     left_idx = {i for i, h in enumerate(headers) if h in LEFT_COLS}
     for cell in ws[1]:
         cell.fill = HEADER_FILL
         cell.font = HEADER_FONT
-        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        # 헤더는 줄바꿈 없이 한 줄 (열너비를 헤더에 맞춰 넓혔으므로 안 잘림)
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=False)
     ws.row_dimensions[1].height = 22
 
     center_wrap = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -73,7 +83,7 @@ def _style_sheet(ws, widths: list[int]) -> None:
 def _autofit_row_heights(ws, widths: list[int], headers: list) -> None:
     """wrap_text 셀이 눌려 잘려 보이는 문제 해결 — 각 행에 필요한 줄 수를 계산해 높이를 넉넉히 지정.
     (엑셀은 wrap+병합/자동높이 조합에서 자동계산을 안 해줘 '정렬' 눌러야 풀리므로 미리 넣어둔다)"""
-    line_px = 16                                  # 11pt 한 줄 대략 높이(px)
+    line_px = 18                                  # 12pt 한 줄 대략 높이(px)
     for row in ws.iter_rows(min_row=2):
         max_lines = 1
         for cell in row:
@@ -122,7 +132,7 @@ def add_miss_sheet(wb: Workbook, rows: list[dict], ym: str, carefor_lookup=None)
         if r["admitted"] == "Y":
             for cell in ws[ws.max_row]:
                 cell.fill = URGENT_FILL
-    _style_sheet(ws, [12, 17, 12, 16, 12, 13, 14, 9, 10, 11, 11, 10, 12, 60, 10])
+    _style_sheet(ws, [11, 15, 11, 11, 11, 12, 13, 8, 9, 10, 10, 9, 11, 40, 8])
     # 맨 뒤 '제외 ✔' 열: 클릭→✔ 선택(드롭다운) → 다음 발송 때 자동 제외
     ex_col = get_column_letter(len(MISS_COLS))          # 제외 열
     note_col = get_column_letter(len(MISS_COLS) + 1)    # 옆 안내 열
