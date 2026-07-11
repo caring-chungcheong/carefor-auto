@@ -126,8 +126,9 @@ body{font-family:'맑은 고딕',sans-serif;margin:0;background:#f4f6fa;color:#2
 header{background:#2f5496;color:#fff;padding:12px 22px}
 header h1{font-size:22px;margin:0}
 .sub{font-size:14px;opacity:.85;margin-top:3px}
-.wrap{padding:12px 18px;max-width:900px;margin:0 auto}
-h2{font-size:18px;color:#2f5496;margin:12px 0 7px}
+.wrap{padding:10px 18px 8px;max-width:900px;margin:0 auto}
+h2{font-size:18px;color:#2f5496;margin:10px 0 7px}
+h2.sec2{margin-top:26px;padding-top:18px;border-top:2px solid #dde3ee}
 table{border-collapse:collapse;width:100%;background:#fff;font-size:16px;box-shadow:0 2px 6px rgba(0,0,0,.08)}
 th,td{border:1px solid #dde3ee;padding:9px 12px;text-align:center}
 th{background:#eef2f9;font-size:16px}
@@ -137,7 +138,7 @@ tr.sum td{background:#f6f8fc;font-weight:bold}
 .ok{color:#2c8a41}.bad{color:#c02020;font-weight:bold}.warn{color:#b57a00;font-weight:bold}
 .empty{background:#fff;border-radius:8px;padding:24px;text-align:center;color:#888;font-size:15px;box-shadow:0 2px 6px rgba(0,0,0,.08)}
 .back{display:inline-block;margin:0 0 6px;background:#eef2f9;color:#2f5496;padding:6px 15px;border-radius:16px;text-decoration:none;font-size:14px;font-weight:bold}
-.note{font-size:13px;color:#777;margin-top:12px;line-height:1.65}
+.note{font-size:12.5px;color:#777;margin-top:10px;line-height:1.5}
 #gate{position:fixed;inset:0;background:#2f5496;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#fff}
 #gate input{font-size:22px;padding:8px 14px;border-radius:8px;border:0;width:130px;text-align:center;letter-spacing:6px}
 </style></head><body>
@@ -148,7 +149,7 @@ tr.sum td{background:#f6f8fc;font-weight:bold}
 <a class="back" href="hq.html">← 🏢 본부 허브</a>
 <h2>📋 신규상담 상담시트 입력 현황</h2>
 __CONSULT_TABLE__
-<h2>📞 센터별 상담 대기 명단</h2>
+<h2 class="sec2">📞 센터별 상담 대기 명단</h2>
 __WAITLIST_TABLE__
 <div class="note">· 이 페이지에는 수급자 개인정보(이름·연락처)가 포함되어 있지 않습니다 — 센터 단위 집계만.<br>
 · 건별 상세(첫상담일·예정일·연락처)는 슬랙 엑셀 링크 공지에서만 확인할 수 있습니다.<br>
