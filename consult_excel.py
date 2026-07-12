@@ -86,15 +86,17 @@ def _style_sheet(ws, widths: list[int], compact: bool = False) -> None:
         for cell in row:
             cell.font = body_font
             cell.alignment = left_wrap if (cell.column - 1) in left_idx else center
-    _autofit_row_heights(ws, widths, headers)
+    body_size = (BASE_SZ - 1) if compact else BASE_SZ
+    _autofit_row_heights(ws, widths, headers, body_size)
     ws.freeze_panes = "A2"
     ws.auto_filter.ref = ws.dimensions
 
 
-def _autofit_row_heights(ws, widths: list[int], headers: list) -> None:
+def _autofit_row_heights(ws, widths: list[int], headers: list, body_size: int = BASE_SZ) -> None:
     """wrap_text 셀이 눌려 잘려 보이는 문제 해결 — 각 행에 필요한 줄 수를 계산해 높이를 넉넉히 지정.
-    (엑셀은 wrap+병합/자동높이 조합에서 자동계산을 안 해줘 '정렬' 눌러야 풀리므로 미리 넣어둔다)"""
-    line_px = 18                                  # 12pt 한 줄 대략 높이(px)
+    (엑셀은 wrap+병합/자동높이 조합에서 자동계산을 안 해줘 '정렬' 눌러야 풀리므로 미리 넣어둔다)
+    본문 글씨를 줄이면(compact) 한 줄에 더 담기고 줄높이도 낮아지므로 폰트 크기에 맞춰 함께 조절한다."""
+    line_px = round(body_size * 1.5)              # 폰트 기준 한 줄 높이(px): 13pt≈20, 12pt≈18
     for row in ws.iter_rows(min_row=2):
         max_lines = 1
         for cell in row:
@@ -102,11 +104,13 @@ def _autofit_row_heights(ws, widths: list[int], headers: list) -> None:
             if v is None:
                 continue
             col_w = widths[cell.column - 1] if cell.column - 1 < len(widths) else 12
-            cap = max(1, int(col_w / 1.35))       # 열너비로 대략 담기는 글자 수(한글 기준 보수적)
+            usable = max(1.0, col_w - 2.0)        # 셀 좌우 여백 제외한 실제 글자 폭
             for seg in str(v).split("\n"):
-                seg_len = sum(2 if ord(ch) > 0x2000 else 1 for ch in seg)  # 한글 폭 2 가중
-                max_lines = max(max_lines, -(-seg_len // (cap * 2)) or 1)
-        ws.row_dimensions[row[0].row].height = min(160, max(18, max_lines * line_px + 4))
+                # _text_width와 같은 폭 단위(한글 2.1 / 그 외 1.15)로 재서 줄 수를 정확히 계산
+                seg_w = sum(2.1 if ord(ch) > 0x2000 else 1.15 for ch in seg)
+                lines = int(-(-seg_w // usable)) or 1     # ceil(seg_w / usable)
+                max_lines = max(max_lines, lines)
+        ws.row_dimensions[row[0].row].height = min(260, max(18, max_lines * line_px + 4))
 
 
 def add_summary_sheet(wb: Workbook, srows: list[dict]) -> None:
