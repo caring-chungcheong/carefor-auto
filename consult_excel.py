@@ -79,11 +79,12 @@ def _style_sheet(ws, widths: list[int], compact: bool = False) -> None:
         cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=False)
     ws.row_dimensions[1].height = 22 if compact else 24
 
+    body_font = Font(name=FONT_NAME, size=BASE_SZ - 1) if compact else BASE_FONT   # compact 본문 1pt 축소
     center = Alignment(horizontal="center", vertical="center", wrap_text=False)   # 한 줄
     left_wrap = Alignment(horizontal="left", vertical="center", wrap_text=True)   # 긴 텍스트만 줄바꿈
     for row in ws.iter_rows(min_row=2):
         for cell in row:
-            cell.font = BASE_FONT
+            cell.font = body_font
             cell.alignment = left_wrap if (cell.column - 1) in left_idx else center
     _autofit_row_heights(ws, widths, headers)
     ws.freeze_panes = "A2"
