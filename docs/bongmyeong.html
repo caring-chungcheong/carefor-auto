@@ -703,9 +703,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
   nav a{white-space:nowrap;font-size:13.5px;font-weight:600;color:var(--ink-2);text-decoration:none;padding:7px 13px;border-radius:9px}
   nav a:hover{background:var(--panel-2);color:var(--ink)}
   section{padding:38px 0;border-bottom:1px solid var(--line-2)}
-  .sec-head{display:flex;align-items:baseline;gap:12px;margin-bottom:20px}
-  .sec-head .n{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent);padding-top:3px}
-  .sec-head h2{font-size:clamp(20px,3vw,26px);font-weight:700}
+  .sec-head{display:flex;align-items:center;gap:13px;margin-bottom:22px;padding-bottom:14px;border-bottom:1px solid var(--line-2)}
+  .sec-head .n{font-family:var(--mono);font-size:13px;font-weight:700;color:#fff;background:var(--accent);width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:none;box-shadow:0 2px 6px color-mix(in srgb,var(--accent) 35%,transparent)}
+  .sec-head h2{font-size:clamp(20px,3vw,26px);font-weight:700;letter-spacing:-.01em}
   .lead{color:var(--ink-2);font-size:15px;max-width:none;margin:-6px 0 22px}
   .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
   .kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 16px 15px;box-shadow:var(--shadow)}
@@ -715,7 +715,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .kpi .d{font-size:12px;color:var(--ink-3);margin-top:4px}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);transition:border-color .2s ease,box-shadow .2s ease}
+  .card:hover{border-color:color-mix(in srgb,var(--accent) 28%,var(--line))}
+  section{scroll-margin-top:62px}
   .card h3{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px;margin-bottom:10px}
   .card ul{margin:0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:9px}
   .card li{font-size:14px;color:var(--ink-2);padding-left:18px;position:relative}
@@ -733,9 +735,16 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .chip:hover{background:var(--panel-2);color:var(--ink)}
   .chip.active{background:var(--accent-soft);color:var(--accent-ink);border-color:var(--accent)}
   .maptools{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
-  .mt{font-size:12.5px;font-weight:700;padding:7px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--ink-2);cursor:pointer;display:inline-flex;align-items:center;gap:7px;user-select:none;font-family:var(--sans)}
+  .mt{font-size:14px;font-weight:700;padding:9px 16px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink-2);cursor:pointer;display:inline-flex;align-items:center;gap:7px;user-select:none;font-family:var(--sans)}
   .mt .sw{width:11px;height:11px;border-radius:50%}
   .mt.off{opacity:.42}
+  .mapctl{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin-bottom:12px;box-shadow:var(--shadow)}
+  .legend{display:flex;flex-wrap:wrap;gap:9px 14px;align-items:center}
+  .legend .lt{font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--ink-3);text-transform:uppercase}
+  .legend .li{display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;color:var(--ink-2)}
+  .legend .li .sw{width:11px;height:11px}
+  .mapctl .maptools{margin:0}
+  .mt.home{background:var(--accent-soft);border-color:transparent;color:var(--accent-ink)}
   #map{height:560px;width:100%;border-radius:var(--radius);border:1px solid var(--line);box-shadow:var(--shadow);background:var(--panel-2);z-index:1}
   .mapcap{font-size:11.5px;color:var(--ink-3);margin-top:8px;text-align:center}
   .mkr{border-radius:50%;border:2.5px solid #fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.3)}
@@ -862,8 +871,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
   <section id="map-sec">
     <div class="sec-head"><div class="n">03</div><h2>송영 가능 반경 · 실제 지도 (편도 최대 30분)</h2></div>
     <p class="lead">페이지 안에서 바로 확대·이동되는 실제 지도입니다. 원은 송영 반경(직선거리 근사), 핀은 경쟁센터·재가센터·복지관, <b>빨간 ⚠ 마커는 상습 정체 지점</b>(클릭 시 우회 안내). <b>아래 지점 이름을 누르면 지도가 그 위치로 이동</b>하고 정보가 뜹니다. <b>인근 주간보호센터</b>는 지도의 빨간 핀을 클릭하거나 아래 <b>05 인근 주간보호센터</b> 표에서 확인하세요(편도 30분 이내). ‘송영 반경’ 버튼으로 원을 켜고 끄고, ‘⌖ 전체보기’로 전체 권역을 봅니다. 정체 지점은 위 04 교통 여건의 버튼으로 이동합니다. 모든 동작은 이 페이지 안에서만 일어납니다(외부 이동 없음).</p>
-    <div class="placebar" id="placebar"><span class="plabel">지점 이동 →</span></div>
-    <div class="maptools" id="maptools"></div>
+    <div class="mapctl">
+      <div class="legend" id="legend"><span class="lt">범례</span></div>
+      <div class="maptools" id="maptools"></div>
+    </div>
     <div id="map"></div>
     <div class="mapcap">지도 데이터 © OpenStreetMap 기여자 · 실시간 지도(확대해도 선명, 인터넷 필요) · 핀 위치는 도로 단위 근사</div>
     <div class="zonewrap">
@@ -1027,8 +1038,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <li>센터 소개서·송영권역 지도·시설 사진 <b>1장 리플릿</b></li>
         <li>송영 동선 <b>실차 측정</b>으로 권역 확정</li>
       </ul></div>
-      <div class="phase"><div class="ph">개소 ~ D+30</div><h3>개소 · 체험 유도</h3><div class="pt">신축·대형·즉시등원을 알린다</div><ul>
-        <li><b>오픈 이벤트 + 무료 체험(1일)</b> 상시</li>
+      <div class="phase"><div class="ph">개소 ~ D+30</div><h3>개소 · 등원 유도</h3><div class="pt">신축·대형·즉시등원을 알린다</div><ul>
+        <li><b>오픈 이벤트 · 시설 견학·상담 안내</b> 상시 <span class="badge b-est">무료 체험 금지(장기요양법)</span></li>
         <li>1권역 경로당·아파트 경로당 <b>순회 설명회</b>(혈압측정 등 명분)</li>
         <li>봉명·가경 <b>정형외과·신경과·재활·요양병원</b> 원무·사회복지팀 접촉</li>
         <li>약국·한의원 리플릿 비치</li>
@@ -1162,12 +1173,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
   }
 
   // place chips
-  var pb=document.getElementById('placebar');
-  SITES.forEach(function(s){if(s.type!=='center')return;  // 지점이동 칩은 우리 센터만 (나머지는 핀 클릭·아래 표로)
-    var c=document.createElement('button');c.className='chip';c.type='button';
-    c.innerHTML='<span class="sw" style="background:'+s.c+'"></span>'+s.name;
-    c.addEventListener('click',function(){focusSite(s.id);});
-    pb.appendChild(c);});
+  // 범례 (핀 색 의미) — 클릭 조작은 아래 컨트롤·핀·04/05로
+  var lg=document.getElementById('legend');
+  [['#157f6b','우리 센터'],['#c14a3b','경쟁 주간보호'],['#e07a6b','⚠ 정체 지점'],['#2f6f9f','재가센터'],['#b57619','복지관']]
+    .forEach(function(l){var s=document.createElement('span');s.className='li';
+      s.innerHTML='<span class="sw" style="background:'+l[0]+'"></span>'+l[1];lg.appendChild(s);});
 
   // 정체 구간 마커 + 칩 (기본 표시). 빨간 ! 마커, 클릭 시 우회 안내 팝업.
   var congestGroup=L.layerGroup().addTo(map); groups.congest=congestGroup;
@@ -1180,6 +1190,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
   // layer toggles
   var TOOLS=[{k:'rings',label:'송영 반경',c:'#157f6b'}];
   var tbar=document.getElementById('maptools');
+  var home=document.createElement('button');home.className='mt home';home.type='button';home.textContent='◎ 우리 센터';
+  home.addEventListener('click',function(){focusSite('center');});
+  tbar.appendChild(home);
   TOOLS.forEach(function(t){t.on=true;var b=document.createElement('button');b.className='mt';b.type='button';
     b.innerHTML='<span class="sw" style="background:'+t.c+'"></span>'+t.label;
     b.addEventListener('click',function(){t.on=!t.on;b.classList.toggle('off',!t.on);
