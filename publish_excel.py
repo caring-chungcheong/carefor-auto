@@ -303,16 +303,18 @@ def main():
 
     # 집계표 (센터별 요약 + 상담 대기 줄 포함) — 한 페이지 통합 공지
     import consult_report as cr
-    # 슬랙 코드블록 한글 정렬: 머리글 2글자·행라벨 4글자 순수한글로 통일해 폰트와 무관하게 열이 맞도록.
-    # 청주오창→오창(청주점 개소 예정이라 '청주'로 줄이지 않음).
-    DISP = {"청주오창": "오창"}
-    shorts = [DISP.get(short, short) for short, _ in cr.CENTER_ORDER]
+    # 슬랙 코드블록 한글 정렬: 머리글은 전체명(청주오창) 유지하되, 짧은 지점명 앞에 전각공백(U+3000)을
+    # 넣어 모든 머리글을 같은 글자폭(청주오창=4)으로 맞춤 → 폰트와 무관하게 열 정렬 유지.
+    # 행라벨도 4글자 순수한글(신규상담/미입력수/미입력률/대기건수)로 통일.
+    shorts = [short for short, _ in cr.CENTER_ORDER]  # 둔산/서구/천안/청주오창
+    _tcjk = max(sum(1 for c in n if ord(c) > 0x1100) for n in shorts)  # 최장 머리글 글자수(=4)
+    heads = ["　" * max(0, _tcjk - sum(1 for c in n if ord(c) > 0x1100)) + n for n in shorts]
     smap = {s["center"]: s for s in summaries}
     cols = [smap[full] for _, full in cr.CENTER_ORDER]
     LABEL_W = 10
-    col_ws = [max(cr._w(n), 4) + 2 for n in shorts]
+    col_ws = [max(cr._w(h), 4) + 2 for h in heads]  # 전각패딩으로 머리글 폭 통일 → 모든 열 동일폭
     table_lines = [
-        cr._rpad("", LABEL_W) + "".join(cr._lpad(n, w) for n, w in zip(shorts, col_ws)),
+        cr._rpad("", LABEL_W) + "".join(cr._lpad(h, w) for h, w in zip(heads, col_ws)),
         "─" * (LABEL_W + sum(col_ws)),
     ]
     for label, key in [("신규상담", "total"), ("미입력수", "miss"),
