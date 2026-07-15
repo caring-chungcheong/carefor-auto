@@ -20,8 +20,11 @@ permissions:
   contents: write   # 본부 공유 요약페이지(docs/consult_summary.html) 커밋용
 
 on:
-  schedule:
-    - cron: '0 23 * * 0-5'   # KST 월~토 08:00 (UTC 일~금 23:00) — 일요일 제외(UTC 토 트리거 제거)
+  # ⚠️ GitHub schedule 크론 제거(2026-07-15): 9~12h 지연 실행이 '밤 오발송'을 유발했음.
+  #    정시 트리거는 전적으로 cron-job.org가 담당한다.
+  #      · job 8064621  : 매일 08:00(월~토) '업데이트만'(dry_run=true) — 발송 없음
+  #      · job(신규)     : 화·목 09:30 지점방(C0870HLTG9Z) 실제 발송(+센터장 4명 태그)
+  #    수동 실행/백업은 workflow_dispatch로만. 게이트가 하루 1회 실발송으로 중복 방지.
   workflow_dispatch:
     inputs:
       report:
