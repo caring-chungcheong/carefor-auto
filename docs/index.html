@@ -380,7 +380,14 @@
   .install-banner .close-btn { background: rgba(255,255,255,0.2); color: white; }
 
   @media (max-width: 700px) {
-    .dashboard { grid-template-columns: repeat(2, 1fr); }
+    /* 지표 카드: 한 줄씩(1열) + 가로 배치(지표명 왼쪽 · 숫자 오른쪽)로 심플하게 */
+    .dashboard { grid-template-columns: 1fr; gap: 8px; }
+    .stat-card {
+      display: flex; align-items: center; justify-content: space-between;
+      text-align: left; padding: 13px 18px;
+    }
+    .stat-card .label { margin-bottom: 0; font-size: 15px; }
+    .stat-card .value { font-size: 23px; white-space: nowrap; }
     .form-row { grid-template-columns: 1fr; }
     .header h1 { font-size: 17px; }
     .header-btns button { font-size: 11px; padding: 5px 10px; }
