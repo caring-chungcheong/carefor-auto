@@ -218,7 +218,7 @@
   <div class="iosbox">
     <div class="bi">📲</div>
     <h3>홈 화면에 추가</h3>
-    <p>사파리 아래쪽 <span class="sh">공유 ⬆️</span> 버튼을 누른 뒤<br><b>"홈 화면에 추가"</b>를 선택하세요.</p>
+    <p id="guideText">사파리 아래쪽 <span class="sh">공유 ⬆️</span> 버튼을 누른 뒤<br><b>"홈 화면에 추가"</b>를 선택하세요.</p>
     <button onclick="document.getElementById('iosGuide').style.display='none'">확인</button>
   </div>
 </div>
@@ -232,20 +232,29 @@ if(sessionStorage.getItem('ap')==='1')document.getElementById('gate').style.disp
 (function(){var d=new Date();var s=d.getFullYear()+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getDate()).padStart(2,'0');
   var el=document.getElementById('today');if(el)el.textContent='— 오늘 기준 '+s;})();
 
-// 홈 화면 설치 (아이폰=안내 / 안드로이드=네이티브 프롬프트)
+// 서비스워커 등록 (정식 PWA 설치 요건 충족 → 안드로이드 설치 안정화)
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
+
+// 홈 화면 설치 (안드로이드=네이티브 프롬프트 / 아이폰=수동 안내)
 (function(){
-  var bar=document.getElementById('installBar'), btn=document.getElementById('installBtn'), dp=null;
+  var bar=document.getElementById('installBar'), btn=document.getElementById('installBtn'),
+      guide=document.getElementById('iosGuide'), gtext=document.getElementById('guideText'), dp=null;
   function standalone(){return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;}
   function isIOS(){return /iphone|ipad|ipod/i.test(navigator.userAgent);}
   if(standalone()) return;               // 이미 설치됨 → 버튼 숨김 유지
   window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); dp=e; bar.style.display='block'; });
   if(isIOS()) bar.style.display='block'; // iOS는 프롬프트 없음 → 안내용 버튼
+  function showGuide(){
+    if(isIOS()){ gtext.innerHTML='사파리 아래쪽 <span class="sh">공유 ⬆️</span> 버튼을 누른 뒤<br><b>"홈 화면에 추가"</b>를 선택하세요.'; }
+    else { gtext.innerHTML='크롬 오른쪽 위 <span class="sh">⋮ 메뉴</span> 를 누르고<br><b>"홈 화면에 추가"</b> 또는 <b>"앱 설치"</b>를 선택하세요.<br><br><small>설치 후 아이콘은 <b>앱 서랍(전체 앱 목록)</b>에 생깁니다. 길게 눌러 홈 화면으로 옮길 수 있어요.</small>'; }
+    guide.style.display='flex';
+  }
   btn.addEventListener('click', function(){
-    if(dp){ dp.prompt(); if(dp.userChoice){ dp.userChoice.then(function(){ dp=null; bar.style.display='none'; }); } }
-    else if(isIOS()){ document.getElementById('iosGuide').style.display='flex'; }
-    else { alert('브라우저 메뉴에서 "홈 화면에 추가"를 선택하세요.'); }
+    // 안드로이드: 네이티브 프롬프트. 취소해도 버튼은 유지(재시도/수동안내 가능)
+    if(dp){ dp.prompt(); dp.userChoice.then(function(){ dp=null; }); }
+    else { showGuide(); }  // iOS 또는 프롬프트 미발생 → OS별 수동 안내
   });
-  window.addEventListener('appinstalled', function(){ bar.style.display='none'; });
+  window.addEventListener('appinstalled', function(){ bar.style.display='none'; });  // 설치 완료 시에만 숨김
 })();
 </script>
 </body></html>
