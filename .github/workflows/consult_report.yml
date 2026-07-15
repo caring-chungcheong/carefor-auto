@@ -53,6 +53,10 @@ on:
         description: "태그할 이름(콤마구분). 예: 박경민,김민진,김미림,박세영"
         required: false
         default: ""
+      skip_summary:
+        description: "true면 요약페이지 생성·커밋 건너뜀(잦은 엑셀 갱신용 — git 커밋 스팸 방지)"
+        required: false
+        default: "false"
 
 jobs:
   gate:
@@ -178,15 +182,17 @@ jobs:
       #       '오늘 성공 없음'으로 보고 공지를 중복 발송함. 발송 무결성 > 요약 최신성.
       # ⚠️ continue-on-error 스텝은 실패해도 API가 conclusion=success로 보고한다.
       #    성공 여부는 반드시 로그(outcome)로 확인할 것.
-      # 요약페이지는 '매일 업데이트'(dry_run 포함) 대상 — 조건 없이 항상 갱신.
-      # (발송은 화·목만, 요약/엑셀은 매일. continue-on-error라 실패해도 런 영향 없음)
+      # 요약페이지 생성·커밋 = 공지일(화·목 발송)에만. 잦은 엑셀 갱신(skip_summary=true)일 땐 건너뜀
+      # → git 커밋 스팸 방지. (미입력 실시간은 도메인 상세페이지/요약페이지 라이브조회가 담당)
       - name: 본부 공유 요약페이지 생성 (개인정보 없음)
+        if: ${{ github.event.inputs.skip_summary != 'true' }}
         continue-on-error: true
         env:
           CONSULT_WEBHOOK_URL: ${{ secrets.CONSULT_WEBHOOK_URL }}
         run: python consult_summary_page.py
 
       - name: 요약페이지 커밋 (docs/consult_summary.html)
+        if: ${{ github.event.inputs.skip_summary != 'true' }}
         continue-on-error: true
         run: |
           git config user.name "consult-bot"
