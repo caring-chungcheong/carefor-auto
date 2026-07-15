@@ -225,22 +225,23 @@ def build_message(rows: list[dict], today: date, wait_counts: dict | None = None
         grp = by_center.get(full, [])
         n_total = len(grp)
         n_miss = sum(1 for r in grp if r.get("missing"))
-        names.append(short)
+        names.append({"청주오창": "오창"}.get(short, short))  # 청주점 개소 예정이라 '청주' 대신 '오창'
         totals.append(str(n_total))
         misses.append(str(n_miss))
         rates.append(f"{round(n_miss / n_total * 100)}%" if n_total else "-")
 
-    LABEL_W = 16
+    # 슬랙 코드블록 한글 정렬: 머리글 2글자·행라벨 4글자 순수한글로 통일(폰트 무관 정렬)
+    LABEL_W = 10
     col_ws = [max(_w(n), 4) + 2 for n in names]
     header = _rpad("", LABEL_W) + "".join(_lpad(n, w) for n, w in zip(names, col_ws))
     sep = "─" * (LABEL_W + sum(col_ws))
     lines = [header, sep]
-    for label, vals in [("신규상담(누적)", totals), ("시트 미입력", misses), ("미입력률", rates)]:
+    for label, vals in [("신규상담", totals), ("미입력수", misses), ("미입력률", rates)]:
         lines.append(_rpad(label, LABEL_W) + "".join(_lpad(v, w) for v, w in zip(vals, col_ws)))
     if wait_counts:  # 지점별 상담 대기(아웃콜) 건수 한 줄
         wait_vals = [str(wait_counts.get(n, 0)) for n in names]
         lines.append(sep)
-        lines.append(_rpad("대기(아웃콜)", LABEL_W) + "".join(_lpad(v, w) for v, w in zip(wait_vals, col_ws)))
+        lines.append(_rpad("대기건수", LABEL_W) + "".join(_lpad(v, w) for v, w in zip(wait_vals, col_ws)))
     table = "\n".join(lines)
 
     blocks = [

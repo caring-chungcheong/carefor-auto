@@ -303,17 +303,20 @@ def main():
 
     # 집계표 (센터별 요약 + 상담 대기 줄 포함) — 한 페이지 통합 공지
     import consult_report as cr
-    shorts = [short for short, _ in cr.CENTER_ORDER]
+    # 슬랙 코드블록 한글 정렬: 머리글 2글자·행라벨 4글자 순수한글로 통일해 폰트와 무관하게 열이 맞도록.
+    # 청주오창→오창(청주점 개소 예정이라 '청주'로 줄이지 않음).
+    DISP = {"청주오창": "오창"}
+    shorts = [DISP.get(short, short) for short, _ in cr.CENTER_ORDER]
     smap = {s["center"]: s for s in summaries}
     cols = [smap[full] for _, full in cr.CENTER_ORDER]
-    LABEL_W = 16
+    LABEL_W = 10
     col_ws = [max(cr._w(n), 4) + 2 for n in shorts]
     table_lines = [
         cr._rpad("", LABEL_W) + "".join(cr._lpad(n, w) for n, w in zip(shorts, col_ws)),
         "─" * (LABEL_W + sum(col_ws)),
     ]
-    for label, key in [("신규상담(누적)", "total"), ("시트 미입력", "miss"),
-                       ("미입력률", "rate"), ("대기(아웃콜)", "wait")]:
+    for label, key in [("신규상담", "total"), ("미입력수", "miss"),
+                       ("미입력률", "rate"), ("대기건수", "wait")]:
         table_lines.append(cr._rpad(label, LABEL_W) + "".join(
             cr._lpad(str(s[key]), w) for s, w in zip(cols, col_ws)))
     table = "\n".join(table_lines)
@@ -372,7 +375,8 @@ def main():
         print("(dry-run: 전송 안 함)")
         return
     send_slack(msg)
-    print("전송 완료 → #차량관리 (webhook)")
+    _ch = os.environ.get("CONSULT_CHANNEL") or "기본(프로그램관리)"
+    print(f"전송 완료 → 채널 {_ch}")
 
 
 if __name__ == "__main__":
