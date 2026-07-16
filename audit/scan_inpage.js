@@ -327,13 +327,24 @@
                   const st = (pt.match(/발송 및 전자서명\s*\(([^)]*)\)/) || [])[1] || '상태없음';
                   const ag = (pt.match(/동의일\s*(\d{4}\.\d{2}\.\d{2})\s*(\(서명완료\))?/) || []);
                   // 27① 기능회복훈련: 계획서 내 기능회복 구간 텍스트 캡처 (신체기능·기본동작·일상생활동작)
-                  const ri = pt.indexOf('기능회복');
-                  const rehabTxt = ri >= 0 ? pt.substring(ri, ri + 300) : '';
+                  // 주의: '기능회복'은 특이사항·종합의견 같은 서술형 문단에도 등장한다.
+                  // 첫 등장만 300자 자르면 서술형에 앵커가 걸려 표 본문을 통째로 놓친다
+                  // (실측 4개 지점 2026~ 계획 387건 전건이 300자 상한에 걸림 → 오탐 다수).
+                  // → 모든 등장 지점의 창을 모아 캡처하고, 상한 도달 여부를 rehabCut 으로 남긴다.
+                  const RW = 700, RMAX = 3500;
+                  let rehabTxt = '', rehabHits = 0;
+                  for (let ri = pt.indexOf('기능회복'); ri >= 0; ri = pt.indexOf('기능회복', ri + RW)) {
+                    rehabHits++;
+                    if (rehabTxt.length >= RMAX) break;
+                    rehabTxt += (rehabTxt ? ' … ' : '') + pt.substring(ri, ri + RW);
+                  }
+                  // rehabCut: 상한에 걸려 뒷부분이 잘렸을 수 있음 → 분석기는 '미기재' 단정 금지
+                  const rehabCut = rehabTxt.length >= RMAX;
                   // 종합의견(총평): 계획서 서술형 총평 — 낙상/욕창/인지·배설·식이 상태가 반영됐는지 대조용
                   const ji = pt.indexOf('종합의견');
                   const opinion = ji >= 0 ? pt.substring(ji, ji + 800) : '';
-                  plans.push({ key: rd.plan, wd, ap, st, agreeDate: ag[1] || '', agreeSigned: !!ag[2], rehabTxt, opinion });
-                } else plans.push({ key: rd.plan, wd: '', ap: '', st: '팝업실패', agreeDate: '', agreeSigned: false, rehabTxt: '' });
+                  plans.push({ key: rd.plan, wd, ap, st, agreeDate: ag[1] || '', agreeSigned: !!ag[2], rehabTxt, rehabHits, rehabCut, opinion });
+                } else plans.push({ key: rd.plan, wd: '', ap: '', st: '팝업실패', agreeDate: '', agreeSigned: false, rehabTxt: '', rehabHits: 0, rehabCut: false });
                 closeModalSync();
               }
             }
