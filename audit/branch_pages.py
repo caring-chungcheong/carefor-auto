@@ -398,6 +398,14 @@ def scrape_branch_pages(page, g_pammgno: str, years: list[int], progress_cb=prin
     except Exception as e:
         progress_cb(f"  1-6 수급자 안전관리 수집 실패(건너뜀): {e}")
 
+    # 1-6 이동서비스 안전수칙/차량운행표 탭 (항목 28①② — 퇴소자 포함)
+    try:
+        out["transport"] = scrape_transport(page, g_pammgno)
+        progress_cb(f"  1-6 이동서비스 안전수칙 {len(out['transport'])}명 수집(퇴소자 포함)")
+    except Exception as e:
+        out["transport"] = []
+        progress_cb(f"  1-6 이동서비스 안전수칙 수집 실패(건너뜀): {e}")
+
     # 1-6 직원인권 보호지침 탭 (2026 신설 지표 — 2026년부터만)
     if max(years) >= 2026:
         try:
@@ -451,6 +459,121 @@ def scrape_rights(page, g_pammgno: str) -> str:
 
 
 # ---------------- 파싱 ----------------
+
+TRANSPORT_CLICK_JS = r"""
+(() => {
+  const mask = document.getElementById('mask_div'); if (mask) mask.style.display = 'none';
+  const li = Array.from(document.querySelectorAll('li'))
+    .find(e => /div_transport/.test(e.getAttribute('page-info') || ''));
+  if (!li) return false;
+  li.click(); return true;
+})()
+"""
+
+TRANSPORT_TOE_JS = r"""
+(() => {
+  const root = document.getElementById('div_transport'); if (!root) return false;
+  const lab = Array.from(root.querySelectorAll('label')).find(e => /퇴소자\s*포함/.test(e.textContent || ''));
+  if (!lab) return false;
+  const inp = lab.querySelector('input') || document.getElementById(lab.getAttribute('for') || '');
+  if (inp) { if (!inp.checked) inp.click(); return true; }
+  lab.click(); return true;
+})()
+"""
+
+# 표 셀 배열(빈칸=미제공 보존): [연번, 현황, 수급자명, 케어그룹, 등급, 급여개시일, 안전수칙일, 차량운행표일]
+TRANSPORT_GRID_JS = r"""
+(() => {
+  const root = document.getElementById('div_transport');
+  if (!root) return [];
+  const rows = [];
+  Array.from(root.querySelectorAll('g-b,tbody tr')).forEach(r => {
+    const cells = Array.from(r.querySelectorAll('g-td,td')).map(c => c.textContent.trim().replace(/\s+/g, ' '));
+    if (cells.length >= 6) rows.push(cells);
+  });
+  return rows;
+})()
+"""
+
+
+def scrape_transport(page, g_pammgno: str) -> list:
+    """1-6 → '이동서비스 안전수칙, 차량운행표' 탭 → 퇴소자 포함 검색 → 표 셀 배열.
+
+    주의: 로딩 마스크(#mask_div)가 클릭을 가로채므로 Playwright click 대신 JS click 사용.
+    """
+    _goto(page, "guide", g_pammgno)
+    page.evaluate(CLOSE_MODAL_JS)
+    page.wait_for_timeout(600)
+    if not page.evaluate(TRANSPORT_CLICK_JS):
+        return []
+    rows = []
+    for _ in range(10):
+        page.wait_for_timeout(1000)
+        rows = page.evaluate(TRANSPORT_GRID_JS)
+        if rows:
+            break
+    if not rows:
+        return []
+    page.evaluate(TRANSPORT_TOE_JS)  # 퇴소자 포함 검색
+    for _ in range(8):
+        page.wait_for_timeout(900)
+        r2 = page.evaluate(TRANSPORT_GRID_JS)
+        if len(r2) > len(rows):
+            return r2
+    return page.evaluate(TRANSPORT_GRID_JS) or rows
+
+
+def judge_transport(rows: list, cutoff: str, out_scope: set | None = None) -> dict | None:
+    """항목 28①② 판정 — 이동서비스 안전수칙·차량운행표 제공.
+
+    rows: scrape_transport 결과 [연번, 현황, 수급자명, 케어그룹, 등급, 급여개시일, 안전수칙일, 차량운행표일]
+    out_scope: **평가기간 전 퇴소가 확인된** 수급자명 집합(1-1 스캔 enroll 기준) — 이들만 제외한다.
+               스캔에 없는 이름(스캔 이후 신규 입소 등)은 제외하지 않고 포함 = 실제 미흡을 숨기지 않기 위함.
+               동명이인은 전원이 기간외일 때만 out_scope 에 넣을 것.
+    """
+    if not rows:
+        return None
+    cut = datetime.strptime(cutoff, "%Y.%m.%d").date()
+
+    def _pdate(s):
+        try:
+            return datetime.strptime((s or "").strip(), "%Y.%m.%d").date()
+        except ValueError:
+            return None
+
+    miss_rule, miss_sheet, stale, n_target, n_skip = [], [], [], 0, 0
+    for c in rows:
+        if len(c) < 8:
+            continue
+        status, name, rule, sheet = c[1], c[2], c[6], c[7]
+        if out_scope and name in out_scope:  # 평가기간 전 퇴소 확인된 사람만 제외
+            n_skip += 1
+            continue
+        n_target += 1
+        if not _pdate(rule):
+            miss_rule.append(f"{name}({status})")
+        elif _pdate(rule) < cut:
+            stale.append(name)
+        if not _pdate(sheet):
+            miss_sheet.append(f"{name}({status})")
+    n_bad = len(miss_rule) + len(miss_sheet)
+    det = (f"[부분판정: ①안전수칙·②차량운행표 제공 / 평가기간 내 재적 {n_target}명"
+           f"{f'(기간외 {n_skip}명 제외)' if n_skip else ''}] "
+           f"안전수칙 미제공 {len(miss_rule)}명 · 차량운행표 미제공 {len(miss_sheet)}명")
+    if miss_rule:
+        det += " — 수칙: " + ", ".join(miss_rule[:5])
+    if miss_sheet:
+        det += " — 운행표: " + ", ".join(miss_sheet[:5])
+    if stale:
+        det += f" · 제공일이 평가기간({cut:%Y.%m.%d}) 이전 {len(stale)}명(재제공 검토)"
+    det += " (③자동차종합보험 유효기간·④직원 수칙 준수 면담은 수기 확인)"
+    return {
+        "status": "양호" if n_bad == 0 else "미흡",
+        "sub_status": {"①": "양호" if not miss_rule else "미흡",
+                       "②": "양호" if not miss_sheet else "미흡"},
+        "detail": det,
+    }
+
 
 def parse_edu(text: str) -> dict:
     """교육일지: 회차 레코드([N회] 날짜 + 교육명 + 서명 n/m) + 신규직원 알림."""
@@ -1481,7 +1604,9 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
                 welfare_note.append(f"{y} {qname} 미제공(진행중)")
         for qname, recs in wq.items():
             for r in recs:
-                m = re.search(r"(\d+)월\s*생일쿠폰", r["title"])
+                # 케어포 대장 제목은 지점마다 '4월 생일' / '4월 생일쿠폰' 등으로 달라 '쿠폰'을 강제하면
+                # birthday_log 가 통째로 비어 노션 생일자 전원이 '미지급 의심'으로 뒤집힌다(2026-07-16 오탐).
+                m = re.search(r"(\d+)월\s*생일", r["title"])
                 if m and r["recipients"]:
                     birthday_log.setdefault(f"{y}-{int(m.group(1)):02d}", []).extend(r["recipients"])
 
@@ -1495,13 +1620,17 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
     e6_guide_cur = [e for e in e6_guide if "진행중" not in e]
 
     item_results = {}
+    # 항목 28은 평가기간 내 재적(in_scope) 판단에 1-1 스캔 enroll 데이터가 필요 →
+    # collector.py 에서 judge_transport() 로 계산해 병합한다.
+
     if welfare_parsed:
         item_results["8"] = {
             "status": st(welfare_miss),
             "detail": "[부분판정: ③분기별 복지] "
                       + (("누락: " + ", ".join(welfare_miss)) if welfare_miss else "분기별 복지(포상) 제공 충족")
                       + (" / " + "; ".join(welfare_note) if welfare_note else "")
-                      + " (①5대보험·②가산금·④고충면담·⑤퇴직금은 수기 · 생일쿠폰 노션 대조는 연동 예정)",
+                      + " (①5대보험·②가산금·④고충면담·⑤퇴직금은 수기 · 생일쿠폰 노션 대조는"
+                        " 클라우드 실행 시 아래에 추가됨 — 로컬은 토큰 없어 생략)",
             "sub_status": {"③": st(welfare_miss)},
         }
     if health_parsed:

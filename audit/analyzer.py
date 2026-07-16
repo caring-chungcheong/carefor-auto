@@ -14,7 +14,9 @@ def _fmt(d: date) -> str:
 
 def enroll_periods(evts: list[dict], today: str) -> list[tuple[str, str]]:
     periods, open_ = [], None
-    for e in sorted(evts or [], key=lambda x: _d(x["d"])):
+    # 같은 날짜면 개시(급여개시일/수급중)를 퇴소보다 먼저 처리 — 안 그러면 개시==퇴소 동일일
+    # 재입소 케이스에서 옛 퇴소가 무시돼 기간이 통째로 이어붙는 phantom 발생
+    for e in sorted(evts or [], key=lambda x: (_d(x["d"]), 0 if x["k"] in ("급여개시일", "수급중") else 1)):
         if e["k"] in ("급여개시일", "수급중"):
             if open_ is None:
                 open_ = e["d"]
@@ -114,7 +116,9 @@ def analyze(results: list[dict], cutoff: str) -> dict:
         # ---- 항목 21: 낙상/욕창/인지 (2026~ 반기별 1회 / 2024~25 연 1회) ----
         # 매뉴얼: "'반기별 1회'는 2026.1월부터 적용" — 이전 연도를 반기로 보면 허위 누락 급증
         evals = p.get("evals", {})
-        for s, e in periods:
+        # 퇴소자는 케어포가 각 기간을 '퇴소/해당없음'으로 표시(미작성 대상 아님) → 21번 누락 제외
+        periods_21 = periods if p.get("status") != "퇴소" else []
+        for s, e in periods_21:
             if _d(e) < cut_d:
                 continue
             y0 = max(_d(s).year, cut_d.year)
@@ -123,14 +127,18 @@ def analyze(results: list[dict], cutoff: str) -> dict:
                     spans = {"상반기": (date(y, 1, 1), date(y, 6, 30)), "하반기": (date(y, 7, 1), date(y, 12, 31))}
                 else:
                     spans = {"연간": (date(y, 1, 1), date(y, 12, 31))}
+                cyc = 183 if y >= 2026 else 365  # 재평가 주기(반기/연). 직전 평가 후 이 기간 내면 유효
                 for half, (h_s, h_e) in spans.items():
                     h_s2 = max(h_s, max(_d(s), cut_d))
                     h_e2 = min(h_e, min(_d(e), date.today()))
                     if h_s2 > h_e2 or (h_e2 - h_s2).days < 30:  # 30일 미만 재적 기간은 제외
                         continue
+                    lo = h_e2 - timedelta(days=cyc)  # 재적 종료 시점 기준 직전 주기 시작
                     for kind, key in (("낙상", "fall"), ("욕창", "sore"), ("인지", "cog")):
-                        has = any(h_s <= _d(dd) <= h_e for dd in evals.get(key, []))
-                        if not has:
+                        dds = [_d(dd) for dd in evals.get(key, [])]
+                        has = any(h_s <= dd <= h_e for dd in dds)   # 해당 기간 내 평가
+                        prior = any(lo < dd <= h_e2 for dd in dds)  # 직전 주기 내 평가(퇴소자 과탐 방지)
+                        if not has and not prior:
                             halfyear_miss.append([p["name"], p.get("status", ""), f"{y} {half}", kind, f"{_fmt(h_s2)}~{_fmt(h_e2)} 재적"])
 
         # ---- 항목 20: 계획일이 기초평가일보다 앞서는지 ----

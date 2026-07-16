@@ -130,6 +130,46 @@ def run_branch_audit(
     if branch_pages:
         analysis["item_results"].update(branch_pages["item_results"])
 
+        # 항목 28①②: 이동서비스 안전수칙·차량운행표 (1-6 탭, 퇴소자 포함 수집)
+        # 평가기간 전 퇴소자는 제공 대상이 아니므로 1-1 스캔 enroll 로 in_scope 필터
+        try:
+            from .analyzer import enroll_periods, _d
+            from .branch_pages import judge_transport
+            tr_rows = bp_raw.get("transport") or []
+            if tr_rows:
+                cut_d = _d(cutoff)
+                today_s = date.today().strftime("%Y.%m.%d")
+                # 이름별로 '모든' 스캔 레코드가 평가기간 전 퇴소일 때만 제외(동명이인 안전)
+                scoped: dict[str, bool] = {}
+                for p in results:
+                    ok = any(_d(e) >= cut_d for _, e in enroll_periods(p.get("enroll"), today_s))
+                    scoped[p["name"]] = scoped.get(p["name"], False) or ok
+                out_scope = {n for n, ok in scoped.items() if not ok}
+                r28 = judge_transport(tr_rows, cutoff, out_scope)
+                if r28:
+                    analysis["item_results"]["28"] = r28
+                    progress_cb(f"[{branch_name}] 항목 28: {r28['status']}")
+        except Exception as e:
+            progress_cb(f"[{branch_name}] 항목 28 판정 건너뜀: {e}")
+
+        # 항목 34② 보강: 결과평가 c3/c4 ↔ 30일 내 계획 재작성 (사전 수집물 있을 때만)
+        # branch_pages 의 34 는 1-2 집계 숫자만 봐서 ①④ 부분판정 → ② 를 얹는다.
+        try:
+            from .item34 import judge as judge34_2
+            r34_2 = judge34_2(branch_name, results, cutoff)
+            if r34_2:
+                cur = analysis["item_results"].get("34")
+                if cur:
+                    cur["sub_status"] = {**(cur.get("sub_status") or {}), **r34_2["sub_status"]}
+                    cur["detail"] = (cur.get("detail") or "") + " / " + r34_2["detail"]
+                    if r34_2["status"] == "미흡":
+                        cur["status"] = "미흡"
+                else:
+                    analysis["item_results"]["34"] = r34_2
+                progress_cb(f"[{branch_name}] 항목 34②: {r34_2['status']}")
+        except Exception as e:
+            progress_cb(f"[{branch_name}] 항목 34② 판정 건너뜀: {e}")
+
         # 항목 8③ 보강: 노션 생일쿠폰 대조 (토큰 있을 때만 — 클라우드 전용)
         try:
             from .notion_birthday import compare as notion_compare
