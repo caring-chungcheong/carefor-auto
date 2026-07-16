@@ -198,9 +198,16 @@ def run_branch_audit(
                 if res is not None:
                     missing, months = res
                     if missing:
-                        r8["status"] = "미흡"
-                        r8["sub_status"]["③"] = "미흡"
-                        r8["detail"] += f" · 생일쿠폰 미지급 의심: {', '.join(missing)}"
+                        # 노션 생일자 성명 ↔ 케어포 대장 수령인의 '문자열' 대조라
+                        # 표기차·동명이인·퇴사자로 쉽게 뒤집힌다(2026-07-16 대장 제목 파싱 문제로
+                        # 노션 생일자 전원이 미지급으로 뒤집힌 오탐 선례). → 단정(미흡) 금지, 주의까지만.
+                        # 이미 대장 자체가 미흡이면 그 판정을 낮추지 않는다.
+                        if r8.get("status") == "양호":
+                            r8["status"] = "주의"
+                        if r8.get("sub_status", {}).get("③") == "양호":
+                            r8["sub_status"]["③"] = "주의"
+                        r8["detail"] += (f" · 생일쿠폰 미지급 의심 {len(missing)}건(확인요망): "
+                                         f"{', '.join(missing)}")
                     elif months:
                         r8["detail"] += (f" · 생일쿠폰 노션 대조 {len(months)}개월 일치"
                                          f"({months[0]}~{months[-1]}, 생일자 없는 달 포함)")
