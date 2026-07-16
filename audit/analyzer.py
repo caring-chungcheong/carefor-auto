@@ -58,8 +58,11 @@ def analyze(results: list[dict], cutoff: str) -> dict:
     plan_issues = []
     halfyear_miss = []   # 항목 21: 반기별 누락
     order_issues = []    # 항목 20: 계획일 < 기초평가일 순서 위반
-    rehab_miss = []      # 항목 27①: 2026~ 계획서 기능회복훈련 미기재
-    rehab_checked = 0    # rehabTxt 캡처된 계획 수 (구버전 raw는 0 → 27 미판정)
+    rehab_miss = []      # 항목 27①: 2026~ 계획서 기능회복훈련 미기재(확정)
+    rehab_warn = []      # 항목 27①: 기본동작 세부 누락 등 확인요망
+    rehab_checked = 0    # 판정 가능한 2026~ 계획 수
+    rehab_total = 0      # 2026~ 계획 전체 수 (커버리지 분모)
+    rehab_nodata = 0     # 팝업실패·캡처잘림·구버전raw 등 판정 불가 건
 
     cut_d = _d(cutoff)
     cur_year = date.today().year
@@ -221,18 +224,35 @@ def analyze(results: list[dict], cutoff: str) -> dict:
                 plan_prob.append(f"{pl.get('wd') or '?'} {issue}")
                 plan_issues.append([p["name"], pl.get("wd", ""), pl.get("ap", ""), st, pl.get("agreeDate", ""), issue])
 
-        # ---- 항목 27①: 2026~ 계획서 기능회복훈련 세부내용 (rehabTxt 캡처분만) ----
+        # ---- 항목 27①: 2026~ 계획서 기능회복훈련 세부내용 ----
+        # 캡처 신뢰성 주의: 구 스캐너는 '기능회복' 첫 등장부터 300자만 담았는데, 그 첫 등장이
+        # 특이사항·종합의견 같은 서술형 문단인 계획서가 많아 표 본문을 통째로 놓쳤다.
+        # (실측: 4개 지점 2026~ 계획 387건 전건이 300자 상한에 걸림. 청주 31건 '미기재' 중
+        #  live 재캡처로 대조한 건은 전부 표가 실재 → 전건 오탐.)
+        # → 판정은 rehabHits/rehabCut 을 남기는 신 스캐너 데이터에서만 하고,
+        #   캡처가 불완전하면 '미흡' 대신 판정 불가로 뺀다.
         for pl in p.get("plans", []):
-            if "rehabTxt" not in pl:
-                continue
             wd = pl.get("wd") or ""
             if not wd.startswith(("2026", "2025.12")):  # 적용 2026.1~ (전년 12월 작성 예외 인정)
                 continue
-            rehab_checked += 1
+            rehab_total += 1
+            new_scan = "rehabHits" in pl          # 신 스캐너 데이터 여부
             rt = (pl.get("rehabTxt") or "").strip()
-            has_kind = any(k in rt for k in ("신체기능", "기본동작", "일상생활동작"))
-            if not rt or not has_kind:
-                rehab_miss.append([p["name"], wd, "기능회복훈련 세부내용 없음/미기재"])
+            nsp = rt.replace(" ", "")             # '기본동작 훈련' 같은 공백 표기 흡수
+            # 판정 불가: 팝업실패 / 구버전raw(300자 절단) / 신 스캐너라도 상한 도달
+            if (pl.get("st") == "팝업실패") or (not new_scan) or pl.get("rehabCut"):
+                rehab_nodata += 1
+                continue
+            rehab_checked += 1
+            if not rt or pl.get("rehabHits", 0) == 0:
+                # 계획서 전체에 '기능회복' 언급 자체가 없음 → 확정 미기재
+                rehab_miss.append([p["name"], wd, "기능회복훈련 항목 없음"])
+            elif not any(k in nsp for k in ("신체기능", "기본동작", "일상생활동작")):
+                rehab_miss.append([p["name"], wd, "기능회복훈련 세부내용(신체기능·기본동작·일상생활동작) 없음"])
+            elif "기본동작" not in nsp:
+                # 매뉴얼상 기본동작훈련 세부내용은 필수이나, 표기 다양성 여지가 있어
+                # 단정하지 않고 '주의(확인요망)'로 둔다.
+                rehab_warn.append([p["name"], wd, "기본동작훈련 세부내용 확인요망(다른 훈련은 기재됨)"])
 
         rows_check.append([
             p["name"], p.get("status", ""), period_txt,
@@ -278,20 +298,36 @@ def analyze(results: list[dict], cutoff: str) -> dict:
             "detail": f"급여제공계획 발송·서명 문제 {n_plan}건",
         },
     }
-    if rehab_checked:
+    if rehab_total:
+        # 커버리지(판정 N / 전체 M)를 반드시 노출한다 — 판정분만 깨끗하다고 '양호'로 읽히면
+        # 실제로는 미판정인데 양호로 보이는 위험이 있다. 커버리지 미달이면 양호를 주지 않는다.
+        cov = rehab_checked / rehab_total
+        if rehab_miss:
+            r_st = "미흡"
+        elif rehab_warn or rehab_nodata:
+            r_st = "주의"
+        elif rehab_checked:
+            r_st = "양호"
+        else:
+            r_st = "주의"
+        cov_txt = f"판정 {rehab_checked}건/전체 {rehab_total}건 (커버리지 {cov:.0%})"
+        if rehab_nodata:
+            cov_txt += f", 캡처불가 {rehab_nodata}건"
         item_results["27"] = {
-            "status": st(len(rehab_miss)),
-            "sub_status": {"①": st(len(rehab_miss))},
-            "detail": f"[부분판정: ①계획서 기능회복훈련] 2026~ 계획 {rehab_checked}건 중 미기재 {len(rehab_miss)}건"
-                      + ((" — " + "; ".join(f"{r[0]}({r[1]})" for r in rehab_miss[:5])) if rehab_miss else "")
-                      + " (기본동작훈련 필수 기재 여부·②숙지 면담은 수기 확인)",
+            "status": r_st,
+            "sub_status": {"①": r_st},
+            "detail": f"[부분판정: ①계획서 기능회복훈련] 2026~ {cov_txt} — 미기재 {len(rehab_miss)}건"
+                      + (f", 확인요망 {len(rehab_warn)}건" if rehab_warn else "")
+                      + ((" — " + "; ".join(f"{r[0]}({r[1]})" for r in (rehab_miss + rehab_warn)[:5])) if (rehab_miss or rehab_warn) else "")
+                      + (" ※구 스캐너 데이터는 캡처 절단으로 판정 제외(재스캔 필요)" if rehab_nodata else "")
+                      + " (②숙지 면담은 수기 확인)",
         }
 
     return {
         "rows_match": rows_match,
         "rows_check": rows_check,
         "plan_issues": plan_issues,
-        "rehab_miss": rehab_miss,
+        "rehab_miss": rehab_miss + rehab_warn,
         "halfyear_miss": halfyear_miss,
         "order_issues": order_issues,
         "item_results": item_results,
