@@ -64,31 +64,6 @@
 button[onclick^="uploadScores"]{display:none!important}
 .hqback{background:#fff;color:#2f5496;padding:6px 14px;border-radius:16px;text-decoration:none;font-size:13px;font-weight:bold;white-space:nowrap;align-self:center;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.2)}
 </style>
-<style>
-/* 모바일 정돈: 넓은 표는 페이지를 밀지 않고 박스 안에서 가로 스크롤 */
-@media(max-width:640px){
-  html,body{overflow-x:hidden;-webkit-text-size-adjust:100%}
-  .wrap{overflow-x:hidden}
-  table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
-  img,pre{max-width:100%}
-  .summary{overflow-x:auto}
-  .subrow{flex-wrap:wrap}
-  .subtext,.criteria,.checks,.checks-h,.detail-detail,.loc{max-width:100%;word-break:break-word}
-  /* 헤더: 3요소가 한 줄에 안 맞아 제목이 세로로 쪼개지는 문제 → 줄바꿈 재배치 */
-  header{flex-wrap:wrap;gap:8px 10px;padding:12px 16px;align-items:center}
-  header .hqback{order:1}
-  header a[href*="audit_summary"]{order:2;margin-left:auto !important;font-size:12px;padding:7px 11px}
-  header h1{order:3;flex-basis:100%;font-size:17px;margin:2px 0 0}
-  header .sub{order:4;flex-basis:100%;font-size:11px}
-  .tabs{padding:10px 12px 0;flex-wrap:wrap}
-  .tab{padding:8px 14px;font-size:13px}
-  .wrap{margin:0 12px 20px;padding:14px}
-  /* 내보내기 버튼 글자가 세로로 쪼개지는 것 방지 */
-  .btnrow{flex-wrap:wrap}
-  button{white-space:nowrap}
-  .btnrow button, .btnrow select{font-size:12.5px;padding:8px 12px}
-}
-</style>
 </head>
 <body><div id="hqgate"><h2 style="color:#fff">🔒 지점 점검 대시보드 (본부 공유)</h2>
 <div>접속 번호를 입력하세요</div>
