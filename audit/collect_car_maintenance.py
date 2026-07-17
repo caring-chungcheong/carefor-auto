@@ -114,6 +114,17 @@ def main():
     outdir = RES / f"정비이력_{b.name}"
     outdir.mkdir(parents=True, exist_ok=True)
 
+    # ★ 재수집이 index.json 을 새로 쓰면서 **파생 결과(OCR·드라이브 링크)를 날려먹었다**.
+    #   OCR 은 15분, 드라이브 재업로드는 중복 파일을 만든다 → cmhmgno 로 이어붙인다.
+    #   (cmhmgno = 케어포 정비건 고유번호. 같은 건이면 첨부도 같다.)
+    prev = {}
+    old = outdir / "index.json"
+    if old.exists():
+        for r in json.loads(old.read_text(encoding="utf-8")).get("records", []):
+            if r.get("cmhmgno"):
+                prev[r["cmhmgno"]] = ({k: r[k] for k in ("ocr", "ocr_raw", "files_url") if k in r},
+                                      r.get("files") or [])   # ★ files 도 담아야 비교가 된다
+
     index, t0, n_file = [], time.time(), 0
     with sync_playwright() as p:
         br, page = _login(p, b.ctmnumb)
@@ -143,22 +154,29 @@ def main():
             page.wait_for_timeout(2200)
 
             rows = page.evaluate(ROWS_JS)
-            cdir = outdir / SAFE.sub("_", c["name"])
+            # ★ 폴더를 **차량명으로만** 만들면 동명 차량(둔산 '레이' 46다7239·134노2060)이
+            #   같은 폴더를 공유한다. 파일명이 겹치는 순간 조용히 덮어써지고, OCR·업로드도
+            #   같은 폴더를 찾으므로 **다른 차의 명세서를 읽는다**. 차량번호를 붙여 분리한다.
+            cdir = outdir / SAFE.sub("_", f"{c['name']}_{c.get('numb') or '?'}")
             for r in rows:
                 mv = re.search(r"'view'\s*:\s*'([^']+)'", r["view"] or "")
                 html = page.evaluate(FETCH_JS, [mv.group(1), r["param"]]) if (mv and r["param"]) else ""
-                # ★ 첨부는 2종이고 **호스트·경로가 다르다** (2026-07-17 실측):
-                #   · PDF  : dn.carefor.co.kr  /ct_att/car_maintenance_history/... 
-                #            <a href="/ct_att/..." download="원본파일명">  (상대경로 + download 속성)
-                #   · 이미지: image.carefor.co.kr /ct_img/car_maintenance_history/...
-                #            <script> photo_items[..].push({ src:'https://image.carefor.co.kr/ct_img/...jpg', w,h })
-                #            → a 태그도 download 속성도 **없다**. 인라인 <img> 는 300x424 썸네일이라 못 쓴다.
-                #              src 의 원본은 2480x3507 로 판독 가능.
-                # 예전엔 /ct_att/ + download 패턴만 봐서 **이미지 첨부를 전부 놓쳤고**,
-                # 그 탓에 "서구는 첨부를 안 올린다(11%)"고 잘못 결론냈다(실제로는 JPG 로 올리고 있었다).
+                # ★ 첨부는 **2가지 방식**으로 실려 온다 (2026-07-17 실측):
+                #   · PDF  : <a href="/ct_att/car_maintenance_history/..." download="원본파일명">
+                #            상대경로 → dn 호스트를 붙여야 한다.
+                #   · 이미지: <script> photo_items[..].push({ src:'https://image.carefor.co.kr/...', w,h })
+                #            a 태그도 download 속성도 **없다**. 인라인 <img> 는 썸네일(300x424)이라 못 쓴다.
+                #
+                # ⚠️ **경로를 가정하지 말 것.** photo_items 의 src 는 `/ct_img/` 도 있고 `/ct_att/` 도 있다
+                #    (같은 image.carefor.co.kr 호스트). 실측:
+                #      ct_img: .../ct_img/car_maintenance_history/78095/202602/375219/C5b18g9aFI.jpg
+                #      ct_att: .../ct_att/car_maintenance_history/76599/202510/347751/BueQgu1uSl.jpg
+                #    처음엔 `/ct_att/`+download 만 봐서 이미지를 전부 놓쳤고("서구는 첨부를 안 올린다"고
+                #    오판), 고치면서 `/ct_img/` 를 경로에 못박아 **ct_att 로 올라간 이미지를 또 놓쳤다**
+                #    ("둔산 첨부율 10%" 오판). → src 는 **절대 URL 이면 무조건 첨부**로 본다.
                 atts = [(DN_BASE.rstrip("/") + u, n) for u, n in
                         re.findall(r'href="(/ct_att/[^"]+)"\s+download="([^"]+)"', html or "")]
-                img_urls = re.findall(r"src\s*:\s*'(https?://[^']+/ct_img/[^']+)'", html or "")
+                img_urls = re.findall(r"src\s*:\s*'(https?://[^']+)'", html or "")
                 img_names = re.findall(r"data-kind='img'[^>]*data-name=\"([^\"]+)\"", html or "")
                 for i, u in enumerate(dict.fromkeys(img_urls)):
                     atts.append((u, img_names[i] if i < len(img_names) else u.rsplit("/", 1)[-1]))
@@ -174,12 +192,22 @@ def main():
                         n_file += 1
                     except Exception as e:
                         print(f"    첨부 실패 {fname}: {e}", flush=True)
-                index.append({"car": c["name"], "kind": c["kind"],
-                              "numb": c.get("numb", ""), "modl": c.get("modl", ""), "date": r["date"],
-                              "type": r["kind"], "desc": r["desc"],
-                              "cmhmgno": (re.search(r"'cmhmgno'\s*:\s*'(\d+)'", r["param"]) or [None, ""])[1],
-                              "files": saved})
-            n_att = sum(1 for x in index if x["car"] == c["name"] and x["files"])
+                cmh = (re.search(r"'cmhmgno'\s*:\s*'(\d+)'", r["param"]) or [None, ""])[1]
+                rec = {"car": c["name"], "kind": c["kind"],
+                       "numb": c.get("numb", ""), "modl": c.get("modl", ""), "date": r["date"],
+                       "type": r["kind"], "desc": r["desc"], "cmhmgno": cmh, "files": saved,
+                       # 첨부가 실제로 저장된 폴더명 — 하위 단계는 **차량명이 아니라 이걸** 써야 한다
+                       "dir": cdir.name}
+                # 첨부 목록이 **그대로일 때만** 예전 OCR·드라이브 링크를 물려준다(재OCR·중복업로드 방지).
+                # ⚠️ 예전엔 files_url 길이만 봤는데, 그게 비어 있으면(=업로드 전) 무조건 통과해서
+                #    지점이 첨부를 갈아끼운 뒤 재수집하면 **옛 금액·타이어규격이 새 첨부에 붙었다**.
+                #    비교 키는 반드시 **files(파일명 목록)** 여야 한다.
+                carry = prev.get(cmh)
+                if carry and carry[1] == saved:
+                    rec.update(carry[0])
+                index.append(rec)
+            # 차량명으로 세면 동명 차량(둔산 레이 2대) 합계가 각각 찍힌다 — 첨부율 오판의 원인이었다
+            n_att = sum(1 for x in index if x["numb"] == c.get("numb") and x["files"])
             print(f"  {c['name']:<14} 정비 {len(rows):>3}건 · 첨부보유 {n_att:>2}건", flush=True)
         br.close()
 

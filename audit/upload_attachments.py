@@ -64,6 +64,26 @@ def get_folder(at) -> str:
     return f["id"]
 
 
+def existing(at, parent: str) -> dict[str, str]:
+    """폴더에 이미 있는 파일 이름→id. **중복 업로드 방지용**.
+
+    ⚠️ 재수집이 index.json 을 새로 쓰면 files_url 이 날아간다. 그것만 믿고 건너뛰면
+       같은 파일이 드라이브에 또 쌓인다 → **드라이브 실물을 기준**으로 판단한다.
+    """
+    out, tok = {}, None
+    while True:
+        q = urllib.parse.quote(f"'{parent}' in parents and trashed=false")
+        url = f"https://www.googleapis.com/drive/v3/files?q={q}&fields=nextPageToken,files(id,name)&pageSize=1000"
+        if tok:
+            url += "&pageToken=" + tok
+        r = req(at, url)
+        for f in r.get("files", []):
+            out[f["name"]] = f["id"]
+        tok = r.get("nextPageToken")
+        if not tok:
+            return out
+
+
 def upload(at, path: pathlib.Path, name: str, parent: str) -> str | None:
     meta = json.dumps({"name": name, "parents": [parent]}).encode()
     ct = mimetypes.guess_type(name)[0] or "application/octet-stream"
@@ -91,9 +111,11 @@ def main():
 
     at = token()
     parent = get_folder(at)
-    print(f"드라이브 폴더: {parent} (공개범위: {DOMAIN} 도메인 한정)\n")
+    have = existing(at, parent)
+    print(f"드라이브 폴더: {parent} (공개범위: {DOMAIN} 도메인 한정)")
+    print(f"이미 올라간 파일: {len(have)}개 — 같은 이름은 재사용한다\n")
 
-    t0, n_up, n_skip = time.time(), 0, 0
+    t0, n_up, n_skip, n_reuse = time.time(), 0, 0, 0
     for d in sorted(RES.glob("정비이력_*")):
         idx = d / "index.json"
         data = json.loads(idx.read_text(encoding="utf-8"))
@@ -106,13 +128,19 @@ def main():
                 continue
             urls = []
             for fn in files:
-                p = d / r["car"] / fn
+                p = d / (r.get("dir") or r["car"]) / fn   # dir = 첨부 실제 폴더(동명 차량 분리)
                 if not p.exists():
                     continue
-                # 드라이브에서 알아볼 수 있게 이름을 지점·차량·정비일로 붙인다
+                # 드라이브에서 알아볼 수 있게 이름을 지점·차량·정비일로 붙인다.
+                # 이 이름이 **중복 판단 키**다 — 같은 정비건의 같은 파일이면 같은 이름이 나온다.
                 name = f"{data['branch']}_{r['car']}_{r['date']}_{fn}"
+                if name in have:
+                    urls.append(f"https://drive.google.com/file/d/{have[name]}/view")
+                    n_reuse += 1
+                    continue
                 fid = upload(at, p, name, parent)
                 if fid:
+                    have[name] = fid
                     urls.append(f"https://drive.google.com/file/d/{fid}/view")
                     n_up += 1
             if urls:
@@ -120,7 +148,7 @@ def main():
                 print(f"  [{data['branch'][:2]}] {r['car'][:12]:<12} {r['date']} → {len(urls)}개", flush=True)
         idx.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
 
-    print(f"\n완료: 업로드 {n_up}개 · 건너뜀 {n_skip}건 ({time.time()-t0:.0f}초)")
+    print(f"\n완료: 신규 업로드 {n_up}개 · 기존 재사용 {n_reuse}개 · 건너뜀 {n_skip}건 ({time.time()-t0:.0f}초)")
     print("다음: py -X utf8 -m audit.push_maintenance_to_sheet")
 
 
