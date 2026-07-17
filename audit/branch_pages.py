@@ -959,6 +959,15 @@ def parse_health(text: str) -> dict:
     return {"counts": counts, "rows": rows}
 
 
+# 대장 행 안에 섞여 들어오는 UI 조작 텍스트 — 2~4글자 한글이라 이름 정규식에 그대로 걸린다.
+# 실측(둔산점 2026-07-17): 수령인 46명 중 20건이 '조회' 였다(실제 26명). 생일쿠폰 판정은
+# '이름이 목록에 있나'만 보므로 가짜 이름이 하나 끼어도 뒤집히진 않지만, 수령인 수가 부풀려진다.
+# ★ 관측된 건 '조회' 뿐이고 나머지는 같은 계열이라 예방적으로 넣었다. 실제 수급자·직원 이름은
+#   이 목록과 겹치지 않는다(한국 성명은 성+2자 3글자가 대부분이고, 관측된 수령인도 전부 3글자).
+_UI_WORDS = {"조회", "수정", "삭제", "등록", "신규", "저장", "확인", "취소",
+             "인쇄", "첨부", "목록", "닫기", "선택", "검색", "전체"}
+
+
 def parse_welfare(text: str) -> dict:
     """8-1-1 복지(포상) 제공대장: 분기별 제공 기록 [{date, title, recipients}]."""
     lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
@@ -981,7 +990,7 @@ def parse_welfare(text: str) -> dict:
                 s = lines[j]
                 if date_re.match(s) or s in out or len(s) > 20:
                     break
-                if re.match(r"^[가-힣]{2,4}$", s):
+                if re.match(r"^[가-힣]{2,4}$", s) and s not in _UI_WORDS:
                     recipients.append(s)
                 j += 1
             out[cur_q].append({"date": ln, "title": title, "recipients": recipients})
@@ -1617,11 +1626,27 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
                 welfare_note.append(f"{y} {qname} 미제공(진행중)")
         for qname, recs in wq.items():
             for r in recs:
-                # 케어포 대장 제목은 지점마다 '4월 생일' / '4월 생일쿠폰' 등으로 달라 '쿠폰'을 강제하면
-                # birthday_log 가 통째로 비어 노션 생일자 전원이 '미지급 의심'으로 뒤집힌다(2026-07-16 오탐).
+                # 제목에 '생일' 이 있으면 생일쿠폰 기록으로 본다. ★월은 제목이 아니라 '날짜'에서 얻는다.
+                #
+                # 제목 문구가 지점 자율이라 여기에 기대면 계속 터진다 — 실제로 두 번 터졌다:
+                #   · 2026-07-16: '쿠폰'을 강제 → '4월 생일'만 쓰는 지점의 대장이 통째로 비어
+                #     노션 생일자 전원이 '미지급 의심'으로 뒤집힘.
+                #   · 그래서 '(\d+)월\s*생일' 로 바꿨더니 이번엔 둔산점('생일쿠폰' — 월 표기 없음)의
+                #     대장이 통째로 비어 39건 전건이 오탐이 됐다(2026-07-17 실측. 대장엔 13개월분
+                #     지급기록이 멀쩡히 있었다). 고친 게 반대 방향으로 재발한 것이다.
+                # 관측된 제목: '4월 생일'(청주·천안) / '생일쿠폰'(둔산) — 공통분모는 '생일'뿐이고,
+                # 월은 어느 지점이든 기록 날짜에 항상 있다.
+                if "생일" not in (r["title"] or "") or not r["recipients"]:
+                    continue
                 m = re.search(r"(\d+)월\s*생일", r["title"])
-                if m and r["recipients"]:
-                    birthday_log.setdefault(f"{y}-{int(m.group(1)):02d}", []).extend(r["recipients"])
+                if m:
+                    ym = f"{y}-{int(m.group(1)):02d}"   # 제목에 월이 있으면 그게 지점이 밝힌 대상월
+                else:
+                    dm = re.match(r"(\d{4})\.(\d{2})\.", r.get("date") or "")
+                    if not dm:
+                        continue                        # 날짜도 제목도 월을 못 주면 건너뛴다
+                    ym = f"{dm.group(1)}-{dm.group(2)}"  # 없으면 지급 날짜의 월
+                birthday_log.setdefault(ym, []).extend(r["recipients"])
 
     def st(miss):
         return "양호" if not miss else "미흡"

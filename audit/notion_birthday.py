@@ -211,6 +211,31 @@ def _floor_ym(opened: str | None, cutoff: str | None) -> str | None:
     return f"{eff.year:04d}-{eff.month:02d}"
 
 
+TOLERANCE_MONTHS = 1
+
+
+def _given_near(birthday_log: dict, ym: str, w: int = TOLERANCE_MONTHS) -> set:
+    """ym 앞뒤 w개월까지의 수령인 합집합.
+
+    ★ 왜 앞뒤를 보나: 노션 월은 '위펀 주문월'이고 케어포 대장 날짜는 '실제 전달일'이라
+      달을 넘겨 전달하면 어긋난다. 둔산점 실측(2026-07-17):
+        노션 2024-10 박○민 → 대장 2024-11 에 지급기록  (한 달 늦게 전달)
+        노션 2024-11 이○영 → 대장 2024-10 에 지급기록  (한 달 일찍 전달)
+      둘 다 정상 업무인데 '미지급 의심'으로 떴다. 달 넘겨 전달하는 건 지적할 일이 아니다.
+      제목에 월이 없는 지점(둔산 '생일쿠폰')은 대장 월 자체가 전달일 기준이라 특히 필요하다.
+
+    느슨해지는 대가로 진짜 누락을 놓칠 수 있지만, 이 판정은 어차피 '미흡'을 내지 않고
+    '주의(확인요망)'까지만 간다(문자열 대조라 오탐이 잦다 — collector.py 참조).
+    거짓 지적으로 지점이 헛일하는 비용이 더 크다고 보고 ±1개월로 뒀다(사용자 확정 2026-07-17).
+    """
+    y, m = int(ym[:4]), int(ym[5:7])
+    out = set()
+    for k in range(-w, w + 1):
+        t = (m - 1) + k
+        out |= set(birthday_log.get(f"{y + t // 12:04d}-{t % 12 + 1:02d}", []))
+    return out
+
+
 def compare(branch_name: str, birthday_log: dict, today: date | None = None,
             progress_cb=print, opened: str | None = None,
             cutoff: str | None = None) -> tuple[list, list] | None:
@@ -241,7 +266,7 @@ def compare(branch_name: str, birthday_log: dict, today: date | None = None,
         expected = [n for br, names in data[ym].items() if key in br or br in key for n in names]
         # 해당 월 생일자가 없어도 대조는 수행한 것으로 기록 (지급 없음 = 정상)
         months.append(ym)
-        given = set(birthday_log.get(ym, []))
+        given = _given_near(birthday_log, ym)
         for n in expected:
             if n not in given:
                 missing.append(f"{ym} {n}")
