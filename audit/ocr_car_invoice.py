@@ -177,10 +177,21 @@ def main():
     print(f"{data['branch']} — OCR 대상 {len(todo)}건", flush=True)
     t0, n_ok = time.time(), 0
     for i, r in enumerate(todo, 1):
-        pdf = src / r["car"] / r["files"][0]
-        if not pdf.exists():
+        # ⚠️ **첨부 전부** 를 읽어 이어붙인다. 예전엔 files[0] 만 읽었는데,
+        #    첫 파일이 명세서가 아니면(점검 사진 등) 그 건은 영영 '금액 없음'이 됐다.
+        #    실측: 서구 아반떼2768 2025.11.12 는 첨부 10개, 둔산 그랜드스타렉스 2025.05.20 은
+        #    files[0] 이 '9869 정기점검1.jpg'(사진)이라 나머지 3개 속 명세서를 못 읽었다.
+        parts, npages = [], 0
+        for fn in (r.get("files") or []):
+            p = src / (r.get("dir") or r["car"]) / fn   # dir = 첨부 실제 폴더(동명 차량 분리)
+            if not p.exists():
+                continue
+            f, n = ocr_pdf(p)
+            parts.append(f)
+            npages += n
+        if not parts:
             continue
-        flat, npages = ocr_pdf(pdf)
+        flat = "".join(parts)
         r["ocr"] = parse(flat, npages)
         r["ocr_raw"] = flat          # 파싱 규칙이 바뀌어도 재OCR 없이 재파싱하려고 원문 보관
         if r["ocr"]["ok"]:
