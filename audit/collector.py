@@ -263,11 +263,13 @@ def run_branch_audit(
 
 
 def _write_dashboard_data() -> None:
-    """audit_results/*.json 을 모아 dashboard_data.js 생성 (file:// 대시보드용)."""
+    """audit_results/*.json 중 '본 점검 결과'만 모아 dashboard_data.js 생성 (file:// 대시보드용)."""
     data = {}
     for f in AUDIT_DIR.glob("*.json"):
         try:
             d = json.loads(f.read_text(encoding="utf-8"))
+            if not isinstance(d, dict) or "item_results" not in d:
+                continue  # 수집 중간산출물(청구발송_·contract_·needs_full_ 등)도 branch 키가 있어 덮어쓴다
             slim = {k: d[k] for k in ("branch", "cutoff", "run_at", "people", "item_results", "rows_match", "opened") if k in d}
             slim["analysis"] = d.get("analysis", {})
             slim["analysis"].pop("rows_match", None)
