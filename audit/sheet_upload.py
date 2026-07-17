@@ -25,6 +25,10 @@ def build_payload() -> dict:
             d = json.loads(f.read_text(encoding="utf-8"))
         except Exception:
             continue
+        # 같은 폴더의 수집 중간산출물(청구발송_<지점>.json 등)도 "branch" 키를 갖고 있어
+        # 걸러내지 않으면 지점 본 결과를 빈 값으로 덮어써 시트가 전부 '수집전'이 된다.
+        if not isinstance(d, dict) or "item_results" not in d:
+            continue
         an = d.get("analysis", {})
         stats = an.get("stats", {}) or {}
         branches[d["branch"]] = {
