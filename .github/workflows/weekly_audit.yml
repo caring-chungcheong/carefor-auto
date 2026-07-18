@@ -290,7 +290,7 @@ jobs:
         run: |
           git config user.name "audit-bot"
           git config user.email "actions@github.com"
-          git add docs/audit_summary.html docs/dashboard_data.js docs/branch_dashboard.html
+          git add docs/audit_summary.html docs/dashboard_data.js docs/branch_dashboard.html docs/audit_history.json
           if git diff --cached --quiet; then
             echo "요약페이지 변경 없음"
           else
