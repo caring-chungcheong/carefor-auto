@@ -184,6 +184,16 @@ def main():
     print(f"발행 완료: {dash}")
     print(f"수급자 이름 {len(names)}명 마스킹 · 잔여 이름 0건 ✅")
 
+    # 진행추적: 이번 런의 항목 상태를 스냅샷으로 누적하고 직전 대비 변화 출력.
+    # payload["data"] 는 마스킹본이라 이름이 없다 → docs/audit_history.json(공개) 에 안전.
+    try:
+        from .progress_track import record, print_report
+        total = record(payload["data"])
+        print(f"진행추적 스냅샷 기록(누적 {total}개) → docs/audit_history.json")
+        print_report()
+    except Exception as e:
+        print(f"진행추적 건너뜀(비차단): {e}")
+
 
 if __name__ == "__main__":
     main()
