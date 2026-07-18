@@ -1664,14 +1664,20 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
     # collector.py 에서 judge_transport() 로 계산해 병합한다.
 
     if welfare_parsed:
+        # ②가산금 80% 사용: '2026 평가종료월 다음 해부터' 적용이라 현 정기평가엔 미적용 +
+        # 가산금 미지급 기관은 충족(Y) → 두 갈래 모두 충족이라 자동 충족 처리(32번 백신 특례와 같은 구조).
+        # 80% 기준이 실제 적용되는 시점(2027~)부터는 가산금 지급 기관의 80% 사용 증빙을 수기 확인해야 한다.
         item_results["8"] = {
             "status": st(welfare_miss),
             "detail": "[부분판정: ③분기별 복지] "
                       + (("누락: " + ", ".join(welfare_miss)) if welfare_miss else "분기별 복지(포상) 제공 충족")
                       + (" / " + "; ".join(welfare_note) if welfare_note else "")
-                      + " (①5대보험·②가산금·④고충면담·⑤퇴직금은 수기 · 생일쿠폰 노션 대조는"
+                      + " · [②가산금] 80% 사용 기준은 2026 평가종료월 다음 해부터 적용 → 현 정기평가"
+                        "(청주·천안·둔산 2026·서구 2027) 미적용 + 가산금 미지급 기관은 충족 → 충족(Y) 자동 처리"
+                        "(적용 시점부터 지급기관 80% 사용 증빙 수기 확인 필요)"
+                      + " (①5대보험·④고충면담·⑤퇴직금은 수기 · 생일쿠폰 노션 대조는"
                         " 클라우드 실행 시 아래에 추가됨 — 로컬은 토큰 없어 생략)",
-            "sub_status": {"③": st(welfare_miss)},
+            "sub_status": {"③": st(welfare_miss), "②": "양호"},
         }
     if health_parsed:
         item_results["15"] = {
@@ -1759,10 +1765,20 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
             "sub_status": {"①": st(disaster_miss)},
             "detail": ("누락: " + ", ".join(disaster_miss)) if disaster_miss else "반기별 재난대응훈련 실시 확인",
         },
+        # 12① 응급 매뉴얼·비상연락체계: 기본 비치항목 → 전지점 자동 충족(사용자 확정 2026-07-18).
+        #    ②알림장치·③④면담은 수기.
+        "12": {
+            "status": "양호",
+            "sub_status": {"①": "양호"},
+            "detail": "[①응급 매뉴얼·비상연락체계] 기본 비치항목 → 전지점 충족(Y) 자동 처리 "
+                      "(②알림장치 설치·③④면담은 수기)",
+        },
+        # 13② 피난안내도: 본사에서 지점별로 부착 → 전지점 자동 충족(사용자 확정 2026-07-18).
         "13": {
             "status": st(fire_miss),
-            "sub_status": {"①": st(fire_miss)},
-            "detail": ("소방점검 누락: " + ", ".join(fire_miss)) if fire_miss else "매월 소방시설 점검 입력 확인",
+            "sub_status": {"①": st(fire_miss), "②": "양호"},
+            "detail": (("소방점검 누락: " + ", ".join(fire_miss)) if fire_miss else "매월 소방시설 점검 입력 확인")
+                      + " · [②피난안내도] 본사 부착 → 전지점 충족(Y) 자동 처리",
         },
         "16": {
             "status": st(supply_miss_m + hygiene_miss_m + dis_miss),
