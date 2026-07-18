@@ -43,9 +43,11 @@ import json
 from pathlib import Path
 
 try:
-    from .needs_rules import BASIS_BLANK_ONLY, BASIS_ITEMS, basis_mentions, basis_of, pick
+    from .needs_rules import (
+        BASIS_BLANK_ONLY, BASIS_ITEMS, adl_basis_miss, basis_mentions, basis_of, pick)
 except ImportError:  # 스크립트로 직접 실행할 때
-    from audit.needs_rules import BASIS_BLANK_ONLY, BASIS_ITEMS, basis_mentions, basis_of, pick
+    from audit.needs_rules import (
+        BASIS_BLANK_ONLY, BASIS_ITEMS, adl_basis_miss, basis_mentions, basis_of, pick)
 
 RES = Path(__file__).resolve().parent.parent / "audit_results"
 
@@ -107,6 +109,12 @@ def check_needs_c(a: dict) -> tuple[list[str], list[str], list[str], list[str]]:
         bb = basis_of(rows, sec_kw)
         if bb is not None and not (bb.get("text") or "").strip():
             blank.append(sec_kw)
+    # 신체 판단근거(체크한 ADL 서술)는 지점별 작성 스타일 편차가 커(서구 110건 중 89건이
+    # '자립 항목 뭉뚱그리기') 자동 미흡으로 못 찍는다 → 점검표(사람 확인)에만 싣는다.
+    # 단, 판단근거가 통째로 '공란'이면 서술 자체가 없는 것이라 이건 확정 지적한다.
+    adl_stat, _adl_miss = adl_basis_miss(rows)
+    if adl_stat == "공란":
+        blank.append("신체")
     if blank:
         hard.append("판단근거공란")
     if miss_secs:

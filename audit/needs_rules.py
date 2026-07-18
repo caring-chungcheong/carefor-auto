@@ -252,6 +252,51 @@ def basis_mentions(rows: list[dict], sec_kw: str, labels: list[str]) -> tuple[st
     return "OK", miss
 
 
+# ADL 항목 ↔ 판단근거에서 그 항목을 가리키는 핵심어(축약·대체표현).
+# 지점이 판단근거에 '목욕하기'(전체명) / '목욕'(축약) / '샤워'(대체)로 제각각 쓴다.
+# 전체명만 대조하면 축약형이 전건 오탐(서구 실측 92건). 핵심어 중 하나라도 있으면 서술된 걸로 본다.
+ADL_STEM: dict[str, list[str]] = {
+    "옷 벗고 입기": ["옷벗", "옷입", "착탈", "탈의", "의복", "단추", "지퍼"],
+    "세수하기": ["세수", "세면"],
+    "양치질하기": ["양치", "칫솔", "구강청결"],
+    "식사하기": ["식사", "음식", "섭취", "식이"],
+    "목욕하기": ["목욕", "샤워", "씻"],
+    "체위변경 하기": ["체위", "자세변경", "돌아눕", "뒤척"],
+    "일어나 앉기": ["일어나앉", "일어나", "기립", "앉고일어"],
+    "옮겨 앉기": ["옮겨앉", "옮겨", "이동", "이승"],
+    "화장실 사용하기": ["화장실", "배뇨", "배변", "용변", "대소변", "변기"],
+    "몸단장하기": ["몸단장", "단장", "빗질", "머리손질", "손톱", "몸치장"],
+}
+
+
+def adl_basis_miss(rows: list[dict]) -> tuple[str, list[str]]:
+    """체크된 ADL 항목이 '신체상태 판단근거'에 서술됐는지.
+
+    반환 (상태, 미서술 항목명). 상태: 'OK' | '공란' | '행없음'.
+
+    ★ 신체는 값(완전자립/부분도움/완전도움)이 아니라 '항목'으로 대조한다 — 판단근거가 각 ADL 을
+      이름으로 서술하기 때문이다(실측: "옷 벗고 입기 : … 목욕하기 : …"). 값(정도)은 풀어 써
+      매칭 불가라 신체를 BASIS_ITEMS 에서 뺐던 것이고, 항목 대조는 된다(사용자 확정 2026-07-17).
+    ★ 전체명이 아니라 ADL_STEM 핵심어로 대조한다 — 지점이 '목욕하기/목욕/샤워'로 제각각 쓴다.
+      공백은 무시(체위변경 하기 ↔ 체위변경하기).
+    ★ 한계: 서구처럼 '도움 필요한 항목만 서술 + 나머지는 자립'으로 뭉뚱그리는 스타일은 자립
+      항목이 미서술로 잡힌다(110건 중 89건). 개별 오탐이 아니라 그 지점 작성 스타일이다 →
+      점검표(사람 확인)에만 싣고, 20① 자동판정(미흡)에는 넣지 않는다(전건 미흡 노이즈 방지).
+    """
+    b = basis_of(rows, "신체")
+    if b is None:
+        return "행없음", []                      # 구서식 등 신체 판단근거 행 자체가 없음
+    checked = [x for x in ADL if (pick(rows, x) or {}).get("sel")]
+    if not checked:
+        return "OK", []                          # 체크된 ADL 이 없으면 대조 안 함(미체크는 별도)
+    txt = (b.get("text") or "")
+    if not txt.strip():
+        return "공란", checked                    # 체크는 했는데 판단근거 통째로 공란
+    t = re.sub(r"\s", "", txt)
+    miss = [x for x in checked if not any(s in t for s in ADL_STEM.get(x, [x.replace(" ", "")]))]
+    return "OK", miss
+
+
 def child_counts(row: dict | None) -> tuple[int | None, int | None]:
     t = (row or {}).get("text", "") or ""
     s = re.search(r"아들\s*:\s*(\d+)", t)
@@ -394,6 +439,13 @@ def check_one(a: dict, prev: dict | None, ctx: dict | None = None) -> tuple[dict
     miss_adl = [x for x in ADL if not (pick(rows, x) or {}).get("sel")]
     if miss_adl:
         probs.append("신체상태 미체크: " + ", ".join(miss_adl))
+    # 4-1) 신체 판단근거: 체크한 ADL 항목이 판단근거에 서술됐는지
+    adl_bstat, adl_bmiss = adl_basis_miss(rows)
+    if adl_bstat == "공란":
+        probs.append("신체 판단근거 공란(ADL 체크됨)")
+    elif adl_bmiss:
+        probs.append("신체 판단근거 미서술: " + ", ".join(adl_bmiss))
+    adl_basis_txt = "공란" if adl_bstat == "공란" else ", ".join(adl_bmiss)
     # 주간보호 수급자는 '생활자립'이어야 한다 (신서식에만 있는 항목)
     st = pick(rows, "수급자 상태")
     st_sel = ", ".join(st["sel"]) if st and st["sel"] else ("(미체크)" if st else "")
@@ -466,6 +518,7 @@ def check_one(a: dict, prev: dict | None, ctx: dict | None = None) -> tuple[dict
         "키체중_직전대비": same,
         "종교": rel_sel,
         "신체상태_미체크": ", ".join(miss_adl),
+        "신체_판단근거미서술": adl_basis_txt,
         "가족환경_미체크": ", ".join(miss_fam),
         "자녀수": (ch_sel + (f" ({ch_cnt})" if ch_cnt else "")),
         "주수발자": car_sel + (f" — {rel_who}" if rel_who else ""),
