@@ -181,12 +181,42 @@ function drawCards(){
     const c = d.counts;
     el.innerHTML = `<h3>${b}</h3>${scoreLine}<div class="meta">수집 ${d.run_at} · 기준일 ${d.cutoff} · ${d.people}명</div>
     <div class="nums">낙상↔욕구 불일치 <b class="bad">${c.불일치}</b>/${c.대조회차}회차<br>
-    반기별 평가 누락 <b class="bad">${c.반기누락}</b>건 · 계획 문제 <b class="bad">${c.계획문제}</b>건</div>`;
+    반기별 평가 누락 <b class="bad">${c.반기누락}</b>건 · 계획 문제 <b class="bad">${c.계획문제}</b>건</div>${progLine(b)}`;
     cards.appendChild(el);
   });
 }
+// 진행추적: 직전 스냅샷 대비 항목 상태 개선(미흡/주의→양호)·후퇴(→미흡/주의). docs/audit_history.json.
+const RANK={'양호':0,'주의':1,'미흡':2};
+let PROGRESS={};
+function computeProgress(hist){
+  const byBr={};
+  (hist.snapshots||[]).forEach(s=>{(byBr[s.branch]=byBr[s.branch]||[]).push(s);});
+  const out={};
+  Object.keys(byBr).forEach(b=>{
+    const snaps=byBr[b].slice().sort((x,y)=> x.date<y.date?-1:1);
+    if(snaps.length<2){ out[b]={prev:null}; return; }
+    const cur=snaps[snaps.length-1], prev=snaps[snaps.length-2], imp=[], reg=[];
+    Object.keys(cur.items||{}).forEach(it=>{
+      const o=prev.items[it], n=cur.items[it];
+      if(o===undefined||o===n) return;
+      const ro=(RANK[o]==null?9:RANK[o]), rn=(RANK[n]==null?9:RANK[n]);
+      if(rn<ro) imp.push(it); else if(rn>ro) reg.push(it);
+    });
+    out[b]={prev:prev.date, cur:cur.date, imp:imp, reg:reg};
+  });
+  return out;
+}
+function progLine(b){
+  const p=PROGRESS[b]; if(!p) return '';
+  if(!p.prev) return '<div style="font-size:11px;color:#aaa;margin-top:4px">진행추적 첫 기준선 — 다음 런부터 변화 표시</div>';
+  if(!p.imp.length && !p.reg.length) return `<div style="font-size:11px;color:#aaa;margin-top:4px">${p.prev}→${p.cur} · 항목 상태 변화 없음</div>`;
+  const up=p.imp.length?`<b style="color:#2f7d55">▲개선 ${p.imp.length}</b>(${p.imp.join('·')})`:'';
+  const dn=p.reg.length?`<b style="color:#b23b31">▼후퇴 ${p.reg.length}</b>(${p.reg.join('·')})`:'';
+  return `<div style="font-size:11px;margin-top:4px">${p.prev}→${p.cur} · ${up}${up&&dn?' &nbsp; ':''}${dn}</div>`;
+}
 drawCards();
 fetch(SCORES_HOOK).then(r=>r.json()).then(j=>{ if(j.ok){ SCORES=j.scores||{}; drawCards(); drawTable(); } }).catch(e=>{});
+fetch('audit_history.json').then(r=>r.json()).then(h=>{ PROGRESS=computeProgress(h); drawCards(); }).catch(e=>{});
 function cell(b, it){
   const d = DATA.branches[b];
   if(it.method==='manual') return '<span class="dot d-man"></span><span class="man">수기</span>';
