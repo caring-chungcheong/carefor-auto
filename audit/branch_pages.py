@@ -11,6 +11,7 @@
 """
 from __future__ import annotations
 
+import calendar
 import re
 from datetime import date, datetime, timedelta
 
@@ -175,6 +176,71 @@ def _month_range(cutoff: str, today) -> list[tuple[int, int]]:
     return months
 
 
+# ── 11번 재난훈련 휴무일 검증: 2-8 월간 일정 현황(일별 수급자 출석) ──────────────
+# 재난훈련 날짜에 그날 수급자 출석이 0명이면 휴무일 훈련 의심(실제 대피훈련 불가).
+_ATTEND_GRAB_JS = (
+    "() => { const c=document.querySelector('#div_monthly_attend_stat_info')||document.body;"
+    " const de=c.querySelector('.datearea');"
+    " return {mon:(de?de.innerText:'').trim(), n:c.querySelectorAll('g-td').length,"
+    " cells:[...c.querySelectorAll('g-td')].map(x=>x.innerText.trim())}; }"
+)
+
+
+def _attend_by_day(cells: list[str], ndays: int) -> dict[int, int]:
+    """2-8 월간 일정 현황 셀 → {일: 출석인원}.
+
+    ★ 1행 = 3 + '그달 일수' + 1 셀 = [연번, 이름, 등급, 1일..N일, 일정합계].
+      열수를 35로 고정하면 30일월(6월=34셀)에서 어긋나 전 평일 오탐 → 반드시 ndays 기준.
+      날짜 셀이 'N시간M분'이면 출석, 빈칸이면 결석.
+    """
+    cols = 3 + ndays + 1
+    att = {dd: 0 for dd in range(1, ndays + 1)}   # 유효 그리드면 미출석일도 0(=휴무)로 남긴다
+    valid = 0
+    for i in range(0, len(cells), cols):
+        r = cells[i:i + cols]
+        if len(r) < cols or not re.match(r"^\d+$", r[0]) or "등급" not in r[2]:
+            continue
+        valid += 1
+        for dd in range(1, ndays + 1):
+            if r[2 + dd].strip() and "시간" in r[2 + dd]:
+                att[dd] += 1
+    return att if valid else {}   # 유효행 0 = 수집 실패 → 빈 dict(그날 조회 시 None=판정 제외)
+
+
+def scrape_disaster_attendance(page, g_pammgno: str, dates: list[str], progress_cb=print) -> dict[str, int | None]:
+    """재난훈련 날짜(YYYY.MM.DD 리스트)의 그날 수급자 출석 인원 → {date: count}.
+
+    2-8 '월간 일정 현황' 탭에서 해당 월로 move_month 이동 후 그리드를 읽는다.
+    반환값: 0=출석없음(휴무 추정), N=출석 인원, None=월 수집 실패(판정 제외).
+    """
+    if not dates:
+        return {}
+    months = sorted({(int(d[:4]), int(d[5:7])) for d in dates})
+    h = build_spa_hash("left_sub2", "/transport/view.monthly_attend_stat",
+                       "2-8.월간 입소자, 일정, 서비스 현황", g_pammgno)
+    _navigate_spa(page, f"{DN_BASE}#{h}")
+    page.wait_for_timeout(2500)
+    page.evaluate("() => { const e=[...document.querySelectorAll('li')].find(x=>x.textContent.includes('월간 일정 현황')); if(e) e.click(); }")
+    page.wait_for_timeout(2500)
+    per_month: dict[tuple[int, int], dict[int, int]] = {}
+    for (y, m) in months:
+        page.evaluate(f"move_month('{y}','{m:02d}')")
+        target, prev_n, d = f"{y}년 {m:02d}월", -1, {}
+        for _ in range(25):  # 월변경 후 그리드 로딩 안정화: 셀수 2회 연속 동일 + datearea=목표월
+            page.wait_for_timeout(500)
+            d = page.evaluate(_ATTEND_GRAB_JS)
+            if target in d.get("mon", "") and d.get("n") and d["n"] == prev_n:
+                break
+            prev_n = d.get("n", -1)
+        per_month[(y, m)] = _attend_by_day(d.get("cells", []), calendar.monthrange(y, m)[1])
+    out: dict[str, int | None] = {}
+    for dstr in dates:
+        y, m, day = int(dstr[:4]), int(dstr[5:7]), int(dstr[8:10])
+        out[dstr] = per_month.get((y, m), {}).get(day)
+    progress_cb(f"  2-8 재난훈련일 출석: {out}")
+    return out
+
+
 def scrape_branch_pages(page, g_pammgno: str, years: list[int], progress_cb=print,
                         cutoff: str | None = None) -> dict:
     """지점 단위 페이지 순회 수집 (연도별/월별)."""
@@ -200,6 +266,17 @@ def scrape_branch_pages(page, g_pammgno: str, years: list[int], progress_cb=prin
         _set_year(page, y)
         out["edu"][str(y)] = page.evaluate(GET_TEXT_JS)
         progress_cb(f"  8-7 교육일지 {y}년 수집")
+
+    # 11번 휴무일 검증: 재난훈련 날짜의 그날 수급자 출석(2-8 월간 일정)을 대조 수집.
+    # 실패해도 본 점검은 그대로 — 그 경우 disaster_attend 빈 dict → 11번은 반기별 실시만 판정.
+    out["disaster_attend"] = {}
+    try:
+        dis_dates = sorted({r["date"] for ys in out["edu"].values()
+                            for r in parse_edu(ys)["records"] if "재난" in r["name"]})
+        if dis_dates:
+            out["disaster_attend"] = scrape_disaster_attendance(page, g_pammgno, dis_dates, progress_cb)
+    except Exception as e:
+        progress_cb(f"  2-8 재난 출석 수집 건너뜀: {e}")
 
     # 보수교육: 평가 채점 대상은 전년도(매뉴얼 적용기간) — 전년도+당해 모두 수집
     _goto(page, "refresher", g_pammgno)
@@ -1185,6 +1262,15 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
             if not any(lo <= r["date"] <= hi for r in recs):
                 disaster_miss.append(f"{y} {half}")
 
+    # 11번 휴무일 검증: 재난훈련일에 그날 수급자 출석이 0명이면 휴무일 훈련 의심(확인요망).
+    #   출석>0이면 사람이 있었으니 유효. None(월 미수집)은 판정 제외. 자동 미흡 아닌 '주의'.
+    disaster_warn = []
+    da = data.get("disaster_attend") or {}
+    for y in years:
+        for r in edu_parsed[y]["records"]:
+            if "재난" in r["name"] and da.get(r["date"]) == 0:
+                disaster_warn.append(f"{r['date']}(출석0)")
+
     # ---- 항목 19①: 노인인권 교육 (2026~ 반기별 / 2024~25 연1회) ----
     rights_miss = []
     rights_note = []
@@ -1775,9 +1861,11 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None) -> 
                       + " (①지침 12항목 비치는 수기 확인)",
         },
         "11": {
-            "status": st(disaster_miss),
+            "status": "미흡" if disaster_miss else ("주의" if disaster_warn else "양호"),
             "sub_status": {"①": st(disaster_miss)},
-            "detail": ("누락: " + ", ".join(disaster_miss)) if disaster_miss else "반기별 재난대응훈련 실시 확인",
+            "detail": (("누락: " + ", ".join(disaster_miss)) if disaster_miss else "반기별 재난대응훈련 실시 확인")
+                      + (f" · ★휴무일 훈련 의심(그날 수급자 출석 0명) {len(disaster_warn)}건: "
+                         + ", ".join(disaster_warn) + " — 확인요망" if disaster_warn else ""),
         },
         # 12① 응급 매뉴얼·비상연락체계: 기본 비치항목 → 전지점 자동 충족(사용자 확정 2026-07-18).
         #    ②알림장치·③④면담은 수기.
