@@ -1445,11 +1445,17 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None,
     # ---- 항목 7: 직원인권 보호지침 (2026 신설 — 2026년부터) ----
     rights = parse_rights(data.get("rights") or "")
     r7_missing, r7_late = [], []
+    today_str = today.strftime("%Y.%m.%d")   # 'YYYY.MM.DD' 는 사전순=시간순
     for r in rights["rows"]:
         if r["left_before"]:
             continue  # 안내일 이전 퇴소자 제외 (사용자 확정)
+        if r["status"] == "퇴소":
+            continue  # 퇴소자 = 평가 당일 급여계약 유지 아님 → 안내 대상 아님(매뉴얼, 조정행 사례 2026-07-20)
         if r["status"] == "보류":
             continue  # 보류자 제외 — 수급 보류 중이라 연1회 안내 대상 아님(사용자 확정 2026-07-18, 전지점, 일단 보류)
+        if r["start"] > today_str:
+            continue  # 급여개시일이 미래 = 아직 급여계약 시작 전 → 안내 대상 아님
+                      # (매뉴얼 '평가 당일 급여계약 유지하는 수급자'. 박필순 개시 2026.08.03 사례 2026-07-20)
         if not r["provided"]:
             r7_missing.append(f"{r['name']}({r['status']})")
         elif r["start"] >= "2026" and r["provided"] > r["start"]:
