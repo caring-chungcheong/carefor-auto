@@ -632,8 +632,8 @@ let state = {
   searchQuery: '',
   loaded: false,
   saving: false,
-  // 케어포 2-4 에서 수집한 정비이력·타이어. 차량번호를 키로 묶여 온다(앱은 차량번호 기준).
-  maint: { history: {}, tires: {} }
+  // 케어포 2-4 에서 수집한 정비이력·타이어 + 노션 보험. 차량번호를 키로 묶여 온다(앱은 차량번호 기준).
+  maint: { history: {}, tires: {}, insurance: {} }
 };
 
 let deferredInstallPrompt = null;
@@ -669,7 +669,7 @@ window.startSync = startSync;
 async function loadMaintenance() {
   try {
     const m = await maintCall('getMaintenance');
-    state.maint = { history: (m && m.history) || {}, tires: (m && m.tires) || {} };
+    state.maint = { history: (m && m.history) || {}, tires: (m && m.tires) || {}, insurance: (m && m.insurance) || {} };
     if (state.currentBranch) renderCars();
   } catch (err) {
     console.warn('정비이력 로드 건너뜀:', err.message);
@@ -679,6 +679,7 @@ async function loadMaintenance() {
 function carKey(car) { return String(car.carNumber || '').replace(/\s+/g, ''); }
 function histOf(car) { return state.maint.history[carKey(car)] || []; }
 function tireOf(car) { return state.maint.tires[carKey(car)] || null; }
+function insurOf(car) { return state.maint.insurance[carKey(car)] || null; }
 
 // 사이트에서 액션을 수행한 뒤 최신 시트 상태를 다시 불러옴.
 async function refreshFromSheet() {
@@ -886,7 +887,15 @@ function renderCars() {
       else if (d <= 60) { insStat='warn'; insTxt=`검사 ${d}일 남음`; }
       else insTxt = `검사 ${d}일 남음`;
     }
-    const cls = (oilStat==='danger'||insStat==='danger')?'danger':(oilStat==='warn'||insStat==='warn')?'warn':'';
+    // 보험 만기(노션). 만기 = 보험증서 파일명 앞 8자리. 30일 이내 임박 경고.
+    let insurStat = 'ok', insurTxt = '', insur = insurOf(car);
+    if (insur && insur.expiry) {
+      const d = Math.floor((new Date(insur.expiry) - today) / (1000*60*60*24));
+      if (d < 0) { insurStat='danger'; insurTxt=`보험 ${Math.abs(d)}일 만료`; }
+      else if (d <= 30) { insurStat='warn'; insurTxt=`보험 ${d}일 남음`; }
+      else insurTxt = `보험 ${d}일 남음`;
+    }
+    const cls = (oilStat==='danger'||insStat==='danger'||insurStat==='danger')?'danger':(oilStat==='warn'||insStat==='warn'||insurStat==='warn')?'warn':'';
     // 타이어 사이즈는 확인된 차량만 표시하고 나머지는 **공란**으로 둔다(사용자 요청).
     // 근거가 있는 12대만 값이 있고, 나머지는 정비 내역서에 규격이 안 적혀 있어 알 수 없다.
     const tire = tireOf(car), hist = histOf(car);
@@ -910,11 +919,13 @@ function renderCars() {
       <div class="info-row"><span class="info-label">교환시 주행</span><span class="info-value">${(car.oilKm||0).toLocaleString()} km</span></div>
       <div class="info-row"><span class="info-label">다음 교환</span><span class="info-value">${(car.oilNextKm||0).toLocaleString()} km</span></div>
       <div class="info-row"><span class="info-label">정기검사</span><span class="info-value">${car.inspectStart||'-'} ~ ${car.inspectEnd||'-'}${inspectDue?` <span style="color:#6b7280;font-size:0.85em">(${inspectDue})</span>`:''}</span></div>
+      ${insur ? `<div class="info-row"><span class="info-label">보험</span><span class="info-value">${escapeHtml(insur.insurer||'')}${insur.expiry?` <span style="color:#6b7280;font-size:0.85em">(만기 ${insur.expiry})</span>`:''}</span></div>` : ''}
       <div class="info-row"><span class="info-label">타이어</span><span class="info-value">${tire ? escapeHtml(tire.size) : ''}</span></div>
       ${car.note?`<div class="info-row"><span class="info-label">비고</span><span class="info-value">${escapeHtml(car.note)}</span></div>`:''}
       <div class="badges">
         <span class="badge ${oilStat}">${oilTxt}</span>
         <span class="badge ${insStat}">${insTxt}</span>
+        ${insurTxt ? `<span class="badge ${insurStat}">${insurTxt}</span>` : ''}
       </div>
       ${hist.length ? `<button class="btn-history" onclick="openHistory('${escapeHtml(car.carNumber)}')">🔧 정비이력 ${hist.length}건</button>` : ''}
     </div>`;

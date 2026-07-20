@@ -1,9 +1,10 @@
-"""노션 차량현황 데이터베이스에서 검사유효기간 수집."""
+"""노션 차량현황 데이터베이스에서 검사유효기간 + 보험(보험사·만기) 수집."""
 from __future__ import annotations
 
 import os
 import re
 import requests
+from datetime import datetime
 
 NOTION_VERSION = "2022-06-28"
 DATABASE_ID = "ede28a5b-34b0-408f-ad49-35e822812521"
@@ -96,3 +97,101 @@ def fetch_inspect_dates() -> dict[str, dict]:
         cursor = data.get("next_cursor")
 
     return result
+
+
+def _text_any(prop: dict | None) -> str:
+    """노션 속성에서 텍스트 추출 — rich_text/select/title 어느 타입이든."""
+    if not prop:
+        return ""
+    if prop.get("rich_text"):
+        return "".join(t.get("plain_text", "") for t in prop["rich_text"]).strip()
+    if prop.get("select"):
+        return (prop.get("select") or {}).get("name", "") or ""
+    if prop.get("title"):
+        return "".join(t.get("plain_text", "") for t in prop["title"]).strip()
+    return ""
+
+
+def _cert_expiry(names: list[str]) -> tuple[str, str]:
+    """증서 파일명 앞 8자리(YYYYMMDD)를 만기일로 파싱. (만기 'YYYY-MM-DD', 파일명) 반환."""
+    for n in names:
+        m = re.match(r"\s*(\d{8})", n or "")
+        if m:
+            try:
+                return datetime.strptime(m.group(1), "%Y%m%d").strftime("%Y-%m-%d"), n
+            except ValueError:
+                continue
+    return "", (names[0] if names else "")
+
+
+def _plate_mismatch(car_no: str, names: list[str]) -> str:
+    """증서 파일명에 이 차량과 다른 번호판 끝 4자리가 박혀 있으면 그 파일명 반환(불일치 의심).
+    파일명 앞 8자리(날짜)는 제외하고 4자리 그룹만 본다. 판단 불가(파일명에 판번호 없음)는 통과."""
+    tails = re.findall(r"\d{4}", car_no)
+    tail = tails[-1] if tails else ""
+    if not tail:
+        return ""
+    for n in names:
+        rest = re.sub(r"^\s*\d{8}", "", n or "")          # 앞 날짜 제거
+        groups = re.findall(r"\d{4}", rest)
+        if groups and tail not in groups:
+            return n
+    return ""
+
+
+def fetch_insurance() -> tuple[dict[str, dict], list[dict]]:
+    """차량번호 → {branch, model, insurer, expiry, cert} + 오류목록 반환.
+    보험사(텍스트) + 증서 파일명 앞 8자리(만기)를 읽음. 누락·파싱실패·차량번호 불일치는
+    결과에서 빼고 errors 로 모은다(사용자 방침: 상이한 건 제외하고 오류만 보고)."""
+    token = _get_token()
+    headers = _headers(token)
+    result: dict[str, dict] = {}
+    errors: list[dict] = []
+    cursor = None
+
+    while True:
+        body: dict = {"page_size": 100}
+        if cursor:
+            body["start_cursor"] = cursor
+        resp = requests.post(
+            f"https://api.notion.com/v1/databases/{DATABASE_ID}/query",
+            headers=headers, json=body, timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        for page in data.get("results", []):
+            props = page["properties"]
+            title_list = props.get("차량번호", {}).get("title", [])
+            car_no = title_list[0].get("plain_text", "").strip() if title_list else ""
+            if not car_no:
+                continue
+            branch = _text_any(props.get("소속"))
+            model = _text_any(props.get("종류"))
+            insurer = _text_any(props.get("보험사"))
+            files = props.get("보험증서", {}).get("files", []) or []
+            names = [f.get("name", "") for f in files]
+            expiry, cert = _cert_expiry(names)
+
+            if not insurer and not expiry:
+                errors.append({"car": car_no, "branch": branch, "reason": "보험사·증서 없음"})
+                continue
+            if not insurer:
+                errors.append({"car": car_no, "branch": branch, "reason": "보험사 없음"})
+                continue
+            if not expiry:
+                errors.append({"car": car_no, "branch": branch, "reason": "증서 파일명 만기일 파싱 실패", "cert": cert})
+                continue
+            bad = _plate_mismatch(car_no, names)
+            if bad:
+                errors.append({"car": car_no, "branch": branch, "reason": "증서 파일명 차량번호 불일치 의심", "cert": bad})
+                continue
+
+            result[car_no] = {"branch": branch, "model": model,
+                              "insurer": insurer, "expiry": expiry, "cert": cert}
+
+        if not data.get("has_more"):
+            break
+        cursor = data.get("next_cursor")
+
+    return result, errors
