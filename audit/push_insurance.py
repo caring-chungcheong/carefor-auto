@@ -49,9 +49,9 @@ def main() -> None:
 
     if errors:
         print("\n[오류/제외 건 — 확인 필요]")
-        for e in errors:
-            extra = f" ({e['cert']})" if e.get("cert") else ""
-            print(f"  ⚠ {e.get('branch','')[:4]:<5} {e['car']:<10} {e['reason']}{extra}")
+        for e in sorted(errors, key=lambda x: (x["reason"], x.get("expiry", ""))):
+            extra = f" 만기 {e['expiry']}" if e.get("expiry") else (f" ({e['cert']})" if e.get("cert") else "")
+            print(f"  ⚠ {e.get('branch','')[:6]:<7} {e['car']:<11} {e['reason']}{extra}")
     else:
         print("\n오류 없음.")
 

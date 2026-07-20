@@ -193,7 +193,7 @@
 
   .cars-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
     gap: 12px;
   }
   .car-card {
@@ -233,13 +233,15 @@
   .info-label { color: #64748b; }
   .info-value { font-weight: 600; }
 
-  .badges { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .badges { margin-top: 10px; display: flex; gap: 6px; flex-wrap: nowrap; }
   .badge {
     padding: 4px 10px;
     border-radius: 20px;
     font-size: 11px;
     font-weight: 600;
+    white-space: nowrap;
   }
+  @media (max-width: 520px) { .badges { flex-wrap: wrap; } }  /* 좁은 화면에선 접힘 허용 */
   .badge.ok { background: #d1fae5; color: #065f46; }
   .badge.warn { background: #fef3c7; color: #92400e; }
   .badge.danger { background: #fee2e2; color: #991b1b; }
