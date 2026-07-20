@@ -28,6 +28,8 @@ const MH_SHEET = '_정비이력';
 const MH_HEADERS = ['지점','차량번호','차량명','정비일','구분','정비내역','부품','첨부','첨부링크','첨부파일명'];
 const TIRE_SHEET = '_타이어';
 const TIRE_HEADERS = ['지점','차량번호','차량명','타이어사이즈','근거정비일'];
+const INS_SHEET = '_보험';
+const INS_HEADERS = ['지점','차량번호','차량명','보험사','보험만기','증서파일명'];
 
 function doGet(e)  { return handle(((e && e.parameter) || {}).action, (e && e.parameter) || {}); }
 function doPost(e) {
@@ -41,7 +43,7 @@ function handle(action, p) {
     var data;
     switch (action) {
       case 'getMaintenance':  data = getMaintenance(); break;
-      case 'syncMaintenance': data = syncMaintenance(p.history, p.tires); break;
+      case 'syncMaintenance': data = syncMaintenance(p.history, p.tires, p.insurance); break;
       case 'ping':            data = { pong: true }; break;
       default: return json({ ok: false, error: 'Unknown action: ' + action });
     }
@@ -85,9 +87,14 @@ function getMaintenance() {
     var k = String(r[1] || '').trim();
     if (k && r[3]) tires[k] = { size: String(r[3]), date: fmt(r[4]) };
   });
-  return { history: history, tires: tires };
+  var insurance = {};
+  read(INS_SHEET).forEach(function (r) {
+    var k = String(r[1] || '').trim();
+    if (k && (r[3] || r[4])) insurance[k] = { insurer: String(r[3] || ''), expiry: fmt(r[4]), cert: String(r[5] || '') };
+  });
+  return { history: history, tires: tires, insurance: insurance };
 }
-function syncMaintenance(history, tires) {
+function syncMaintenance(history, tires, insurance) {
   var ss = SpreadsheetApp.openById(SHEET_ID);
   function put(name, headers, rows) {
     var sh = ss.getSheetByName(name);
@@ -98,9 +105,12 @@ function syncMaintenance(history, tires) {
     if (rows && rows.length) sh.getRange(2, 1, rows.length, headers.length).setValues(rows);
     return rows ? rows.length : 0;
   }
-  var h = put(MH_SHEET, MH_HEADERS, history || []);
-  var t = put(TIRE_SHEET, TIRE_HEADERS, tires || []);
-  return { history: h, tires: t, at: Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm') };
+  // 보낸 데이터의 탭만 갱신 — 보험만 sync 할 때 정비이력·타이어를 지우지 않도록(그 반대도)
+  var out = { at: Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm') };
+  if (history   != null) out.history   = put(MH_SHEET, MH_HEADERS, history);
+  if (tires     != null) out.tires     = put(TIRE_SHEET, TIRE_HEADERS, tires);
+  if (insurance != null) out.insurance = put(INS_SHEET, INS_HEADERS, insurance);
+  return out;
 }
 """ % SHEET_ID
 
@@ -130,7 +140,7 @@ r = api(at, f"https://script.googleapis.com/v1/projects/{SCRIPT_ID}/content",
         {"files": [{"name": "appsscript", "type": "JSON", "source": json.dumps(MANIFEST, ensure_ascii=False)},
                    {"name": "Code", "type": "SERVER_JS", "source": CODE}]}, method="PUT")
 print("코드 업로드:", "OK" if r.get("files") else r.get("ERR"))
-v = api(at, f"https://script.googleapis.com/v1/projects/{SCRIPT_ID}/versions", {"description": "첨부 링크 추가"})
+v = api(at, f"https://script.googleapis.com/v1/projects/{SCRIPT_ID}/versions", {"description": "보험(_보험) 탭 추가"})
 print("버전:", v.get("versionNumber") or v.get("ERR"))
 # ★ 기존 배포를 새 버전으로 갱신 — 새 배포를 만들면 URL 이 바뀌어 앱을 또 고쳐야 한다
 u = api(at, f"https://script.googleapis.com/v1/projects/{SCRIPT_ID}/deployments/{DEPLOY_ID}",

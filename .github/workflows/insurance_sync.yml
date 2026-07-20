@@ -1,0 +1,38 @@
+name: 차량 보험 동기화
+
+# 노션 차량현황(보험사·증서 만기) → 차량관리 시트 _보험 탭 → 앱 카드.
+# 노션 읽기는 NOTION_TOKEN 이 필요해 클라우드에서만 돈다(로컬엔 토큰 없음).
+# 수동 실행 전용(workflow_dispatch). 로그의 '[오류/제외 건]' 섹션에서 확인 필요 건을 본다.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '미리보기만 (시트 미반영, 오류만 확인)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+jobs:
+  insurance-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: 패키지 설치
+        run: pip install requests
+      - name: 노션 보험 → 시트 _보험
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            python -X utf8 -m audit.push_insurance --dry
+          else
+            python -X utf8 -m audit.push_insurance
+          fi
