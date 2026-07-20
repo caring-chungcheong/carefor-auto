@@ -213,6 +213,13 @@ def _floor_ym(opened: str | None, cutoff: str | None) -> str | None:
 
 TOLERANCE_MONTHS = 1
 
+# 노션 생일자 명단엔 있으나 **해당 지점 주간보호 생일쿠폰 대상이 아닌** 수급자
+# (방문요양 등 다른 급여종류이거나 퇴소자) → 미지급 의심에서 제외. 사용자 확정.
+#   ⚠️ 이름으로 제외하므로 동명이인이 실제 주간보호 대상이면 함께 빠진다 — 지점 확정 명단만 넣을 것.
+BIRTHDAY_EXCLUDE = {
+    "둔산점": {"권호자", "김민진", "한정선", "이미랑"},   # 2026-07-20 방문요양·퇴소
+}
+
 
 def _given_near(birthday_log: dict, ym: str, w: int = TOLERANCE_MONTHS) -> set:
     """ym 앞뒤 w개월까지의 수령인 합집합.
@@ -252,8 +259,9 @@ def compare(branch_name: str, birthday_log: dict, today: date | None = None,
     if data is None:
         return None
     key = branch_name.replace(" ", "")
+    excl = BIRTHDAY_EXCLUDE.get(branch_name, set())   # 이 지점 주간보호 대상 아닌 수급자
     floor = _floor_ym(opened, cutoff)
-    missing, months, skipped = [], [], 0
+    missing, months, skipped, n_excl = [], [], 0, 0
     for ym in sorted(data):
         if floor and ym < floor:
             skipped += 1          # 개소 전·평가기간 전 — 대조 대상 아님
@@ -268,8 +276,13 @@ def compare(branch_name: str, birthday_log: dict, today: date | None = None,
         months.append(ym)
         given = _given_near(birthday_log, ym)
         for n in expected:
+            if n in excl:            # 방문요양·퇴소 등으로 이 지점 주간보호 대상 아님
+                n_excl += 1
+                continue
             if n not in given:
                 missing.append(f"{ym} {n}")
     if skipped:
         progress_cb(f"  노션 생일쿠폰: {floor} 이전 {skipped}개월 제외(개소·평가기간 전)")
+    if n_excl:
+        progress_cb(f"  노션 생일쿠폰: 대상 아닌 수급자 {n_excl}건 제외({', '.join(sorted(excl))})")
     return missing, months
