@@ -326,9 +326,19 @@ def analyze(results: list[dict], cutoff: str, branch_name: str | None = None) ->
     n_order = len(order_issues)
     n_half = len(halfyear_miss)
     n_plan = len(plan_issues)
+    # 22②: 서명 관련(전자서명 미완료 등)은 '수기 서명'이면 서류함(수급자 관리기록)에 서명된
+    #   급여제공계획서가 있어 정상 — 자동으론 못 봐서 미흡 대신 '주의(서류함 수기서명 확인)'로 완화.
+    #   (사용자 확정 2026-07-20) 동의일 지연·불일치 등 '진짜 문제'는 미흡 유지.
+    _SIG_SOFT = ("서명없음", "미서명", "발송기록없음", "동의일 없음", "확인실패")
+    plan_hard = [r for r in plan_issues if not any(k in (r[5] or "") for k in _SIG_SOFT)]
+    plan_soft = [r for r in plan_issues if any(k in (r[5] or "") for k in _SIG_SOFT)]
+    n_plan_hard, n_plan_soft = len(plan_hard), len(plan_soft)
 
     def status_of(n_bad, warn=1):
         return "양호" if n_bad == 0 else ("미흡" if n_bad >= warn else "주의")
+
+    def plan_status():
+        return "미흡" if n_plan_hard else ("주의" if n_plan_soft else "양호")
 
     # 항목 21 기준별(낙상①/욕창②/인지③) 누락 분리
     half_by_kind = {"낙상": 0, "욕창": 0, "인지": 0}
@@ -360,10 +370,13 @@ def analyze(results: list[dict], cutoff: str, branch_name: str | None = None) ->
         #     그래서 items.py 의 22 auto_subs 에 '①' 을 넣지 않는다 — 양호가 점수로 자동기입되면
         #     안 본 요건까지 충족으로 둔갑한다(27번이 auto_subs=None 으로 같은 처리).
         "22": {
-            "status": status_of(n_plan) if n_order == 0 else "미흡",
-            "sub_status": {"①": "양호" if n_order == 0 else "미흡", "②": status_of(n_plan)},
-            "detail": (f"[②발송·서명] 급여제공계획 발송·서명 문제 {n_plan}건"
-                       f" / [부분판정: ①평가 반영] 계획 작성일이 기초평가일보다 앞선 건 {n_order}건"
+            "status": "미흡" if (n_order or n_plan_hard) else plan_status(),
+            "sub_status": {"①": "양호" if n_order == 0 else "미흡", "②": plan_status()},
+            "detail": (f"[②발송·서명] 발송·서명 문제 {n_plan}건"
+                       + (f" (진짜문제 {n_plan_hard}건" if n_plan_hard else " (")
+                       + (f", 서명미완료 {n_plan_soft}건→★수기서명이면 서류함(수급자 관리기록)에 서명계획서 확인요망)"
+                          if n_plan_soft else ")")
+                       + f" / [부분판정: ①평가 반영] 계획 작성일이 기초평가일보다 앞선 건 {n_order}건"
                        + ((" — " + "; ".join(f"{r[0]}({r[1]})" for r in order_issues[:5])
                            + (f" 외 {len(order_issues)-5}건" if len(order_issues) > 5 else ""))
                           if order_issues else "")

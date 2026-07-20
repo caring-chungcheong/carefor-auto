@@ -120,6 +120,25 @@ def run_branch_audit(
                 bp_raw["blog_check"] = check_blog(page, CARING_BLOG.get(branch_name), _ry, _rm, progress_cb)
             except Exception as e:
                 progress_cb(f"[{branch_name}] 블로그 확인 건너뜀: {e}")
+            # 30① 의료기관 동행 진료 작성자 자격 (4-4 병의원 진료내역 + 8-1 직원 직종)
+            try:
+                from .collect_medical import scrape_staff_jobs, scrape_hospital, scrape_program
+                progress_cb(f"[{branch_name}] 30① 병의원 진료내역·작성자 자격·프로그램 겹침 확인...")
+                _s, _e = cutoff.replace(".", "")[:8], date.today().strftime("%Y%m%d")
+                jobs = scrape_staff_jobs(page, g_pammgno, progress_cb)
+                recs = scrape_hospital(page, g_pammgno, _s, _e, progress_cb)
+                prog = scrape_program(page, g_pammgno, _s, _e, progress_cb)
+                bp_raw["medical"] = {"records": recs, "staff_jobs": jobs, "prog": prog}
+                # 연계기록지(1-10) 작성일 ↔ 상담일지(1-4) same-day 대조(수기확인 지원)
+                try:
+                    from .collect_medical import scrape_consult_samedays
+                    from .branch_pages import parse_connect
+                    _conn = parse_connect(bp_raw.get("connect") or "")
+                    bp_raw["consult_samedays"] = scrape_consult_samedays(page, g_pammgno, _conn["rows"], progress_cb)
+                except Exception as e:
+                    progress_cb(f"[{branch_name}] 연계↔상담 대조 건너뜀: {e}")
+            except Exception as e:
+                progress_cb(f"[{branch_name}] 30① 의료연계 수집 건너뜀: {e}")
             branch_pages = analyze_branch_pages(bp_raw, cutoff, branch_name=branch_name)
         except Exception as e:
             progress_cb(f"[{branch_name}] 지점 페이지 수집 실패(수급자 분석은 계속): {e}")

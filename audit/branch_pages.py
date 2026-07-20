@@ -82,7 +82,7 @@ EVAL12_JS = """
 CARING_BLOG = {
     "둔산점": "https://blog.naver.com/cc_dg02",
     "서구점": "https://blog.naver.com/cc_dg03",
-    "천안점": "https://blog.naver.com/cc_gg081",
+    "천안점": "https://blog.naver.com/cc_gg08",   # 주간보호(cc_gg081은 방문요양 — 사용자 정정 2026-07-20)
     "청주 오창점": "https://blog.naver.com/cc_gg14",
 }
 
@@ -1835,13 +1835,36 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None,
                       + (" / " + "; ".join(eval_note) if eval_note else "")
                       + " (기록 충실성·②30일 재작성·③기록지 제공은 수기)",
         }
-    if data.get("connect"):
+    if data.get("connect") or data.get("medical"):
+        # ① 의료기관 동행 진료 작성자 자격(4-4 병의원 + 8-1 직종): 사무원·운전원이면 미흡
+        med = (data or {}).get("medical") or {}
+        m30 = None
+        if med.get("records") is not None and med.get("staff_jobs") is not None:
+            try:
+                from .collect_medical import judge_item30_1
+                m30 = judge_item30_1(med["records"], med["staff_jobs"], prog_by_person=med.get("prog"))
+            except Exception:
+                m30 = None
+        sub = {"②": st(conn_miss)}
+        if m30:
+            sub["①"] = m30["status"]
+        # 종합: ①미흡 또는 ②미흡 → 미흡, ①주의 → 주의
+        # 연계기록지 작성일↔상담 same-day (수기확인 지원): 작성일에 상담 없는 건 표시
+        csd = (data or {}).get("consult_samedays") or []
+        csd_miss = [f"{x['name']} {x['written']}" for x in csd if x.get("has_consult") is False]
+        csd_note = (f" · [연계-상담 same-day] 작성일에 상담 미확인 {len(csd_miss)}건(수기확인): "
+                    + ", ".join(csd_miss[:6]) + ("…" if len(csd_miss) > 6 else "")) if csd_miss else \
+                   (" · 연계기록지 작성일 상담 확인됨" if csd else "")
+        m30_bad = ["30①"] if (m30 and m30["status"] == "미흡") else []
+        overall = ("미흡" if (conn_miss or m30_bad)
+                   else ("주의" if (m30 and m30["status"] == "주의") else "양호"))
         item_results["30"] = {
-            "status": st(conn_miss),
-            "sub_status": {"②": st(conn_miss)},
-            "detail": f"[부분판정: ②연계기록지] 작성 {connect['total'] or 0}건 · 발송완료 {connect['sent'] or 0}건 — "
-                      + ("; ".join(conn_miss) or "전건 기한 내 발송 완료")
-                      + " (미작성 퇴소자 존재 여부·①동행진료 기록은 수기 확인)",
+            "status": overall,
+            "sub_status": sub,
+            "detail": (f"[②연계기록지] 작성 {connect['total'] or 0}건 · 발송완료 {connect['sent'] or 0}건 — "
+                       + ("; ".join(conn_miss) or "전건 기한 내 발송 완료")
+                       + (" / " + m30["detail"] if m30 else " (①동행진료 기록은 수기 확인)")
+                       + csd_note),
         }
     if case_parsed:
         item_results["29"] = {
