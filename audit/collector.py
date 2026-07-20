@@ -107,10 +107,19 @@ def run_branch_audit(
         # 지점 단위 페이지 수집·판정 (그룹 A·D: 교육일지·보수교육·정기점검)
         branch_pages = None
         try:
-            from .branch_pages import scrape_branch_pages, analyze_branch_pages
+            from .branch_pages import scrape_branch_pages, analyze_branch_pages, CARING_BLOG
             years = list(range(cut_year, date.today().year + 1))
             progress_cb(f"[{branch_name}] 지점 페이지 수집 (8-7 교육, 8-7-1 보수교육, 6-3 점검)...")
             bp_raw = scrape_branch_pages(page, g_pammgno, years, progress_cb, cutoff=cutoff)
+            # 17③ 월간 3종(식단표·프로그램표·가정통신문) 전월 게시 자동 확인(네이버 블로그 RSS)
+            try:
+                from .collect_blog import check_blog
+                _t = date.today()
+                _ry, _rm = (_t.year - 1, 12) if _t.month == 1 else (_t.year, _t.month - 1)
+                progress_cb(f"[{branch_name}] 17③ 블로그 월간 3종 전월({_ry}.{_rm:02d}) 게시 확인...")
+                bp_raw["blog_check"] = check_blog(page, CARING_BLOG.get(branch_name), _ry, _rm, progress_cb)
+            except Exception as e:
+                progress_cb(f"[{branch_name}] 블로그 확인 건너뜀: {e}")
             branch_pages = analyze_branch_pages(bp_raw, cutoff, branch_name=branch_name)
         except Exception as e:
             progress_cb(f"[{branch_name}] 지점 페이지 수집 실패(수급자 분석은 계속): {e}")
@@ -208,8 +217,10 @@ def run_branch_audit(
             if r8:
                 # 개소 전·평가기간 전 달은 대조 대상이 아니다 — 안 넘기면 서구점(2025.03 개소)에
                 # 2024-02 미지급이 뜬다(실측 165건 중 76건이 개소 전이었다).
+                # 주간보호 수급자 명단(1-1 스캔)을 넘겨 방문요양 등 다른 급여종류를 미지급 의심에서 제외
                 res = notion_compare(branch_name, blog, progress_cb=progress_cb,
-                                     opened=branch_pages.get("opened"), cutoff=cutoff)
+                                     opened=branch_pages.get("opened"), cutoff=cutoff,
+                                     daycare_names={p.get("name") for p in results if p.get("name")})
                 if res is not None:
                     missing, months = res
                     if missing:
