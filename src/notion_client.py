@@ -148,6 +148,7 @@ def fetch_insurance() -> tuple[dict[str, dict], list[dict]]:
     result: dict[str, dict] = {}
     errors: list[dict] = []
     cursor = None
+    today_str = datetime.now().strftime("%Y-%m-%d")   # 만기 지난 건은 무조건 반영 금지 → 확인 필요로 뺀다
 
     while True:
         body: dict = {"page_size": 100}
@@ -185,6 +186,10 @@ def fetch_insurance() -> tuple[dict[str, dict], list[dict]]:
             bad = _plate_mismatch(car_no, names)
             if bad:
                 errors.append({"car": car_no, "branch": branch, "reason": "증서 파일명 차량번호 불일치 의심", "cert": bad})
+                continue
+            if expiry < today_str:            # 만기 이미 지남 = 증서 갱신 안됐거나 실효 → 확인 필요
+                errors.append({"car": car_no, "branch": branch, "reason": "만기일 지남 — 확인 필요",
+                               "expiry": expiry, "cert": cert})
                 continue
 
             result[car_no] = {"branch": branch, "model": model,
