@@ -245,12 +245,18 @@ def _given_near(birthday_log: dict, ym: str, w: int = TOLERANCE_MONTHS) -> set:
 
 def compare(branch_name: str, birthday_log: dict, today: date | None = None,
             progress_cb=print, opened: str | None = None,
-            cutoff: str | None = None) -> tuple[list, list] | None:
+            cutoff: str | None = None, daycare_names: set | None = None) -> tuple[list, list] | None:
     """노션 생일자 vs 케어포 대장 지급 대조.
 
     opened: 기관 지정일자 'YYYY.MM.DD' (9-1 화면). 개소 전 달은 대조 대상이 아니다.
     cutoff: 평가기간 시작 'YYYY.MM.DD'. 평가와 무관한 달까지 지적할 이유가 없다.
     둘 다 안 주면 종전처럼 전 기간을 돈다(호출부가 못 넘기는 경우의 안전한 기본값).
+
+    daycare_names: 이 지점 **주간보호 수급자** 성명 집합(1-1 스캔). 주면 노션 생일자 중
+      이 집합에 없는 사람(=방문요양 등 다른 급여종류)은 미지급 의심에서 제외한다.
+      ★ 노션 생일쿠폰 명단은 급여종류가 섞여 있어(실측: 둔산 의심 11명 전원이 주간보호
+        수급자 아님), 이걸로 걸러야 방문요양 오탐이 전 지점에서 사라진다. 사용자 확정 2026-07-20.
+      대가: 노션↔스캔 성명 표기가 어긋난 실제 주간보호 수급자는 빠질 수 있음(이 판정은 '주의'라 저위험).
 
     반환: (미지급 의심 ["YYYY-MM 이름", ...], 판정 월 목록) / 토큰 없으면 None
     """
@@ -276,7 +282,10 @@ def compare(branch_name: str, birthday_log: dict, today: date | None = None,
         months.append(ym)
         given = _given_near(birthday_log, ym)
         for n in expected:
-            if n in excl:            # 방문요양·퇴소 등으로 이 지점 주간보호 대상 아님
+            if daycare_names is not None and n not in daycare_names:
+                n_excl += 1     # 주간보호 수급자 아님(방문요양 등) → 이 지점 대상 아님
+                continue
+            if n in excl:            # 지점 확정 제외 명단(주간보호 안에서도 대상 아닌 경우 대비)
                 n_excl += 1
                 continue
             if n not in given:
