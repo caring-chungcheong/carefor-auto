@@ -61,7 +61,11 @@ function getMaintenance() {
     return sh.getRange(2, 1, sh.getLastRow() - 1, sh.getLastColumn()).getValues();
   }
   function fmt(v) {
-    return (v instanceof Date) ? Utilities.formatDate(v, 'Asia/Seoul', 'yyyy-MM-dd') : String(v || '');
+    if (v instanceof Date) return Utilities.formatDate(v, 'Asia/Seoul', 'yyyy-MM-dd');
+    var s = String(v || '');
+    if (!s) return '';
+    var d = new Date(s);                     // 문자열 날짜(ISO·Date.toString)도 yyyy-MM-dd 로
+    return isNaN(d.getTime()) ? s : Utilities.formatDate(d, 'Asia/Seoul', 'yyyy-MM-dd');
   }
   function lines(v) {
     var s = String(v || '').trim();
@@ -89,7 +93,7 @@ function getMaintenance() {
   });
   var insurance = {};
   read(INS_SHEET).forEach(function (r) {
-    var k = String(r[1] || '').trim();
+    var k = String(r[1] || '').replace(/\s+/g, '');   // 앱 carKey(공백제거)와 맞춤 — '380마 4864' 같은 표기도 조인
     if (k && (r[3] || r[4])) insurance[k] = { insurer: String(r[3] || ''), expiry: fmt(r[4]), cert: String(r[5] || '') };
   });
   return { history: history, tires: tires, insurance: insurance };

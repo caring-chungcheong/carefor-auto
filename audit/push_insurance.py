@@ -15,10 +15,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import urllib.request
 
 sys.stdout.reconfigure(encoding="utf-8")
+
+
+def _norm(s: str) -> str:
+    """차량번호 공백 제거 — 앱 carKey·정비이력(norm_num)과 동일한 조인 표기."""
+    return re.sub(r"\s+", "", str(s or ""))
 
 # 정비이력 전용 웹앱(= push_maintenance_to_sheet 와 동일). insurance 만 보내면 _보험 탭만 갱신된다.
 API = ("https://script.google.com/macros/s/"
@@ -34,7 +40,7 @@ def main() -> None:
     ins, errors = fetch_insurance()
 
     # INS_HEADERS = ['지점','차량번호','차량명','보험사','보험만기','증서파일명']
-    rows = [[v["branch"], car, v["model"], v["insurer"], v["expiry"], v["cert"]]
+    rows = [[v["branch"], _norm(car), v["model"], v["insurer"], v["expiry"], v["cert"]]
             for car, v in sorted(ins.items(), key=lambda kv: (kv[1]["branch"], kv[0]))]
 
     print(f"업로드 대상: {len(rows)}대 · 제외(오류) {len(errors)}건\n")
