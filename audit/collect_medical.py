@@ -185,17 +185,20 @@ def judge_item30_1(records: list, staff_jobs: dict, prog_by_person: dict | None 
             if r["date"] in days:
                 overlap.append(f"{r['name']} {r['date']}")
 
-    # 작성자 자격 미흡, 겹침도 미흡(같은 수급자 진료+프로그램 동일날 기록 = 모순)
-    if bad_writers or overlap:
-        status = "미흡"
-    elif unknown:
+    # ⚠️ 케어포 4-4엔 '동행자' 필드가 없고 '작성자'(입력자)만 있다. 작성자가 운전·사무직이어도
+    #    실제 동행 진료는 자격자(간호사 등)가 하고 운전·기록입력만 맡은 경우가 있어 작성자만으로
+    #    미흡 확정은 오탐이다(실사례: 운전직 직원이 차량운행+기록입력, 실제 동행 진료는 간호사가 수행).
+    #    → 운전/사무 작성건은 '주의(실제 동행자 자격 수기확인)'로만 표시하고 미흡 확정 안 함.
+    #    프로그램 겹침·직종미매칭도 주의(수기 시간확인). (사용자 확정 2026-07-21)
+    if bad_writers or overlap or unknown:
         status = "주의"
     else:
         status = "양호"
     wsum = ", ".join(f"{w}({v['job']}·{v['cnt']}건)" for w, v in writers.items())
     detail = f"[①동행진료 기록·작성자자격] 진료 {len(records)}건, 작성자: {wsum}"
     if bad_writers:
-        detail += " · ★자격미달(사무원/운전원): " + ", ".join(f"{w}({j},{c}건)" for w, j, c in bad_writers)
+        detail += (" · ⚠주의 작성자 운전/사무직(실제 동행자 자격 수기확인 — 작성자는 운전지원·입력자일 수 있음): "
+                   + ", ".join(f"{w}({j},{c}건)" for w, j, c in bad_writers))
     if unknown:
         detail += f" · 직종미매칭(수기확인): {', '.join(unknown[:5])}"
     if prog_by_person is not None:
