@@ -3,8 +3,9 @@
 <meta name="robots" content="noindex,nofollow">
 <title>충청본부 공유 허브</title>
 <!-- ?install 로 열면 이 페이지에 머물러 '원클릭 앱 설치'를 제공한다.
-     그 외(관제탑·북마크·설치된 앱 실행)에는 기존처럼 Apps Script 허브로 넘긴다.
-     원클릭 설치는 GitHub Pages(정식 origin)에서만 가능 — Apps Script(iframe)는 불가라 여기서 처리. -->
+     그 외(관제탑·북마크·설치된 앱 실행)에는 Apps Script 허브로 넘긴다.
+     ★ Apps Script 로딩이 느리면 이 화면이 그대로 떠 '멈춘 것처럼' 보인다 → 처음부터
+        '여는 중' 로딩 화면 + 큰 '허브 열기' 버튼을 보여, 멈춰 보여도 한 번 눌러 바로 들어가게. -->
 <link rel="manifest" href="hq-manifest.json">
 <meta name="theme-color" content="#152647">
 <link rel="apple-touch-icon" href="icons/hub-180.png">
@@ -17,10 +18,13 @@
   h1{font-size:19px;margin:12px 0 6px}
   p{font-size:13.5px;color:#5b6472;line-height:1.7;margin:0 0 18px}
   .btn{display:inline-block;width:100%;box-sizing:border-box;background:linear-gradient(120deg,#152647,#20365f);
-    color:#fff;border:0;text-decoration:none;padding:14px 20px;border-radius:12px;font-size:15px;font-weight:800;
+    color:#fff;border:0;text-decoration:none;padding:15px 20px;border-radius:12px;font-size:15.5px;font-weight:800;
     cursor:pointer;font-family:inherit;box-shadow:0 6px 18px rgba(21,38,71,.28)}
   .btn:active{transform:translateY(1px)}
-  .open{display:inline-block;margin-top:12px;font-size:13px;color:#3b4a63;text-decoration:none;font-weight:700}
+  .btn.ghost{background:#eef2f9;color:#20365f;box-shadow:none;margin-top:10px;font-size:13.5px;padding:11px 18px}
+  .spin{display:inline-block;width:15px;height:15px;border:2px solid #c9d3e6;border-top-color:#20365f;
+    border-radius:50%;vertical-align:-2px;margin-right:7px;animation:sp .7s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
   .guide{display:none;font-size:12px;color:#6b7280;line-height:1.7;margin:16px 0 0;
     background:#f1f4fa;border-radius:10px;padding:11px 13px}
   .guide .sh{background:#e3e8f2;border-radius:6px;padding:1px 7px;font-weight:700;color:#20365f}
@@ -28,9 +32,9 @@
 <div class="b">
   <div class="ic">🏢</div>
   <h1>충청본부 공유 허브</h1>
-  <p id="msg">앱으로 설치하면 <b>아이콘 한 번</b>으로 열립니다.<br>주소창 없이 전체화면으로 떠요.</p>
-  <button id="installBtn" class="btn" type="button" style="display:none">📲 앱 설치</button>
-  <a id="openLink" class="open" href="https://script.google.com/a/macros/caring.co.kr/s/AKfycby4fQaPyn3AthrSy3NAnbnTRqyXxt-HiB3AHv2uWutQEUWA-xQnMDcOD0f_3XGhTD3Z/exec">허브 바로 열기 →</a>
+  <p id="msg"><span class="spin"></span>허브를 여는 중입니다…<br>안 열리면 아래 버튼을 눌러주세요.</p>
+  <a id="go" class="btn" href="https://script.google.com/a/macros/caring.co.kr/s/AKfycby4fQaPyn3AthrSy3NAnbnTRqyXxt-HiB3AHv2uWutQEUWA-xQnMDcOD0f_3XGhTD3Z/exec">허브 열기 →</a>
+  <button id="installBtn" class="btn ghost" type="button" style="display:none">📲 앱으로 설치</button>
   <div class="guide" id="guide"></div>
 </div>
 <script>
@@ -38,22 +42,24 @@ var HUB="https://script.google.com/a/macros/caring.co.kr/s/AKfycby4fQaPyn3AthrSy
 var wantInstall = new URLSearchParams(location.search).has('install');
 
 if(!wantInstall){
-  // 관제탑·북마크·설치된 앱 실행 → 기존처럼 허브로 이동
-  location.replace(HUB);
+  // 관제탑·북마크·설치된 앱 실행 → 허브로 직행.
+  // 버튼(#go)은 이미 화면에 떠 있어, 자동 이동이 느리거나 막혀도 한 번 눌러 들어갈 수 있다.
+  try { location.replace(HUB); } catch(e){ location.href = HUB; }
 } else {
+  // ── 앱 설치 화면 ──
   if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
   var dp=null,
       btn=document.getElementById('installBtn'),
       guide=document.getElementById('guide'),
-      msg=document.getElementById('msg');
+      msg=document.getElementById('msg'),
+      go=document.getElementById('go');
+  msg.innerHTML='앱으로 설치하면 <b>아이콘 한 번</b>으로 열립니다.<br>주소창 없이 전체화면으로 떠요.';
+  go.textContent='허브 바로 열기 →';
   function standalone(){return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;}
   var isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
-
   if(standalone()){ msg.innerHTML='✅ 이미 앱으로 설치돼 있습니다.'; }
 
-  // 설치 가능해지면 버튼 노출(안드로이드·PC 크롬)
   window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); dp=e; btn.style.display='inline-block'; guide.style.display='none'; });
-
   btn.addEventListener('click', function(){
     if(!dp) return;
     dp.prompt();
@@ -64,7 +70,6 @@ if(!wantInstall){
   });
   window.addEventListener('appinstalled', function(){ msg.innerHTML='✅ 설치 완료! <b>앱 아이콘</b>으로 여세요.'; btn.style.display='none'; guide.style.display='none'; });
 
-  // 프롬프트가 안 뜨는 환경(아이폰 / 이미 설치 / 크롬 판단 지연) → 수동 안내
   setTimeout(function(){
     if(dp || standalone()) return;
     guide.style.display='block';
