@@ -268,13 +268,12 @@ def _mask_name(nm: str) -> str:
 
 
 def _inject_topbar(s: str) -> str:
-    """상단 sticky '← 공유 허브' 바 주입 + 페이지 자체 sticky 툴바(.tabbar/.toolbar)를 그 아래로 밀어 중첩 방지.
+    """맨 위 '← 공유 허브' 줄 주입(일반 흐름 — 고정 아님). 페이지 sticky 툴바는 원래대로 top:0 유지.
+    이러면 바가 탭 위에 올라올 일이 없어 절대 안 겹친다(스크롤하면 바는 위로 사라지고 툴바만 붙음).
     target=_top: Apps Script iframe 밖(최상위 창)으로 이동해야 허브가 정상 로드됨."""
-    bar = ('<div style="position:sticky;top:0;z-index:100000;height:36px;display:flex;align-items:center;'
-           'padding:0 14px;background:#152647;box-shadow:0 2px 8px rgba(0,0,0,.22)">'
+    bar = ('<div style="height:38px;display:flex;align-items:center;padding:0 16px;background:#152647">'
            '<a href="' + HUB_URL + '" target="_top" style="color:#fff;text-decoration:none;'
-           'font:700 13px \'Malgun Gothic\',system-ui,sans-serif">← 공유 허브</a></div>'
-           '<style>.tabbar,.toolbar{top:36px !important}</style>')
+           'font:700 13px \'Malgun Gothic\',system-ui,sans-serif">← 공유 허브</a></div>')
     return re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + bar, s, count=1)
 
 
