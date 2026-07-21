@@ -8,6 +8,7 @@
   const OPT = window.__AUDIT_OPT || {};
   const yearTabs = OPT.yearTabs || ['2026년', '2025년', '2024년'];
   const LIMIT = OPT.limit || 0;
+  const NAMES = (OPT.names && OPT.names.length) ? OPT.names : null;  // 테스트용: 지정 이름만 스캔(production은 미지정=전원)
 
   // ---- XHR 훅 ----
   let WAITER = null;
@@ -100,7 +101,29 @@
       if (/총점|CIST\s*총|합계점수/.test(t)) total = +sm[1];
     });
     if (total < 0) { total = Object.values(out).reduce((s, v) => s + (v.score || 0), 0); }  // 총점행 없으면 문항합
-    return { scores: out, total };
+    // 비고(note): 첫 칸이 '비고'인 행의 마지막 칸. 총점0·공란이어도 비고에 미실시 사유 있으면 실시 인정(사용자 확정)
+    let note = '';
+    Array.from(doc.querySelectorAll('tr')).forEach(r => {
+      const cells = Array.from(r.querySelectorAll('th,td'));
+      if (cells.length >= 2 && /^비고/.test((cells[0].textContent || '').trim())) {
+        note = (cells[cells.length - 1].textContent || '').replace(/\s+/g, ' ').trim();
+      }
+    });
+    // 응답 서술(resp): 문항별 응답칸 <span class="dotdotdot">. 하나라도 채워지면 실시(치매 0점도 응답 있으면 인정).
+    // 빈 폼(김○녀)은 전부 공란 → 미실시. total>0만으로는 '치매 0점 정상평가'를 오탐하므로 이 신호가 핵심.
+    // ★단 응답칸은 K-MMSE2 에만 있다 — 구 CIST 폼(230건 실측)은 dotdotdot 자체가 없어 공백 판정 불가.
+    //   그래서 hasRespField=false(=CIST)면 '판정 불가'로 보고 실시 인정한다(오탐 방지).
+    const spans = Array.from(doc.querySelectorAll('span.dotdotdot'));
+    let resp = '';
+    spans.forEach(s => {
+      const t = (s.textContent || '').trim();
+      if (t) resp += t + ' ';
+    });
+    // 치매진단 면제기록: 케어포가 '인지기능평가를 작성하지 않은 기록'으로 스스로 생성한 문서화된 미검사.
+    // 비고에 사유를 적은 경우와 같은 성격이라 실시 인정(사용자 기준: 사유 기재 시 인정). 실측 23건.
+    const bodyTxt = (doc.body ? doc.body.textContent : '') || '';
+    const exempt = /인지기능평가를\s*작성하지\s*않은\s*기록|치매진단을\s*받고/.test(bodyTxt);
+    return { scores: out, total, note, resp: resp.trim(), hasRespField: spans.length > 0, exempt };
   }
   function parseNeeds(html) {
     const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -181,7 +204,8 @@
     let grid = null;
     gbs.forEach(gb => {
       const first = gb.children[0];
-      if (first && first.tagName === 'G-TH' && /^\d+$/.test(first.textContent.trim()) && /재사정|신규/.test(gb.textContent)) grid = gb;
+      // 그리드 탐지 게이트에도 상태변화 포함 — 한 연도 탭이 상태변화 재평가만이면 통째로 버려지던 문제(검수 지적)
+      if (first && first.tagName === 'G-TH' && /^\d+$/.test(first.textContent.trim()) && /재사정|신규|상태변화/.test(gb.textContent)) grid = gb;
     });
     if (!grid) return [];
     const kids = Array.from(grid.children);
@@ -226,6 +250,7 @@
 
       for (let w = 0; w < total; w++) {
         const { tr, name, status } = work[w];
+        if (NAMES && !NAMES.includes(name)) continue;  // 테스트 지정 이름만
         const isDup = nameCount[name] > 1;
         window.__AUDIT.progress = `${w + 1}/${total} ${name}${isDup ? '(동명이인)' : ''}`;
 
@@ -267,10 +292,11 @@
             for (const rd of readEvalGrid()) {
               const fd = /재사정|신규/.test(rd.fall) ? dateOf(rd.fall) : '';
               const sd = /재사정|신규/.test(rd.sore) ? dateOf(rd.sore) : '';
-              const cd = /재사정|신규/.test(rd.cog) ? dateOf(rd.cog) : '';
+              // 인지는 조사사유 '상태변화'도 정식 재평가라 포함(재사정/신규만 잡던 갭 수정, 사용자 확정 2026-07-21).
+              // evals.cog(실시 인정)는 아래 팝업 파싱 후 '내용 있는 것만' 넣는다(총점0·비고공란=미실시).
+              const cd = /재사정|신규|상태변화/.test(rd.cog) ? dateOf(rd.cog) : '';
               if (fd && !evals.fall.includes(fd)) evals.fall.push(fd);
               if (sd && !evals.sore.includes(sd)) evals.sore.push(sd);
-              if (cd && !evals.cog.includes(cd)) evals.cog.push(cd);
               if (fd && !falls.some(f => f.date === fd)) {
                 closeModalSync();
                 const p2 = anyXhrWait('합계점수', 15000);
@@ -300,8 +326,18 @@
                   const htmlC = await p2c;
                   if (htmlC) {
                     if (!window.__AUDIT.cogSample) window.__AUDIT.cogSample = htmlC.substring(0, 8000);
-                    const pc = parseCog(htmlC); cogs.push({ date: cd, scores: pc.scores, total: pc.total });
-                  } else cogs.push({ date: cd, scores: null, total: -1 });
+                    const pc = parseCog(htmlC);
+                    cogs.push({ date: cd, scores: pc.scores, total: pc.total, note: pc.note, resp: pc.resp, exempt: pc.exempt });
+                    // 실시 인정 → evals.cog. 미실시가 되는 건 '응답칸 있는 폼(K-MMSE2)인데 전부 공란 + 총점0 +
+                    // 비고없음 + 면제기록 아님'뿐이다. 치매진단 면제기록·비고 사유는 문서화된 미검사라 인정하고,
+                    // 응답칸이 없는 구 CIST 폼은 공백 판정 자체가 불가라 인정한다(오탐 방지). 검수 반영 2026-07-21.
+                    const done = (pc.resp || '').trim() || (pc.total || 0) > 0 || (pc.note || '').trim()
+                                 || pc.exempt || !pc.hasRespField;
+                    if (done && !evals.cog.includes(cd)) evals.cog.push(cd);
+                  } else {
+                    cogs.push({ date: cd, scores: null, total: -1, note: '', resp: '', exempt: false });
+                    if (!evals.cog.includes(cd)) evals.cog.push(cd);  // 캡처 실패는 미실시로 단정 안 함(오탐 방지)
+                  }
                 }
                 closeModalSync();
               }
