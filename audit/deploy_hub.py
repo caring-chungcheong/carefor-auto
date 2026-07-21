@@ -54,7 +54,7 @@ function setup() {
 
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) || '';
-  var map = { revenue: '매출 점검', carcost: '차량 월별 수리비' };  // 도메인(caring.co.kr) 로그인해야 열림
+  var map = { revenue: '매출 점검', carcost: '차량 월별 수리비', runbook: '케어포 운영 런북' };  // 도메인(caring.co.kr) 로그인해야 열림
   if (map[page]) { log_(map[page]); return out_(page, map[page]); }
   log_('허브 열기');
   return out_('hub', '충청본부 공유 허브');
@@ -254,6 +254,9 @@ PAGE_SRC = {
     "carcost": CC / "차량_월별수리비내역.html",
     # 매출은 월별 합본 최신본을 자동 선택
     "revenue": None,
+    # 운영 런북 — 공개 저장소에서 뺀 SKILL.md 내용(케어포 로그인·시트/채널 ID·사고 이력)을
+    # 본부에만 도메인 제한으로 서빙한다. 원본은 Pages 밖 클로드코드/ 폴더.
+    "runbook": CC / "케어포_운영런북.html",
 }
 
 
@@ -362,6 +365,7 @@ def main():
                 {"name": "hub", "type": "HTML", "source": build_html()},
                 {"name": "revenue", "type": "HTML", "source": page_html("revenue")},
                 {"name": "carcost", "type": "HTML", "source": page_html("carcost")},
+                {"name": "runbook", "type": "HTML", "source": page_html("runbook")},
             ]}, method="PUT")
     print("코드 업로드:", "OK" if r.get("files") else r.get("ERR"))
     if r.get("ERR"):
