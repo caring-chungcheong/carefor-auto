@@ -2,21 +2,75 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>충청본부 공유 허브</title>
-<meta http-equiv="refresh" content="0;url=https://script.google.com/a/macros/caring.co.kr/s/AKfycby4fQaPyn3AthrSy3NAnbnTRqyXxt-HiB3AHv2uWutQEUWA-xQnMDcOD0f_3XGhTD3Z/exec">
-<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
-background:#f4f6fb;font-family:'Malgun Gothic',system-ui,sans-serif;color:#152647}
-.b{background:#fff;border-radius:16px;padding:30px 26px;max-width:380px;text-align:center;
-box-shadow:0 8px 30px rgba(21,38,71,.10)}
-h1{font-size:18px;margin:10px 0 6px} p{font-size:13.5px;color:#6b7280;line-height:1.7;margin:0 0 18px}
-a{display:inline-block;background:#152647;color:#fff;text-decoration:none;padding:11px 20px;
-border-radius:10px;font-size:14px;font-weight:700}</style></head><body>
+<!-- ?install 로 열면 이 페이지에 머물러 '원클릭 앱 설치'를 제공한다.
+     그 외(관제탑·북마크·설치된 앱 실행)에는 기존처럼 Apps Script 허브로 넘긴다.
+     원클릭 설치는 GitHub Pages(정식 origin)에서만 가능 — Apps Script(iframe)는 불가라 여기서 처리. -->
+<link rel="manifest" href="hq-manifest.json">
+<meta name="theme-color" content="#152647">
+<link rel="apple-touch-icon" href="icons/hub-180.png">
+<style>
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:#f4f6fb;font-family:'Malgun Gothic',system-ui,sans-serif;color:#152647}
+  .b{background:#fff;border-radius:18px;padding:32px 26px;max-width:390px;text-align:center;
+    box-shadow:0 10px 34px rgba(21,38,71,.12)}
+  .ic{font-size:38px}
+  h1{font-size:19px;margin:12px 0 6px}
+  p{font-size:13.5px;color:#5b6472;line-height:1.7;margin:0 0 18px}
+  .btn{display:inline-block;width:100%;box-sizing:border-box;background:linear-gradient(120deg,#152647,#20365f);
+    color:#fff;border:0;text-decoration:none;padding:14px 20px;border-radius:12px;font-size:15px;font-weight:800;
+    cursor:pointer;font-family:inherit;box-shadow:0 6px 18px rgba(21,38,71,.28)}
+  .btn:active{transform:translateY(1px)}
+  .open{display:inline-block;margin-top:12px;font-size:13px;color:#3b4a63;text-decoration:none;font-weight:700}
+  .guide{display:none;font-size:12px;color:#6b7280;line-height:1.7;margin:16px 0 0;
+    background:#f1f4fa;border-radius:10px;padding:11px 13px}
+  .guide .sh{background:#e3e8f2;border-radius:6px;padding:1px 7px;font-weight:700;color:#20365f}
+</style></head><body>
 <div class="b">
-  <div style="font-size:32px">🏢</div>
+  <div class="ic">🏢</div>
   <h1>충청본부 공유 허브</h1>
-  <p>허브가 <b>케어링 계정 전용</b>으로 옮겨졌습니다.<br>
-     잠시 후 자동으로 이동합니다.<br><br>
-     <b>caring.co.kr 계정</b>으로 로그인되어 있어야 열립니다.</p>
-  <a href="https://script.google.com/a/macros/caring.co.kr/s/AKfycby4fQaPyn3AthrSy3NAnbnTRqyXxt-HiB3AHv2uWutQEUWA-xQnMDcOD0f_3XGhTD3Z/exec">허브 열기 →</a>
+  <p id="msg">앱으로 설치하면 <b>아이콘 한 번</b>으로 열립니다.<br>주소창 없이 전체화면으로 떠요.</p>
+  <button id="installBtn" class="btn" type="button" style="display:none">📲 앱 설치</button>
+  <a id="openLink" class="open" href="https://script.google.com/a/macros/caring.co.kr/s/AKfycby4fQaPyn3AthrSy3NAnbnTRqyXxt-HiB3AHv2uWutQEUWA-xQnMDcOD0f_3XGhTD3Z/exec">허브 바로 열기 →</a>
+  <div class="guide" id="guide"></div>
 </div>
-<script>location.replace("https://script.google.com/a/macros/caring.co.kr/s/AKfycby4fQaPyn3AthrSy3NAnbnTRqyXxt-HiB3AHv2uWutQEUWA-xQnMDcOD0f_3XGhTD3Z/exec");</script>
+<script>
+var HUB="https://script.google.com/a/macros/caring.co.kr/s/AKfycby4fQaPyn3AthrSy3NAnbnTRqyXxt-HiB3AHv2uWutQEUWA-xQnMDcOD0f_3XGhTD3Z/exec";
+var wantInstall = new URLSearchParams(location.search).has('install');
+
+if(!wantInstall){
+  // 관제탑·북마크·설치된 앱 실행 → 기존처럼 허브로 이동
+  location.replace(HUB);
+} else {
+  if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
+  var dp=null,
+      btn=document.getElementById('installBtn'),
+      guide=document.getElementById('guide'),
+      msg=document.getElementById('msg');
+  function standalone(){return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;}
+  var isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+
+  if(standalone()){ msg.innerHTML='✅ 이미 앱으로 설치돼 있습니다.'; }
+
+  // 설치 가능해지면 버튼 노출(안드로이드·PC 크롬)
+  window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); dp=e; btn.style.display='inline-block'; guide.style.display='none'; });
+
+  btn.addEventListener('click', function(){
+    if(!dp) return;
+    dp.prompt();
+    dp.userChoice.then(function(r){
+      if(r && r.outcome==='accepted'){ msg.innerHTML='✅ 설치 완료! <b>앱 아이콘</b>으로 여세요.'; }
+      dp=null; btn.style.display='none';
+    });
+  });
+  window.addEventListener('appinstalled', function(){ msg.innerHTML='✅ 설치 완료! <b>앱 아이콘</b>으로 여세요.'; btn.style.display='none'; guide.style.display='none'; });
+
+  // 프롬프트가 안 뜨는 환경(아이폰 / 이미 설치 / 크롬 판단 지연) → 수동 안내
+  setTimeout(function(){
+    if(dp || standalone()) return;
+    guide.style.display='block';
+    if(isIOS){ guide.innerHTML='아이폰 — 사파리 아래 <span class="sh">공유 ⬆️</span> → <b>"홈 화면에 추가"</b>'; }
+    else { guide.innerHTML='설치 버튼이 안 뜨면 — 크롬 주소창 오른쪽 <b>설치 아이콘</b>, 또는 <span class="sh">⋮ 메뉴</span> → <b>"앱 설치"</b>(또는 "바로가기 만들기 → 창으로 열기")'; }
+  }, 1600);
+}
+</script>
 </body></html>
