@@ -271,11 +271,11 @@ def _inject_topbar(s: str) -> str:
     """맨 위 '← 공유 허브' 줄 주입(일반 흐름 — 고정 아님). 페이지 sticky 툴바는 원래대로 top:0 유지.
     이러면 바가 탭 위에 올라올 일이 없어 절대 안 겹친다(스크롤하면 바는 위로 사라지고 툴바만 붙음).
     target=_top: Apps Script iframe 밖(최상위 창)으로 이동해야 허브가 정상 로드됨."""
-    bar = ('<div style="background:#152647;padding:9px 16px;text-align:left">'
+    bar = ('<div style="background:#152647;padding:14px 18px;text-align:left;line-height:1">'
            '<a href="' + HUB_URL + '" target="_top" style="display:inline-block;'
            'background:#ffffff;color:#152647 !important;-webkit-text-fill-color:#152647;'
-           'padding:7px 16px;border-radius:8px;text-decoration:none;'
-           'font-family:\'Malgun Gothic\',system-ui,sans-serif;font-size:14px;font-weight:700">'
+           'padding:9px 18px;border-radius:9px;text-decoration:none;'
+           'font-family:\'Malgun Gothic\',system-ui,sans-serif;font-size:14px;font-weight:700;line-height:1.2">'
            '← 공유 허브</a></div>')
     return re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + bar, s, count=1)
 
