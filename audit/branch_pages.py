@@ -1926,9 +1926,21 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None,
         # 연계기록지 작성일↔상담 same-day (수기확인 지원): 작성일에 상담 없는 건 표시
         csd = (data or {}).get("consult_samedays") or []
         csd_miss = [f"{x['name']} {x['written']}" for x in csd if x.get("has_consult") is False]
-        csd_note = (f" · [연계-상담 same-day] 작성일에 상담 미확인 {len(csd_miss)}건(수기확인): "
-                    + ", ".join(csd_miss[:6]) + ("…" if len(csd_miss) > 6 else "")) if csd_miss else \
-                   (" · 연계기록지 작성일 상담 확인됨" if csd else "")
+        # has_consult=None = 1-4 상담일지 목록에서 그 수급자를 못 찾아 '판정 불가'. 이걸 숨기면
+        # 확인 못 한 건이 조용히 사라져 커버리지를 부풀린다(안 본 걸 양호로 두지 않는다) → 건수 노출.
+        csd_ok = sum(1 for x in csd if x.get("has_consult") is True)
+        csd_na = sum(1 for x in csd if x.get("has_consult") is None)
+        _cov = f"(확인 {csd_ok}·미확인 {len(csd_miss)}·조회불가 {csd_na})" if csd else ""
+        if not csd:
+            csd_note = ""
+        elif csd_miss:
+            csd_note = (f" · [연계-상담 same-day]{_cov} 작성일에 상담 미확인 {len(csd_miss)}건(수기확인): "
+                        + ", ".join(csd_miss[:6]) + ("…" if len(csd_miss) > 6 else ""))
+        elif csd_ok:
+            csd_note = f" · 연계기록지 작성일 상담 확인됨{_cov}"
+        else:
+            # 확인 0·미확인 0 인데 대상은 있었다 = 전부 조회불가. '확인됨'으로 쓰면 안 본 걸 양호로 두는 것.
+            csd_note = f" · [연계-상담 same-day]{_cov} 전건 조회불가 — 상담 확인 못 함(수기확인)"
         m30_bad = ["30①"] if (m30 and m30["status"] == "미흡") else []
         overall = ("미흡" if (conn_miss or m30_bad)
                    else ("주의" if (m30 and m30["status"] == "주의") else "양호"))
