@@ -102,6 +102,14 @@
   .installbtn .em{font-size:22px}
   .installbtn small{display:block;font-weight:500;opacity:.82;font-size:11.5px;margin-top:2px}
   .installbtn:active{transform:translateY(1px)}
+  /* 오른쪽 상단 바로가기 설치 버튼 */
+  header{position:relative}
+  .installtop{position:absolute;top:14px;right:16px;display:inline-flex;align-items:center;gap:6px;
+    background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.38);
+    padding:8px 13px;border-radius:999px;font-size:13px;font-weight:700;cursor:pointer;
+    font-family:inherit;backdrop-filter:blur(4px);transition:.15s;white-space:nowrap}
+  .installtop:hover{background:rgba(255,255,255,.30)}
+  @media(max-width:560px){.installtop{top:10px;right:10px;padding:7px 10px;font-size:12px}}
   .iosguide{display:none;position:fixed;inset:0;z-index:120;background:rgba(10,18,35,.6);
     align-items:center;justify-content:center;padding:24px}
   .iosbox{background:#fff;border-radius:18px;padding:24px 22px;max-width:340px;text-align:center;
@@ -122,6 +130,7 @@
 </div>
 
 <header>
+  <button id="installTop" class="installtop" type="button">📲 바로가기 설치</button>
   <h1>충청본부 공유 허브</h1>
   <div class="sub">지점 자동 점검·집계 결과를 본부와 공유하는 페이지</div>
   <div class="pills">
@@ -217,7 +226,7 @@
 <div class="iosguide" id="iosGuide">
   <div class="iosbox">
     <div class="bi">📲</div>
-    <h3>홈 화면에 추가</h3>
+    <h3>바로가기 설치</h3>
     <p id="guideText">사파리 아래쪽 <span class="sh">공유 ⬆️</span> 버튼을 누른 뒤<br><b>"홈 화면에 추가"</b>를 선택하세요.</p>
     <button onclick="document.getElementById('iosGuide').style.display='none'">확인</button>
   </div>
@@ -238,23 +247,27 @@ if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catc
 // 홈 화면 설치 (안드로이드=네이티브 프롬프트 / 아이폰=수동 안내)
 (function(){
   var bar=document.getElementById('installBar'), btn=document.getElementById('installBtn'),
-      guide=document.getElementById('iosGuide'), gtext=document.getElementById('guideText'), dp=null;
+      guide=document.getElementById('iosGuide'), gtext=document.getElementById('guideText'),
+      top=document.getElementById('installTop'), dp=null;
   function standalone(){return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;}
   function isIOS(){return /iphone|ipad|ipod/i.test(navigator.userAgent);}
-  if(standalone()) return;               // 이미 설치됨 → 버튼 숨김 유지
+  function isAndroid(){return /android/i.test(navigator.userAgent);}
+  if(standalone()){ if(top) top.style.display='none'; return; }   // 이미 설치됨 → 버튼 숨김
   window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); dp=e; bar.style.display='block'; });
-  if(isIOS()) bar.style.display='block'; // iOS는 프롬프트 없음 → 안내용 버튼
+  if(isIOS()) bar.style.display='block'; // iOS는 프롬프트 없음 → 안내용 바
   function showGuide(){
-    if(isIOS()){ gtext.innerHTML='사파리 아래쪽 <span class="sh">공유 ⬆️</span> 버튼을 누른 뒤<br><b>"홈 화면에 추가"</b>를 선택하세요.'; }
-    else { gtext.innerHTML='크롬 오른쪽 위 <span class="sh">⋮ 메뉴</span> 를 누르고<br><b>"홈 화면에 추가"</b> 또는 <b>"앱 설치"</b>를 선택하세요.<br><br><small>설치 후 아이콘은 <b>앱 서랍(전체 앱 목록)</b>에 생깁니다. 길게 눌러 홈 화면으로 옮길 수 있어요.</small>'; }
+    if(isIOS()){ gtext.innerHTML='아이폰 — 사파리 아래쪽 <span class="sh">공유 ⬆️</span> 를 누르고<br><b>"홈 화면에 추가"</b>를 선택하세요.'; }
+    else if(isAndroid()){ gtext.innerHTML='안드로이드 — 크롬 오른쪽 위 <span class="sh">⋮ 메뉴</span> 에서<br><b>"홈 화면에 추가"</b>(또는 "앱 설치")를 선택하세요.<br><br><small>아이콘은 앱 서랍에 생깁니다. 길게 눌러 홈 화면으로 옮길 수 있어요.</small>'; }
+    else { gtext.innerHTML='PC 크롬 — 오른쪽 위 <span class="sh">⋮ 메뉴</span> → <b>저장 및 공유</b> → <b>"바로가기 만들기"</b><br>(또는 주소창 오른쪽 <b>설치 아이콘</b>)<br><br><small>바탕화면·작업표시줄에 아이콘이 생깁니다.</small>'; }
     guide.style.display='flex';
   }
-  btn.addEventListener('click', function(){
-    // 안드로이드: 네이티브 프롬프트. 취소해도 버튼은 유지(재시도/수동안내 가능)
-    if(dp){ dp.prompt(); dp.userChoice.then(function(){ dp=null; }); }
-    else { showGuide(); }  // iOS 또는 프롬프트 미발생 → OS별 수동 안내
-  });
-  window.addEventListener('appinstalled', function(){ bar.style.display='none'; });  // 설치 완료 시에만 숨김
+  function doInstall(){
+    if(dp){ dp.prompt(); dp.userChoice.then(function(){ dp=null; }); }  // 설치 프롬프트 뜨는 환경
+    else { showGuide(); }                                              // Apps Script·iOS 등 → 기기별 안내
+  }
+  if(btn) btn.addEventListener('click', doInstall);
+  if(top) top.addEventListener('click', doInstall);
+  window.addEventListener('appinstalled', function(){ bar.style.display='none'; if(top) top.style.display='none'; });
 })();
 </script>
 </body></html>
