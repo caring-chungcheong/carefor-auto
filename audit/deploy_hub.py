@@ -258,7 +258,8 @@ PAGE_SRC = {
 
 
 def _back_link() -> str:
-    return ('<a href="' + HUB_URL + '" style="position:fixed;top:9px;left:9px;z-index:99999;'
+    # target=_top: Apps Script iframe 밖(최상위 창)으로 이동해야 허브가 정상 로드된다(안 그러면 빈 페이지)
+    return ('<a href="' + HUB_URL + '" target="_top" style="position:fixed;top:9px;left:9px;z-index:99999;'
             'background:#152647;color:#fff;text-decoration:none;padding:7px 12px;border-radius:9px;'
             'font:700 12.5px \'Malgun Gothic\',system-ui,sans-serif;'
             'box-shadow:0 3px 12px rgba(0,0,0,.28)">← 공유 허브</a>')
