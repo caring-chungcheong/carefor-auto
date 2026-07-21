@@ -1836,7 +1836,8 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None,
                       + " (기록 충실성·②30일 재작성·③기록지 제공은 수기)",
         }
     if data.get("connect") or data.get("medical"):
-        # ① 의료기관 동행 진료 작성자 자격(4-4 병의원 + 8-1 직종): 사무원·운전원이면 미흡
+        # ① 의료기관 동행 진료 작성자 자격(4-4 병의원 + 8-1 직종): 4-4엔 '동행자' 필드가 없어
+        #    작성자(입력자)가 운전/사무직이면 '주의(실제 동행자 자격 수기확인)' — 미흡 확정 안 함(오탐 방지)
         med = (data or {}).get("medical") or {}
         m30 = None
         if med.get("records") is not None and med.get("staff_jobs") is not None:
