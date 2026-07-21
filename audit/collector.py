@@ -36,6 +36,7 @@ def run_branch_audit(
     headless: bool = True,
     progress_cb=print,
     save: bool = True,
+    names: list | None = None,
 ) -> dict:
     cutoff = cutoff or BRANCH_CUTOFFS.get(branch_name, "2024.01.01")
     cut_year = int(cutoff[:4])
@@ -80,7 +81,7 @@ def run_branch_audit(
             raise RuntimeError("수급자 리스트를 찾지 못했습니다.")
 
         # 스캔 주입
-        page.evaluate(f"window.__AUDIT_OPT = {{ yearTabs: {json.dumps(year_tabs, ensure_ascii=False)}, limit: {limit} }};")
+        page.evaluate(f"window.__AUDIT_OPT = {{ yearTabs: {json.dumps(year_tabs, ensure_ascii=False)}, limit: {limit}, names: {json.dumps(names or [], ensure_ascii=False)} }};")
         page.evaluate(SCAN_JS)
 
         # 진행 폴링
