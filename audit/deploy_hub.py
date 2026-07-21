@@ -52,10 +52,16 @@ function setup() {
   return '_허브접속 탭 준비 완료';
 }
 
-function doGet() {
+function doGet(e) {
+  var page = (e && e.parameter && e.parameter.page) || '';
+  var map = { revenue: '매출 점검', carcost: '차량 월별 수리비' };  // 도메인(caring.co.kr) 로그인해야 열림
+  if (map[page]) { log_(map[page]); return out_(page, map[page]); }
   log_('허브 열기');
-  return HtmlService.createHtmlOutputFromFile('hub')
-    .setTitle('충청본부 공유 허브')
+  return out_('hub', '충청본부 공유 허브');
+}
+function out_(file, title) {
+  return HtmlService.createHtmlOutputFromFile(file)
+    .setTitle(title)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
@@ -235,8 +241,39 @@ def build_html() -> str:
     s = re.sub(r"if\(sessionStorage\.getItem\('ap'\)==='1'\).*", "", s)
     # 2) 상대 링크 → GitHub Pages 절대주소 (허브만 Apps Script 로 옮기고 나머지 페이지는 그대로 둔다)
     s = re.sub(r'href="(?!https?:|#|mailto:)([^"]+)"', lambda m: f'href="{PAGES}{m.group(1)}"', s)
+    # 2.5) #SELF → 이 허브 웹앱 주소(매출·차량수리비는 같은 Apps Script 로 도메인 제한 서빙)
+    s = s.replace("#SELF", HUB_URL)
     # 3) 상단 접속현황 바 주입
     s = s.replace("</header>", "</header>" + TOPBAR, 1)
+    return s
+
+
+# 허브에 도메인 제한으로 얹을 페이지들 (Pages 밖, 개인정보 있어 공개 저장소·공개 Pages 금지)
+CC = ROOT.parent   # 클로드코드/
+PAGE_SRC = {
+    "carcost": CC / "차량_월별수리비내역.html",
+    # 매출은 월별 합본 최신본을 자동 선택
+    "revenue": None,
+}
+
+
+def _back_link() -> str:
+    return ('<a href="' + HUB_URL + '" style="position:fixed;top:9px;left:9px;z-index:99999;'
+            'background:#152647;color:#fff;text-decoration:none;padding:7px 12px;border-radius:9px;'
+            'font:700 12.5px \'Malgun Gothic\',system-ui,sans-serif;'
+            'box-shadow:0 3px 12px rgba(0,0,0,.28)">← 공유 허브</a>')
+
+
+def page_html(kind: str) -> str:
+    """도메인 제한 서빙용 페이지 HTML — 원본 그대로 + 좌상단 '공유 허브' 복귀 링크만 주입."""
+    p = PAGE_SRC[kind]
+    if kind == "revenue":
+        cands = sorted((CC / "매출점검").glob("매출점검_합본_*.html"))
+        if not cands:
+            raise SystemExit("매출점검 합본 HTML을 찾지 못함 (클로드코드/매출점검/)")
+        p = cands[-1]
+    s = pathlib.Path(p).read_text(encoding="utf-8")
+    s = re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + _back_link(), s, count=1)
     return s
 
 
@@ -290,6 +327,8 @@ def main():
                 {"name": "appsscript", "type": "JSON", "source": json.dumps(MANIFEST, ensure_ascii=False)},
                 {"name": "Code", "type": "SERVER_JS", "source": CODE},
                 {"name": "hub", "type": "HTML", "source": build_html()},
+                {"name": "revenue", "type": "HTML", "source": page_html("revenue")},
+                {"name": "carcost", "type": "HTML", "source": page_html("carcost")},
             ]}, method="PUT")
     print("코드 업로드:", "OK" if r.get("files") else r.get("ERR"))
     if r.get("ERR"):
