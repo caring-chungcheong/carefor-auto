@@ -31,7 +31,7 @@ import urllib.request
 sys.stdout.reconfigure(encoding="utf-8")
 
 from audit.deploy_hub import (CODE, MANIFEST, SCRIPT_ID, DEPLOY_ID, build_html, api,
-                              _mask_revenue_names, _inject_bg, _inject_topbar)
+                              _mask_revenue_names, _inject_topbar)
 
 # 저장소 밖 원본이 필요해 CI 에서 못 만드는 페이지들 — 현재 배포본을 그대로 살린다
 PRESERVE = ("revenue", "carcost", "runbook")
@@ -42,7 +42,6 @@ def revenue_page_from(path: str) -> str:
     ★이름 마스킹 필수 — 합본 원본은 수급자 실명이 그대로 들어 있다."""
     s = pathlib.Path(path).read_text(encoding="utf-8")
     s = _mask_revenue_names(s)     # 실명 → 김○수
-    s = _inject_bg(s)
     s = _inject_topbar(s)
     return s
 
