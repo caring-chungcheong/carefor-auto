@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: '지점 (전체 / 청주 / 둔산 / 서구 / 천안)'
+        description: '지점 — 허브에 반영하려면 반드시 전체 (단일 지점은 확인용, 허브 갱신 안 함)'
         required: false
         default: '전체'
       ym:
@@ -52,7 +52,10 @@ jobs:
           CI: "true"
         run: python revenue_check_headless.py "${{ inputs.branch }}" ${{ inputs.ym }}
 
+      # ★합본이 있을 때만 = '전체' 실행일 때만 허브를 갱신한다.
+      #   단일 지점 실행의 합본은 그 지점 하나뿐이라, 올리면 나머지 지점이 사라진다.
       - name: 허브 '매출 점검' 페이지 갱신 (이름 마스킹)
+        if: steps.run.outputs.combined != ''
         env:
           GOOGLE_OAUTH_JSON: ${{ secrets.GOOGLE_OAUTH_JSON }}
           PYTHONIOENCODING: utf-8

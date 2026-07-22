@@ -59,15 +59,22 @@ import revenue_check  # noqa: E402
 sys.argv = [sys.argv[0]] + sys.argv[1:]
 revenue_check.main()
 
-# 합본 경로를 워크플로가 집어갈 수 있게 알려준다(GITHUB_OUTPUT).
+# ── 합본 경로를 워크플로에 넘긴다(GITHUB_OUTPUT) ────────────────────────
+# ★합본은 revenue_check 가 **2개 지점 이상**일 때만 만든다(단일 지점 실행이면 없음).
+#   그리고 CI 러너는 매번 새것이라 단일 지점 실행에서 억지로 합치면
+#   **그 지점 하나짜리 합본**이 되고, 그걸 허브에 올리면 나머지 지점이 사라진다.
+#   → 합본이 없으면 실패가 아니라 '허브 갱신 안 함'으로 조용히 끝낸다(워크플로가 조건 분기).
 _cands = sorted(_REV.glob("매출점검_합본_*.html"))
+gh = os.environ.get("GITHUB_OUTPUT")
 if _cands:
     out = _cands[-1]
     print(f"합본: {out}", flush=True)
-    gh = os.environ.get("GITHUB_OUTPUT")
     if gh:
         with open(gh, "a", encoding="utf-8") as f:
             f.write(f"combined={out}\n")
 else:
-    print("⚠️ 합본 HTML 이 만들어지지 않았습니다.", flush=True)
-    sys.exit(1)
+    print("합본 없음 — 단일 지점 실행이라 허브는 갱신하지 않습니다.", flush=True)
+    print("  (허브에 반영하려면 지점을 '전체'로 두고 실행하세요)", flush=True)
+    if gh:
+        with open(gh, "a", encoding="utf-8") as f:
+            f.write("combined=\n")
