@@ -47,7 +47,8 @@ from src.carefor_client import extract_g_pammgno  # noqa: E402
 from audit.explore_pages import login  # noqa: E402
 
 # 지점 개소월 — 이보다 앞은 데이터가 없다(audit/items.py BRANCH_CUTOFFS 와 같은 근거)
-OPEN_YM = {"천안": (2024, 5), "청주": (2024, 7), "둔산": (2024, 8), "서구": (2025, 3)}
+OPEN_YM = {"천안": (2024, 6), "청주": (2024, 7), "둔산": (2024, 8), "서구": (2025, 3)}
+#          ↑천안은 2024-06-01 개소(회원님 확인). 2024-05 는 인수 전 자료라 넣지 않는다.
 
 HIST = app_data_dir() / "revenue_history" / "revenue_monthly.json"
 

@@ -223,16 +223,46 @@ def _grab_month(page, y: int, m: int) -> list[str]:
     move_month 는 탭(하위 뷰)이 로드된 뒤 정의되므로, 호출 전 정의를 기다린다.
     """
     page.wait_for_function("typeof move_month === 'function'", timeout=20000)
-    page.evaluate(f"move_month('{y}','{m:02d}')")
-    target, prev, d = f"{y}년 {m:02d}월", -1, {}
-    for _ in range(25):
-        page.wait_for_timeout(500)
-        d = page.evaluate(_GRAB_CELLS)
-        n = len(d.get("cells", []))
-        if target in d.get("mon", "") and n and n == prev:
+    target, d = f"{y}년 {m:02d}월", {}
+    # ★move_month 를 한 번만 부르면 화면이 아직 준비 전이라 조용히 무시될 때가 있다
+    #   (실측: 초기 월에서 안 움직여 직전 달 값이 그 달로 저장됐다). 안 바뀌면 다시 부른다.
+    for attempt in range(3):
+        page.evaluate(f"move_month('{y}','{m:02d}')")
+        prev = -1
+        for _ in range(25):
+            page.wait_for_timeout(500)
+            d = page.evaluate(_GRAB_CELLS)
+            n = len(d.get("cells", []))
+            if target in d.get("mon", "") and n and n == prev:
+                break
+            prev = n
+        if target in d.get("mon", ""):
             break
-        prev = n
-    return d.get("cells", [])
+        page.wait_for_timeout(1500)
+    # ★대상월로 실제로 바뀌었는지 확인하고, 아니면 예외를 낸다.
+    #   확인 없이 반환하면 **직전 달 데이터를 그 달 것처럼 저장**한다 —
+    #   실측(2026-07-22) 89개월 중 4개월이 이렇게 옆 달과 완전히 같은 값으로 들어갔다.
+    #   조용히 틀린 값보다 시끄럽게 실패하는 편이 낫다.
+    if target not in d.get("mon", ""):
+        raise RuntimeError(f"{target} 로 월 이동 실패(화면: {d.get('mon', '?')}) — 값을 쓰지 않음")
+    # ★★월 이름표만 믿으면 안 된다 — 라벨이 먼저 바뀌고 표는 이전 달인 채로 남는 경우가 있다
+    #   (실측: 라벨 2026년 01월인데 내용은 02월치였다). 표의 '일(요일)' 을 달력과 대조한다.
+    cells = d.get("cells", [])
+    seen = {}
+    for c in cells:
+        mt = _DATE.match(c)
+        if mt:
+            seen.setdefault(int(c[:2]), c[3])
+    if seen:
+        import calendar
+        wk = "월화수목금토일"
+        bad = [f"{dd}일={w}(달력:{wk[calendar.weekday(y, m, dd)]})"
+               for dd, w in sorted(seen.items())
+               if dd <= calendar.monthrange(y, m)[1]
+               and w != wk[calendar.weekday(y, m, dd)]]
+        if bad:
+            raise RuntimeError(f"{target} 표 내용이 다른 달이다 ({', '.join(bad[:3])}) — 값을 쓰지 않음")
+    return cells
 
 
 # ── 파싱: 월간 이동서비스 현황 → 일자별 급여 레코드 ─────────────────────────
@@ -935,7 +965,7 @@ def combine_month(y: int, m: int, branches, progress=print):
                     d = _hist.get(k, {}).get(_ym)
                     if not d:
                         _rows += (f"<tr class='brow' data-b='{k}'><td style='white-space:nowrap'>{nm}</td>"
-                                  f"<td colspan={len(_NP) + 2} style='color:#c8ced8'>개소 전</td></tr>")
+                                  f"<td colspan={len(_NP) + 1} style='color:#c8ced8'>개소 전</td></tr>")
                         continue
                     np = d.get("nonpay") or {}
                     _sum["rev"] += d["rev_total"]
@@ -943,17 +973,15 @@ def combine_month(y: int, m: int, branches, progress=print):
                     for l in _NP:
                         _sum[l] += np.get(l, 0)
                     _rows += (f"<tr class='brow' data-b='{k}'><td style='white-space:nowrap'>{nm}</td>"
-                              f"<td class='num'><b>{d['rev_total']:,}</b></td>"
                               + "".join(f"<td class='num'>{np.get(l, 0):,}</td>" for l in _NP)
                               + f"<td class='num'><b>{np.get('비급여계', 0):,}</b></td></tr>")
                 _rows += ("<tr class='sumrow' style='font-weight:700;background:#eef3fb'><td>합계</td>"
-                          f"<td class='num'>{_sum['rev']:,}</td>"
                           + "".join(f"<td class='num'>{_sum[l]:,}</td>" for l in _NP)
                           + f"<td class='num'>{_sum['계']:,}</td></tr>")
                 _blocks += (
                     f"<div class='hblk' data-ym='{_ym}'>"
                     f"<div style='overflow-x:auto'><table class='hist'><thead><tr>"
-                    f"<th>지점</th><th>급여매출</th>"
+                    f"<th>지점</th>"
                     + "".join(f"<th>{l}</th>" for l in _NP)
                     + "<th>비급여 계</th></tr></thead>"
                     f"<tbody>{_rows}</tbody></table></div></div>")
@@ -961,9 +989,9 @@ def combine_month(y: int, m: int, branches, progress=print):
             _years = sorted({v[:4] for v in _yms}, reverse=True)
             _yopt = "".join(f"<option value='{yy}'>{yy}년</option>" for yy in _years)
             hist_table = (
-                f"<h2 style='margin-top:26px'>📊 월별 실적 — 매출 · 비급여</h2>"
+                f"<h2 style='margin-top:26px'>🧾 월별 비급여</h2>"
                 f"<div class='sub'>연도·월을 고르면 그 달 실적이 나옵니다. "
-                f"급여매출=급여수가 합(제공기준), 비급여=7-1 청구 기준.<br>"
+                f"식사재료비·간식비 등 공단급여·본인부담금을 <b>제외한</b> 비용(7-1 청구 기준).<br>"
                 f"전월 대비 증감은 넣지 않았습니다 — 실적만 봅니다.</div>"
                 f"<div class='histpick'>"
                 f"<select id='histY' onchange='histYear(this.value)'>{_yopt}</select>"
@@ -992,13 +1020,128 @@ def combine_month(y: int, m: int, branches, progress=print):
     _tc = date.today()
     partial_c = (" <b>진행중 당월: 등록일정 전체 기준</b>."
                  if (y, m) == (_tc.year, _tc.month) else "")
+    # ── 위쪽 매출표: 과거 달도 볼 수 있게 월별 표를 미리 만들어 둔다 ─────────────
+    # 이번달 표는 위 ov(실시간 수집분) 그대로 쓰고, 과거 달은 이력(revenue_monthly.json)에서
+    # '그 달 vs 그 전달' 로 만든다. 비교 방식은 위쪽 표의 성격(전월 대비)을 그대로 따른다.
+    ovm_blocks, ovm_yms = "", []
+    if _hist:
+        _hk = [(k, n) for k, n, _ in parts if k in _hist]
+        _all = sorted({v for k, _ in _hk for v in _hist.get(k, {})}, reverse=True)
+        for _v in _all:
+            _py = int(_v[:4]); _pm = int(_v[4:])
+            _pv = f"{_py - 1}12" if _pm == 1 else f"{_py}{_pm - 1:02d}"
+            _r, _c, _p = "", {"rev": 0, "o8": 0, "u8": 0, "d": 0}, {"rev": 0, "o8": 0, "u8": 0, "d": 0}
+            for k, nm in _hk:
+                cu = _hist.get(k, {}).get(_v)
+                pr = _hist.get(k, {}).get(_pv) or {}
+                if not cu:
+                    continue
+                for src, acc in ((cu, _c), (pr, _p)):
+                    acc["rev"] += src.get("rev_total", 0)
+                    acc["o8"] += src.get("rev_over8", 0)
+                    acc["u8"] += src.get("rev_under8", 0)
+                    acc["d"] += src.get("pay_days", 0)
+                _r += (f"<tr><td style='white-space:nowrap'>{nm}</td>"
+                       f"<td class='num'>{cu.get('people', 0)}</td>"
+                       f"<td class='num' style='white-space:nowrap'>"
+                       f"{_diff(pr.get('rev_total', 0), cu.get('rev_total', 0), True, '원')}"
+                       f"<div style='font-size:11px;color:#8894a6'>"
+                       f"{pr.get('pay_days', 0):,}건 → {cu.get('pay_days', 0):,}건</div></td>"
+                       + _money(pr.get('rev_over8', 0), cu.get('rev_over8', 0),
+                                pr.get('over8', 0), cu.get('over8', 0), True)
+                       + _money(pr.get('rev_under8', 0), cu.get('rev_under8', 0),
+                                pr.get('u8', 0), cu.get('u8', 0), True)
+                       + "</tr>")
+            _r += ("<tr style='font-weight:700;background:#eef3fb'><td>합계</td><td class='num'>–</td>"
+                   f"<td class='num' style='white-space:nowrap'>{_diff(_p['rev'], _c['rev'], True, '원')}"
+                   f"<div style='font-size:11px;color:#667'>{_p['d']:,}건 → {_c['d']:,}건</div></td>"
+                   + _money(_p["o8"], _c["o8"], None, None, True)
+                   + _money(_p["u8"], _c["u8"], None, None, True) + "</tr>")
+            ovm_yms.append(_v)
+            ovm_blocks += (
+                f"<div class='ovblk' data-ym='{_v}'>"
+                f"<div style='overflow-x:auto'><table><thead><tr><th>지점</th><th>이용인원</th>"
+                f"<th>총매출<br><small>전월→해당월</small></th>"
+                f"<th>8시간 이상 매출<br><small>금액 · 건수</small></th>"
+                f"<th>8시간 미만 매출<br><small>금액 · 건수</small></th></tr></thead>"
+                f"<tbody>{_r}</tbody></table></div></div>")
+    _ovyears = sorted({v[:4] for v in ovm_yms}, reverse=True)
+    ovm_pick = ""
+    if ovm_yms:
+        ovm_pick = (f"<div class='histpick'>"
+                    f"<select id='ovY' onchange='ovYear(this.value)'>"
+                    f"<option value='_now'>이번달({y}-{m:02d})</option>"
+                    + "".join(f"<option value='{yy}'>{yy}년</option>" for yy in _ovyears)
+                    + f"</select><select id='ovM' onchange='ovShow(this.value)' "
+                      f"style='display:none'></select></div>")
+
+    # ── 위쪽 매출표를 과거 달도 볼 수 있게 ────────────────────────────────────
+    # 이번달은 위 ov(실시간 수집분)를 그대로 쓰고, 과거 달은 이력에서 '그 달 vs 그 전달'로 만든다.
+    # ⚠️ 잠재매출(근소차 연장 차액)은 사람별 수가 계산이 필요해 이력엔 없다 → 이번달 표에만 있다.
+    ovm, ovm_yms = "", []
+    if _hist:
+        _ok = [(k, n) for k, n, _ in parts if k in _hist]
+        for _v in sorted({x for k, _ in _ok for x in _hist.get(k, {})}, reverse=True):
+            _yy, _mm = int(_v[:4]), int(_v[4:])
+            _pv = f"{_yy - 1}12" if _mm == 1 else f"{_yy}{_mm - 1:02d}"
+            _r = ""
+            _c = {"rev": 0, "o8": 0, "u8": 0, "d": 0}
+            _pp = {"rev": 0, "o8": 0, "u8": 0, "d": 0}
+            for k, nm in _ok:
+                cu = _hist.get(k, {}).get(_v)
+                if not cu:
+                    continue
+                pr = _hist.get(k, {}).get(_pv) or {}
+                for src, acc in ((cu, _c), (pr, _pp)):
+                    acc["rev"] += src.get("rev_total", 0)
+                    acc["o8"] += src.get("rev_over8", 0)
+                    acc["u8"] += src.get("rev_under8", 0)
+                    acc["d"] += src.get("pay_days", 0)
+                _r += (f"<tr><td style='white-space:nowrap'>{nm}</td>"
+                       f"<td class='num'>{cu.get('people', 0)}</td>"
+                       f"<td class='num' style='white-space:nowrap'>"
+                       f"{_diff(pr.get('rev_total', 0), cu.get('rev_total', 0), True, '원')}"
+                       f"<div style='font-size:11px;color:#8894a6'>"
+                       f"{pr.get('pay_days', 0):,}건 → {cu.get('pay_days', 0):,}건</div></td>"
+                       + _money(pr.get("rev_over8", 0), cu.get("rev_over8", 0),
+                                pr.get("over8", 0), cu.get("over8", 0), True)
+                       + _money(pr.get("rev_under8", 0), cu.get("rev_under8", 0),
+                                pr.get("u8", 0), cu.get("u8", 0), True) + "</tr>")
+            if not _r:
+                continue
+            _r += ("<tr style='font-weight:700;background:#eef3fb'><td>합계</td><td class='num'>–</td>"
+                   f"<td class='num' style='white-space:nowrap'>{_diff(_pp['rev'], _c['rev'], True, '원')}"
+                   f"<div style='font-size:11px;color:#667'>{_pp['d']:,}건 → {_c['d']:,}건</div></td>"
+                   + _money(_pp["o8"], _c["o8"], None, None, True)
+                   + _money(_pp["u8"], _c["u8"], None, None, True) + "</tr>")
+            ovm_yms.append(_v)
+            ovm += (f"<div class='ovblk' data-ym='{_v}' style='display:none'>"
+                    f"<div style='overflow-x:auto'><table><thead><tr>"
+                    f"<th>지점</th><th>이용인원</th>"
+                    f"<th>총매출<br><small>전월→{_v[:4]}-{_v[4:]}</small></th>"
+                    f"<th>8시간 이상 매출<br><small>금액 · 건수</small></th>"
+                    f"<th>8시간 미만 매출<br><small>금액 · 건수</small></th></tr></thead>"
+                    f"<tbody>{_r}</tbody></table></div></div>")
+    ov_pick = ""
+    if ovm_yms:
+        ov_pick = (f"<div class='histpick'>"
+                   f"<select id='ovY' onchange='ovYear(this.value)'>"
+                   f"<option value='_now'>이번달 ({y}-{m:02d})</option>"
+                   + "".join(f"<option value='{yy}'>{yy}년</option>"
+                             for yy in sorted({v[:4] for v in ovm_yms}, reverse=True))
+                   + f"</select>"
+                     f"<select id='ovM' onchange='ovShow(this.value)' style='display:none'></select></div>")
+
     ov_panel = (f"<div id='p__ov' class='branch active'><h1>💰 매출 극대화 점검 합본 — {y}-{m:02d}</h1>"
                 f"<div class='sub'>지점 탭을 눌러 상세를 보세요.{partial_c} 급여일 기준(비급여·한도초과·미이용 제외).{cmp_note}</div>"
+                f"{ov_pick}"
+                f"<div class='ovblk' data-ym='_now'>"
                 f"<div style='overflow-x:auto'><table><thead><tr><th>지점</th><th>대상<br>(수급중·보류)</th>"
                 f"<th>총매출<br><small>전월→이번달</small></th><th>8시간 이상 매출<br><small>금액 · 건수</small></th>"
                 f"<th>8시간 미만 매출<br><small>금액 · 건수</small></th>"
                 f"<th>잠재매출<sup>추정</sup><br><small>금액 · 근소차건</small></th></tr></thead>"
-                f"<tbody>{ov}</tbody></table></div>"
+                f"<tbody>{ov}</tbody></table></div></div>"
+                f"{ovm}"
                 f"{hist_table}"
                 f"{hold_table}"
                 f"<div class='note'>· <b>매출 = 공단 청구기준 급여비용</b>(7-1 급여비용 공단+본인). "
@@ -1074,6 +1217,27 @@ def combine_month(y: int, m: int, branches, progress=print):
  }}
  /* 월별 이력: 연도 고르면 그 해 월 버튼만, 월 고르면 그 달 행만 보인다.
     26개월을 한꺼번에 늘어놓으면 길어서 못 본다(사용자 요청 2026-07-22). */
+ /* 위쪽 매출표: '이번달'(실시간 수집분) 또는 과거 달(이력) 하나만 보인다. */
+ function ovShow(v){{
+   document.querySelectorAll('.ovblk').forEach(function(b){{
+     b.style.display = (b.dataset.ym === v) ? 'block' : 'none';
+   }});
+ }}
+ function ovYear(y){{
+   var ms = document.getElementById('ovM');
+   if (y === '_now') {{ ms.style.display = 'none'; ovShow('_now'); return; }}
+   var vs = [];
+   document.querySelectorAll('.ovblk').forEach(function(b){{
+     var v = b.dataset.ym;
+     if (v.length === 6 && v.slice(0,4) === y) vs.push(v);
+   }});
+   vs.sort();
+   ms.style.display = '';
+   ms.innerHTML = vs.map(function(v){{
+     return "<option value='" + v + "'>" + parseInt(v.slice(4),10) + "월</option>";
+   }}).join('');
+   if (vs.length) {{ ms.value = vs[vs.length-1]; ovShow(ms.value); }}
+ }}
  function histShow(ym){{
    document.querySelectorAll('.hblk').forEach(function(b){{
      b.style.display = (b.dataset.ym === ym) ? 'block' : 'none';
@@ -1113,6 +1277,7 @@ def combine_month(y: int, m: int, branches, progress=print):
  window.addEventListener('load', function(){{
    fitTables(document.querySelector('.branch.active'));
    var ys=document.getElementById('histY'); if(ys) histYear(ys.value);   /* 최신 연도·달로 시작 */
+   ovShow('_now');   /* 위쪽 표는 이번달로 시작 */
  }});
  window.addEventListener('resize', function(){{ fitTables(document.querySelector('.branch.active')); }});
 </script>
