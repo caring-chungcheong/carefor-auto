@@ -241,7 +241,10 @@
     · 방문요양: 22시~06시 30% / 일요일 30% / 유급휴일·근로자의 날 50% · <b>18~22시 야간가산 없음</b><br>
     · 주·야간보호: 18시~22시 20% / 관공서 공휴일(일요일 포함) 30%<br>
     · 두 가산이 동시에 걸리면 <b>중복하지 않고 높은 쪽 하나만</b> 적용<br>
-    · <b>토요일은 공휴일이 아니므로 두 급여 모두 가산 없음</b><br><br>
+    · <b>토요일은 공휴일이 아니므로 두 급여 모두 가산 없음</b><br>
+    · <b>방문요양 중증가산</b>(2026): 1·2등급 <b>시간당 2,000원 · 1일 최대 6,000원</b>
+      (2025년 180분 이상 일 3,000원에서 개편). 시간대 가산과 별도로 더해지고,
+      급여비용에 포함되어 월 한도액에서 차감됩니다<br><br>
     <b>월 한도액 추가 산정</b> — 주·야간보호를 <b>월 15일 이상(1일 8시간 이상)</b> 이용한 경우<br>
     · 일반 주·야간보호: 1·2등급 <b>+10%</b> / 3~5등급 <b>+20%</b> 범위 내<br>
     · 치매전담실: <b>+50%</b> 범위 내 · 인지지원등급은 월 9일 이상 <b>+30%</b> 범위 내<br>
@@ -454,7 +457,11 @@ function calc(){
   const unitOf = (s,dow,hol)=>{
     const bf = baseFee(s,grade), sc = surcharge(s,dow,hol);
     if(bf.warn) warns.add(bf.warn);
-    return {...bf, ...sc, add: bf.fee*sc.r, total: bf.fee*(1+sc.r)};
+    // 방문요양 중증가산: 1·2등급, 시간당 2,000원, 1일 최대 6,000원 (시간대 가산과 별도)
+    let severe=0;
+    if(s.svc==='visit' && (grade==='1'||grade==='2') && bf.fee>0)
+      severe = Math.min(Math.round(span(s).min/60*2000), 6000);
+    return {...bf, ...sc, add: bf.fee*sc.r, severe, total: bf.fee*(1+sc.r) + severe};
   };
   // 요일별 대표 단가 (그 요일이 공휴일인 날은 캘린더에서 따로 처리)
   const seen=[];
@@ -463,13 +470,19 @@ function calc(){
     seen.push({dow, s, u});
   }));
   seen.sort((x,y)=>((x.dow+6)%7)-((y.dow+6)%7));
+  const whyOf = u=>{
+    const parts=[];
+    if(u.r) parts.push(u.why); else if(u.why!=='가산 없음') parts.push(u.why);
+    if(u.severe) parts.push(`중증가산 ${won(u.severe)}`);
+    return parts.length ? parts.join(' + ') : '가산 없음';
+  };
   unitRows = seen.map(({dow,s,u})=>`<tr>
       <td class="l"><b>${DAYNM[dow]}</b></td>
       <td class="l">${s.from}~${s.to}</td>
       <td class="l">${u.label}</td>
       <td>${won(u.fee)}</td>
-      <td class="l">${u.why}</td>
-      <td>${u.add?won(u.add):'-'}</td>
+      <td class="l">${whyOf(u)}</td>
+      <td>${(u.add+u.severe)?won(u.add+u.severe):'-'}</td>
       <td><b>${won(u.total)}</b></td>
       <td>${won(u.total*rate)}</td>
       <td style="color:var(--over)"><b>${won(u.total)}</b></td>
@@ -501,13 +514,16 @@ function calc(){
     const dt=new Date(Y,M-1,d), dow=dt.getDay();
     const key=`${Y}-${String(M).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const hol=HOLIDAY[key];
-    let fee=0, parts=[];
+    let fee=0, sevSum=0, parts=[];
     scheds.forEach(s=>{
       if(!s.days.includes(dow)) return;
       const u=unitOf(s,dow,!!hol);
       if(u.total<=0) return;
-      fee+=u.total; parts.push(`${s.svc==='visit'?'방문':'주보'} ${won(u.total)}`);
+      fee += u.total - u.severe;   // 급여 + 시간대가산 (중증가산 제외)
+      sevSum += u.severe;
+      parts.push(`${s.svc==='visit'?'방문':'주보'} ${won(u.total)}`);
     });
+    fee += Math.min(sevSum, 6000);  // 중증가산 1일 최대 6,000원 (하루 여러 건 합산 상한)
     if(fee<=0) continue;
     gross+=fee;
     const room=Math.max(0,limit-used);
@@ -559,10 +575,15 @@ function calc(){
   seen.forEach(({dow,s,u})=>{
     f.push(`  [${DAYNM[dow]}] ${s.from}~${s.to} — ${u.label}`);
     f.push(`      기본수가 ${won(u.fee)}`);
-    f.push(u.r ? `      가산 ${u.why} → ${won(u.fee)} × ${u.r} = ${won(u.add)}`
-               : `      가산 없음`);
-    f.push(u.r ? `      1회 합계 = ${won(u.fee)} + ${won(u.add)} = ${won(u.total)}`
-               : `      1회 합계 = ${won(u.total)}`);
+    f.push(u.r ? `      시간대가산 ${u.why} → ${won(u.fee)} × ${u.r} = ${won(u.add)}`
+               : `      시간대가산 없음`);
+    if(u.severe)
+      f.push(`      중증가산(${grade}등급) ${(span(s).min/60).toFixed(1)}h × 2,000원 `+
+             `= ${won(u.severe)} (1일 최대 6,000원)`);
+    const bits=[won(u.fee)];
+    if(u.r) bits.push(won(u.add));
+    if(u.severe) bits.push(won(u.severe));
+    f.push(`      1회 합계 = ${bits.join(' + ')} = ${won(u.total)}`);
     f.push(`      → 한도 소진 후 이 날 이용하면 하루 부담액 = ${won(u.total)} (전액)`);
   });
   f.push(``);
