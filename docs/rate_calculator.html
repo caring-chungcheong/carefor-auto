@@ -1,0 +1,396 @@
+<meta charset="utf-8">
+<title>장기요양 수가·초과금 계산기 (2026)</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --line:#e3e6ea; --ink:#1c2024; --mut:#6b7280;
+    --accent:#1d5fd6; --accent-soft:#e8f0fe; --warn:#b45309; --warn-bg:#fef6e7;
+    --over:#c0392b; --over-bg:#fdeceb; --ok:#166534; --ok-bg:#e9f6ec;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.6 -apple-system,"Segoe UI","Malgun Gothic",sans-serif}
+  .wrap{max-width:1080px;margin:0 auto;padding:24px 16px 80px}
+  h1{font-size:22px;margin:0 0 4px}
+  .sub{color:var(--mut);font-size:13px;margin-bottom:20px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+    padding:16px 18px;margin-bottom:16px}
+  .card h2{font-size:15px;margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  label{font-size:13px;color:var(--mut);display:block;margin-bottom:4px}
+  select,input[type=text],input[type=time],input[type=month]{
+    font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#fff}
+  .row{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end}
+  .row>div{min-width:120px}
+
+  /* 서비스 토글 */
+  .toggle{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .toggle button{font:inherit;border:0;background:#fff;padding:6px 14px;cursor:pointer;color:var(--mut)}
+  .toggle button.on{background:var(--accent);color:#fff;font-weight:600}
+  .toggle button+button{border-left:1px solid var(--line)}
+
+  /* 요일 칩 */
+  .days{display:flex;gap:4px}
+  .days button{font:inherit;font-size:13px;width:32px;height:32px;border-radius:16px;
+    border:1px solid var(--line);background:#fff;color:var(--mut);cursor:pointer;padding:0}
+  .days button.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .days button.sun.on{background:var(--over);border-color:var(--over)}
+  .days button.sat.on{background:#0f766e;border-color:#0f766e}
+
+  .sched{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:10px;background:#fbfcfd}
+  .sched .top{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+  .del{margin-left:auto;background:none;border:0;color:var(--mut);cursor:pointer;font-size:18px;line-height:1}
+  .add{font:inherit;padding:7px 14px;border:1px dashed var(--accent);color:var(--accent);
+    background:#fff;border-radius:8px;cursor:pointer;width:100%}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+  th:first-child,td:first-child,th.l,td.l{text-align:left}
+  thead th{background:#f2f4f7;font-weight:600;color:#374151;font-size:12.5px}
+  .scroll{overflow-x:auto}
+  tr.over td{background:var(--over-bg)}
+  tr.part td{background:var(--warn-bg)}
+
+  .tot{display:flex;flex-wrap:wrap;gap:10px;margin-top:4px}
+  .tot div{flex:1;min-width:150px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:#fbfcfd}
+  .tot b{display:block;font-size:19px;margin-top:2px}
+  .tot .k{font-size:12px;color:var(--mut)}
+  .tot .big{background:var(--over-bg);border-color:#f3c9c4}
+  .tot .big b{color:var(--over)}
+
+  .note{font-size:12.5px;color:var(--mut);margin-top:10px}
+  .warn{background:var(--warn-bg);border:1px solid #f0d9a8;color:var(--warn);
+    padding:9px 12px;border-radius:7px;font-size:13px;margin:8px 0}
+  .badge{display:inline-block;font-size:11.5px;padding:1px 7px;border-radius:10px;
+    background:var(--accent-soft);color:var(--accent);margin-left:4px}
+  .badge.g{background:var(--over-bg);color:var(--over)}
+  pre{background:#1c2024;color:#e6e8ea;padding:14px;border-radius:8px;overflow-x:auto;
+    font:12.5px/1.7 Consolas,monospace;white-space:pre-wrap}
+  .copy{font:inherit;font-size:13px;padding:5px 12px;border:1px solid var(--line);
+    background:#fff;border-radius:6px;cursor:pointer;float:right}
+</style>
+
+<div class="wrap">
+<h1>장기요양 수가·초과금 계산기</h1>
+<div class="sub">2026년 급여비용 고시 기준 · 방문요양 / 주·야간보호 토글 · 월 한도액 초과금 자동 산출</div>
+
+<div class="card">
+  <h2>① 수급자 정보</h2>
+  <div class="row">
+    <div><label>등급</label><select id="grade">
+      <option value="1">1등급</option><option value="2">2등급</option>
+      <option value="3">3등급</option><option value="4" selected>4등급</option>
+      <option value="5">5등급</option><option value="C">인지지원등급</option>
+    </select></div>
+    <div><label>본인부담률</label><select id="rate">
+      <option value="0.15" selected>일반 15%</option>
+      <option value="0.09">감경 9%</option>
+      <option value="0.06">감경 6%</option>
+      <option value="0">기초수급 0%</option>
+    </select></div>
+    <div><label>기준 월</label><input type="month" id="ym" value="2026-08"></div>
+    <div><label>월 한도액</label><div style="font-weight:600;font-size:16px" id="limitTxt">-</div></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>② 이용 일정 <span class="badge">요일별로 추가</span></h2>
+  <div id="scheds"></div>
+  <button class="add" id="addBtn">+ 일정 추가</button>
+  <div class="note">같은 날 2건 이상(예: 주간보호 후 방문요양)도 각각 추가하면 합산됩니다.
+    한 줄에 여러 요일을 함께 선택할 수 있습니다.</div>
+</div>
+
+<div class="card">
+  <h2>③ 요일별 1회 단가</h2>
+  <div class="scroll"><table id="unitTbl"></table></div>
+  <div id="unitWarn"></div>
+</div>
+
+<div class="card">
+  <h2>④ 월 집계 — 한도 소진과 초과금</h2>
+  <div class="tot" id="totals"></div>
+  <div class="scroll" style="margin-top:14px;max-height:420px;overflow-y:auto">
+    <table id="calTbl"></table></div>
+  <div class="note">한도 소진은 <b>날짜 순서대로</b> 차감합니다. 한도를 걸치는 날은 잔액까지만 급여로 처리하고
+    나머지를 초과금(전액 본인부담)으로 나눕니다.</div>
+</div>
+
+<div class="card">
+  <h2>⑤ 계산식 <button class="copy" id="copyBtn">복사</button></h2>
+  <pre id="formula"></pre>
+</div>
+
+<div class="card">
+  <h2>근거와 한계</h2>
+  <div style="font-size:13px;line-height:1.8">
+    <b>가산 규정</b>(장기요양급여 제공기준 및 급여비용 산정방법 등에 관한 고시)<br>
+    · 방문요양: 22시~06시 30% / 일요일 30% / 유급휴일·근로자의 날 50% · <b>18~22시 야간가산 없음</b><br>
+    · 주·야간보호: 18시~22시 20% / 관공서 공휴일(일요일 포함) 30%<br>
+    · 두 가산이 동시에 걸리면 <b>중복하지 않고 높은 쪽 하나만</b> 적용<br>
+    · <b>토요일은 공휴일이 아니므로 두 급여 모두 가산 없음</b><br><br>
+    <span style="color:var(--warn)">⚠ 확인 필요</span> — 가산은 <b>급여비용 전액에 가산율을 곱하는 방식</b>으로 계산했습니다.
+    이용시간이 가산시간대에 일부만 걸칠 때 비례 산정하는지 여부는 고시 원문에서 확인하지 못했습니다.
+    실제 청구 전 공단에 확인하세요.<br>
+    <span style="color:var(--warn)">⚠ 확인 필요</span> — 2026년 공휴일 목록은 언론·민간 자료 기준입니다.
+    추석 연휴(9/26 토) 대체공휴일과 지방선거일 반영 여부는 관보로 확인하세요.
+  </div>
+</div>
+</div>
+
+<script>
+/* ── 2026년 급여비용 고시 ── */
+const LIMIT = {1:2512900,2:2331200,3:1528200,4:1409700,5:1208900,C:676320};
+
+// 방문요양 (분 이상 → 금액). 210·240분 구간은 1·2등급만 산정 가능
+const VISIT = [[30,17450],[60,25320],[90,34120],[120,43430],
+               [150,50640],[180,57020],[210,63530],[240,70080]];
+
+// 주·야간보호 (시간 이상 → 등급별 금액)
+const DAY = [
+  [3, {1:41820,2:38720,3:35740,4:34120,5:32490,C:32490}],
+  [6, {1:56060,2:51930,3:47940,4:46300,5:44650,C:44650}],
+  [8, {1:69730,2:64590,3:59640,4:58010,5:56360,C:56360}],
+  [10,{1:76820,2:71160,3:65750,4:64090,5:62460,C:56360}],
+  [13,{1:82370,2:76310,3:70500,4:68860,5:67240,C:56360}],
+];
+
+// 2026년 법정공휴일 · 대체공휴일
+const HOLIDAY = {
+  '2026-01-01':'신정','2026-02-16':'설날연휴','2026-02-17':'설날','2026-02-18':'설날연휴',
+  '2026-03-01':'삼일절','2026-03-02':'삼일절 대체','2026-05-05':'어린이날',
+  '2026-05-24':'부처님오신날','2026-05-25':'부처님오신날 대체','2026-06-06':'현충일',
+  '2026-08-15':'광복절','2026-08-17':'광복절 대체','2026-09-24':'추석연휴',
+  '2026-09-25':'추석','2026-09-26':'추석연휴','2026-10-03':'개천절',
+  '2026-10-05':'개천절 대체','2026-10-09':'한글날','2026-12-25':'성탄절',
+};
+const DAYNM = ['일','월','화','수','목','금','토'];
+const won = n => Math.round(n).toLocaleString('ko-KR')+'원';
+
+/* ── 일정 상태 ── */
+let scheds = [
+  {svc:'day',   days:[1,2,3,4,5], from:'08:00', to:'18:00'},
+  {svc:'visit', days:[5],         from:'17:30', to:'19:30'},
+  {svc:'day',   days:[6],         from:'10:00', to:'18:00'},
+  {svc:'day',   days:[0],         from:'10:00', to:'18:00'},
+];
+
+function renderScheds(){
+  const box = document.getElementById('scheds');
+  box.innerHTML = '';
+  scheds.forEach((s,i)=>{
+    const d = document.createElement('div');
+    d.className='sched';
+    d.innerHTML = `
+      <div class="top">
+        <div class="toggle">
+          <button data-svc="visit" class="${s.svc==='visit'?'on':''}">방문요양</button>
+          <button data-svc="day"   class="${s.svc==='day'  ?'on':''}">주·야간보호</button>
+        </div>
+        <div class="days">${DAYNM.map((n,k)=>
+          `<button data-d="${k}" class="${k===0?'sun ':k===6?'sat ':''}${s.days.includes(k)?'on':''}">${n}</button>`).join('')}
+        </div>
+        <div><input type="time" class="f" value="${s.from}"> ~ <input type="time" class="t" value="${s.to}"></div>
+        <button class="del" title="삭제">✕</button>
+      </div>`;
+    d.querySelectorAll('.toggle button').forEach(b=>b.onclick=()=>{
+      scheds[i].svc=b.dataset.svc; renderScheds(); calc(); });
+    d.querySelectorAll('.days button').forEach(b=>b.onclick=()=>{
+      const k=+b.dataset.d, a=scheds[i].days;
+      a.includes(k) ? a.splice(a.indexOf(k),1) : a.push(k);
+      renderScheds(); calc(); });
+    d.querySelector('.f').onchange = e=>{scheds[i].from=e.target.value; calc();};
+    d.querySelector('.t').onchange = e=>{scheds[i].to  =e.target.value; calc();};
+    d.querySelector('.del').onclick = ()=>{scheds.splice(i,1); renderScheds(); calc();};
+    box.appendChild(d);
+  });
+}
+
+/* ── 단가 · 가산 ── */
+const toMin = t => (+t.slice(0,2))*60 + (+t.slice(3,5));
+function span(s){                        // 이용 분 (자정 넘김 허용)
+  let a=toMin(s.from), b=toMin(s.to);
+  if(b<=a) b+=1440;
+  return {a,b,min:b-a};
+}
+// [a,b) 와 [x,y) 가 겹치는 분
+const ov = (a,b,x,y) => Math.max(0, Math.min(b,y)-Math.max(a,x));
+
+function baseFee(s, grade){
+  const {min} = span(s);
+  if(s.svc==='visit'){
+    let hit=null;
+    for(const [m,f] of VISIT) if(min>=m) hit={m,f};
+    if(!hit) return {fee:0, label:`${min}분`, warn:'30분 미만은 산정되지 않습니다'};
+    let warn=null;
+    if(hit.m>=210 && grade!=='1' && grade!=='2')
+      warn=`210분 이상 구간은 1·2등급만 산정 가능 — ${grade}등급은 180분 구간까지만 인정됩니다`;
+    if(min>240) warn=(warn?warn+' / ':'')+`1회 240분 초과분(${min-240}분)은 급여비용에 반영되지 않습니다`;
+    return {fee:hit.f, label:`방문요양 ${hit.m}분 구간 (실이용 ${min}분)`, warn};
+  }else{
+    const h = min/60;
+    if(h<3) return {fee:0, label:`${min}분`, warn:'주·야간보호는 3시간 미만이면 산정되지 않습니다'};
+    let hit=null;
+    for(const [t,tbl] of DAY) if(h>=t) hit={t,f:tbl[grade]};
+    return {fee:hit.f, label:`주·야간보호 ${hit.t}시간 이상 구간 (실이용 ${(min/60).toFixed(1)}h)`, warn:null};
+  }
+}
+
+function surcharge(s, dow, isHoliday){
+  const {a,b}=span(s);
+  const cands=[];
+  if(s.svc==='visit'){
+    if(isHoliday) cands.push([0.50,'유급휴일 50%']);
+    if(dow===0)   cands.push([0.30,'일요일 30%']);
+    // 심야 22:00~06:00 (당일 22시 이후 + 익일 06시 이전)
+    if(ov(a,b,1320,1800) > 0 || ov(a,b,0,360) > 0) cands.push([0.30,'심야(22~06시) 30%']);
+  }else{
+    if(isHoliday || dow===0) cands.push([0.30, isHoliday?'공휴일 30%':'일요일(공휴일) 30%']);
+    if(ov(a,b,1080,1320) > 0) cands.push([0.20,'야간(18~22시) 20%']);
+    if(ov(a,b,1320,1800) > 0 || ov(a,b,0,360) > 0) cands.push([0.30,'심야(22~06시) 30%']);
+  }
+  if(!cands.length) return {r:0, why:'가산 없음'};
+  cands.sort((x,y)=>y[0]-x[0]);
+  const why = cands.length>1
+    ? cands[0][1] + ` (중복 미적용: ${cands.slice(1).map(c=>c[1]).join(', ')} 배제)`
+    : cands[0][1];
+  return {r:cands[0][0], why};
+}
+
+/* ── 계산 ── */
+function calc(){
+  const grade = document.getElementById('grade').value;
+  const rate  = +document.getElementById('rate').value;
+  const [Y,M] = document.getElementById('ym').value.split('-').map(Number);
+  const limit = LIMIT[grade];
+  document.getElementById('limitTxt').textContent = won(limit);
+
+  /* ③ 요일별 단가 */
+  const warns=new Set(); let unitRows='';
+  const unitOf = (s,dow,hol)=>{
+    const bf = baseFee(s,grade), sc = surcharge(s,dow,hol);
+    if(bf.warn) warns.add(bf.warn);
+    return {...bf, ...sc, add: bf.fee*sc.r, total: bf.fee*(1+sc.r)};
+  };
+  // 요일별 대표 단가 (그 요일이 공휴일인 날은 캘린더에서 따로 처리)
+  const seen=[];
+  scheds.forEach(s=>s.days.forEach(dow=>{
+    const u = unitOf(s,dow,false);
+    seen.push({dow, s, u});
+  }));
+  seen.sort((x,y)=>((x.dow+6)%7)-((y.dow+6)%7));
+  unitRows = seen.map(({dow,s,u})=>`<tr>
+      <td class="l"><b>${DAYNM[dow]}</b></td>
+      <td class="l">${s.from}~${s.to}</td>
+      <td class="l">${u.label}</td>
+      <td>${won(u.fee)}</td>
+      <td class="l">${u.why}</td>
+      <td>${u.add?won(u.add):'-'}</td>
+      <td><b>${won(u.total)}</b></td>
+      <td>${won(u.total*rate)}</td>
+      <td style="color:var(--over)"><b>${won(u.total)}</b></td>
+    </tr>`).join('');
+  document.getElementById('unitTbl').innerHTML =
+    `<thead><tr><th class="l">요일</th><th class="l">시간</th><th class="l">적용 구간</th>
+      <th>기본수가</th><th class="l">가산</th><th>가산액</th><th>1회 합계</th>
+      <th>한도 있을 때<br>본인부담</th><th>한도 소진 후<br>하루 부담액</th></tr></thead>
+      <tbody>${unitRows}</tbody>`;
+
+  // 같은 요일에 시간이 겹치는 급여가 2건 이상이면 고시 위반
+  const clash=[];
+  for(let dow=0;dow<7;dow++){
+    const on=scheds.filter(s=>s.days.includes(dow));
+    for(let i=0;i<on.length;i++) for(let j=i+1;j<on.length;j++){
+      const A=span(on[i]), B=span(on[j]);
+      if(ov(A.a,A.b,B.a,B.b)>0)
+        clash.push(`${DAYNM[dow]}요일 ${on[i].from}~${on[i].to} 와 ${on[j].from}~${on[j].to} 가 `+
+          `${ov(A.a,A.b,B.a,B.b)}분 겹칩니다 — 2종류 이상의 급여를 동일 시간에 이용할 수 없습니다`);
+    }
+  }
+  document.getElementById('unitWarn').innerHTML =
+    [...warns,...clash].map(w=>`<div class="warn">⚠ ${w}</div>`).join('');
+
+  /* ④ 월 집계 */
+  const last = new Date(Y,M,0).getDate();
+  let used=0, over=0, self=0, gross=0, rows='';
+  const dayTotals={};                       // 요일별 초과금 집계
+  for(let d=1; d<=last; d++){
+    const dt=new Date(Y,M-1,d), dow=dt.getDay();
+    const key=`${Y}-${String(M).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const hol=HOLIDAY[key];
+    let fee=0, parts=[];
+    scheds.forEach(s=>{
+      if(!s.days.includes(dow)) return;
+      const u=unitOf(s,dow,!!hol);
+      if(u.total<=0) return;
+      fee+=u.total; parts.push(`${s.svc==='visit'?'방문':'주보'} ${won(u.total)}`);
+    });
+    if(fee<=0) continue;
+    gross+=fee;
+    const room=Math.max(0,limit-used);
+    const inLim=Math.min(fee,room), ex=fee-inLim;
+    used+=inLim; over+=ex;
+    const mine=inLim*rate + ex;             // 초과분은 전액 본인부담
+    self+=mine;
+    dayTotals[dow]=(dayTotals[dow]||0)+ex;
+    rows+=`<tr class="${ex>0?(inLim>0?'part':'over'):''}">
+      <td class="l">${M}/${d} (${DAYNM[dow]})${hol?`<span class="badge g">${hol}</span>`:''}</td>
+      <td class="l">${parts.join(' + ')}</td>
+      <td>${won(fee)}</td><td>${won(inLim)}</td>
+      <td><b>${ex?won(ex):'-'}</b></td><td>${won(mine)}</td>
+      <td>${won(Math.max(0,limit-used))}</td></tr>`;
+  }
+  document.getElementById('calTbl').innerHTML =
+    `<thead><tr><th class="l">날짜</th><th class="l">내역</th><th>급여비용</th>
+      <th>한도내</th><th>초과금</th><th>본인부담</th><th>한도잔액</th></tr></thead><tbody>${rows}</tbody>`;
+
+  document.getElementById('totals').innerHTML = `
+    <div><span class="k">월 총 급여비용</span><b>${won(gross)}</b></div>
+    <div><span class="k">한도 내 사용</span><b>${won(used)}</b>
+      <span class="k">한도 ${won(limit)}</span></div>
+    <div class="big"><span class="k">한도 초과금 (전액 본인부담)</span><b>${won(over)}</b></div>
+    <div><span class="k">본인부담 총액</span><b>${won(self)}</b>
+      <span class="k">한도내 ${Math.round(rate*100)}% + 초과분 100%</span></div>`;
+
+  /* ⑤ 계산식 */
+  const f=[];
+  f.push(`■ 기준`);
+  f.push(`  등급 ${grade==='C'?'인지지원':grade+'등급'} · 월 한도액 ${won(limit)} · 본인부담률 ${Math.round(rate*100)}%`);
+  f.push(`  기준월 ${Y}년 ${M}월`);
+  f.push(``);
+  f.push(`■ 1회 단가 산출`);
+  seen.forEach(({dow,s,u})=>{
+    f.push(`  [${DAYNM[dow]}] ${s.from}~${s.to} — ${u.label}`);
+    f.push(`      기본수가 ${won(u.fee)}`);
+    f.push(u.r ? `      가산 ${u.why} → ${won(u.fee)} × ${u.r} = ${won(u.add)}`
+               : `      가산 없음`);
+    f.push(u.r ? `      1회 합계 = ${won(u.fee)} + ${won(u.add)} = ${won(u.total)}`
+               : `      1회 합계 = ${won(u.total)}`);
+    f.push(`      → 한도 소진 후 이 날 이용하면 하루 부담액 = ${won(u.total)} (전액)`);
+  });
+  f.push(``);
+  f.push(`■ 월 한도 소진 (날짜 순 차감)`);
+  f.push(`  월 총 급여비용        ${won(gross)}`);
+  f.push(`  － 한도 내 사용        ${won(used)}   (한도 ${won(limit)})`);
+  f.push(`  ＝ 한도 초과금        ${won(over)}   ← 전액 본인부담`);
+  f.push(``);
+  f.push(`■ 본인부담 총액`);
+  f.push(`  한도 내 ${won(used)} × ${Math.round(rate*100)}% = ${won(used*rate)}`);
+  f.push(`  초과분 ${won(over)} × 100%          = ${won(over)}`);
+  f.push(`  합계                                = ${won(self)}`);
+  const dt=Object.keys(dayTotals).map(Number).filter(k=>dayTotals[k]>0);
+  if(dt.length){
+    f.push(``);
+    f.push(`■ 요일별 월 초과금 합계 (날짜순 차감 결과라 한도가 소진된 날부터만 잡힙니다)`);
+    dt.sort((a,b)=>((a+6)%7)-((b+6)%7)).forEach(k=>
+      f.push(`  ${DAYNM[k]}요일   ${won(dayTotals[k])}`));
+  }
+  document.getElementById('formula').textContent = f.join('\n');
+}
+
+document.getElementById('addBtn').onclick=()=>{
+  scheds.push({svc:'visit',days:[],from:'09:00',to:'12:00'}); renderScheds(); calc(); };
+['grade','rate','ym'].forEach(id=>document.getElementById(id).onchange=calc);
+document.getElementById('copyBtn').onclick=()=>{
+  navigator.clipboard.writeText(document.getElementById('formula').textContent);
+  document.getElementById('copyBtn').textContent='복사됨'; };
+renderScheds(); calc();
+</script>
