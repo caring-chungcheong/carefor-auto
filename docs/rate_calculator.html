@@ -90,6 +90,11 @@
   .foot{text-align:center;color:var(--mut);font-size:12px;margin-top:24px;
     padding-top:14px;border-top:1px solid var(--line)}
   .foot b{color:#3b82f6}
+  .limtag{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;
+    border-radius:10px;vertical-align:middle;margin-left:4px;
+    background:#eef1f5;color:var(--mut)}
+  .limtag.inc{background:var(--ok-bg);color:var(--ok)}
+  .limsub{font-size:11.5px;color:var(--mut);font-weight:400;margin-top:2px}
   @media (max-width:560px){.brand{flex-wrap:wrap}.brand .prov{margin-left:0;text-align:left}}
 
   @media print{
@@ -100,6 +105,8 @@
       border-radius:0;padding:10px 14px;margin-bottom:10px}
     .brand .prov{opacity:1}
     .foot{page-break-inside:avoid}
+    .limtag{-webkit-print-color-adjust:exact;print-color-adjust:exact;
+      border:1px solid #999}
     .printhead{display:block;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #333}
     .printhead .t{font-size:19px;font-weight:700}
     .printhead .m{font-size:12.5px;color:#555;margin-top:3px}
@@ -406,9 +413,11 @@ function calc(){
   const limit = Math.round(base*(1+bonus));
 
   document.getElementById('limitTxt').innerHTML = bonus
-    ? `<span style="color:var(--mut);text-decoration:line-through;font-size:13px">${won(base)}</span>
-       <span style="color:var(--ok)">${won(limit)}</span>`
-    : won(limit);
+    ? `<span style="color:var(--ok)">${won(limit)}</span>
+       <span class="limtag inc">증액 +${bonus*100}%</span>
+       <div class="limsub">기본 ${won(base)} + 증액 ${won(limit-base)}</div>`
+    : `<span>${won(limit)}</span>
+       <span class="limtag">기본 한도</span>`;
   document.getElementById('bonusBox').innerHTML = bonusWhy
     ? `<div class="warn" style="${bonus?'background:var(--ok-bg);border-color:#bfe3c9;color:var(--ok)':''}">
         ${bonus?'✔':'ℹ'} ${bonusWhy}</div>` : '';
