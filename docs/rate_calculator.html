@@ -285,10 +285,8 @@ const won = n => Math.round(n).toLocaleString('ko-KR')+'원';
 /* ── 일정 상태 ── */
 let dementiaRoom = false;          // 주·야간보호 내 치매전담실 여부
 let scheds = [
-  {svc:'day',   days:[1,2,3,4,5], from:'08:00', to:'18:00'},
-  {svc:'visit', days:[5],         from:'17:30', to:'19:30'},
-  {svc:'day',   days:[6],         from:'10:00', to:'18:00'},
-  {svc:'day',   days:[0],         from:'10:00', to:'18:00'},
+  {svc:'day', days:[1,2,3,4,5], from:'08:00', to:'18:00'},  // 평일 주·야간보호
+  {svc:'day', days:[6,0],       from:'10:00', to:'18:00'},  // 주말(토·일)
 ];
 
 function renderScheds(){
