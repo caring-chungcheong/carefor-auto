@@ -543,10 +543,16 @@ def render_html(branch: str, y: int, m: int, data: dict, agg: dict,
         is_excl = nm in excl
         badge = " <span style='background:#e9ecf3;color:#667;font-size:10px;padding:1px 5px;border-radius:6px'>계약 8h미만·제외</span>" if is_excl else ""
         style = " style='color:#99a'" if is_excl else ""
+        # 8h미만과 6~8h 를 한 칸으로 합침 — 6~8h 는 8h미만의 부분집합이라 칸을 나누면 헷갈린다
+        # (사용자 요청 2026-07-22 "보기가 너무 복잡"). 총 일수를 크게, 그중 6~8h 를 작게 덧붙인다.
+        u8_cell = str(a["u8_days"])
+        if a["t68"]:
+            u8_cell += (f" <span style='color:#8a93a5;font-size:11px'>"
+                        f"(6~8h {a['t68']})</span>")
         rows_u8 += (
             f"<tr{style}><td>{e(nm)}{badge}</td><td>{e(grade_of.get(nm,'?'))}</td>"
-            f"<td class='num'>{a['pay_days']}</td><td class='num'>{a['u8_days']}</td>"
-            f"<td class='num'>{a['t68']}</td><td class='num'>{a['near_days'] if not is_excl else '—'}</td>"
+            f"<td class='num'>{a['pay_days']}</td><td class='num'>{u8_cell}</td>"
+            f"<td class='num'>{a['near_days'] if not is_excl else '—'}</td>"
             f"<td class='num'>{delta(nm,'u8_days')}</td>"
             f"<td>{'○' if a['transport'] else ''}</td></tr>")
 
@@ -602,9 +608,9 @@ def render_html(branch: str, y: int, m: int, data: dict, agg: dict,
  <tbody>{rows_near or '<tr><td colspan=7 style="text-align:center;color:#999">해당 없음</td></tr>'}</tbody></table>
 
 <h2>② 8시간 미만 급여일 — 전체</h2>
-<table><thead><tr><th>수급자</th><th>등급</th><th>총급여일</th><th>8h미만</th>
- <th>6~8h</th><th>근소차</th><th>8h미만 전월비</th><th>송영</th></tr></thead>
- <tbody>{rows_u8 or '<tr><td colspan=8 style="text-align:center;color:#999">해당 없음</td></tr>'}</tbody></table>
+<table><thead><tr><th>수급자</th><th>등급</th><th>총급여일</th><th>8h미만 <span style="font-weight:400;color:#8a93a5;font-size:11px">(그중 6~8h)</span></th>
+ <th>근소차</th><th>8h미만 전월비</th><th>송영</th></tr></thead>
+ <tbody>{rows_u8 or '<tr><td colspan=7 style="text-align:center;color:#999">해당 없음</td></tr>'}</tbody></table>
 
 <h2>③ 보류자 현황 ({n_hold}명) — 보류일 오래된 순</h2>
 <table><thead><tr><th>수급자</th><th>등급</th><th>보류일</th><th>보류 사유</th></tr></thead>
