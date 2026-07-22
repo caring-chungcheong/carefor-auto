@@ -56,7 +56,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 ROOT = Path(__file__).resolve().parent.parent
 AUDIT_DIR = ROOT / "audit_results"
-REPO = "min743/carefor-auto"
+REPO = "caring-chungcheong/carefor-auto"
 WORKFLOW = "weekly_audit.yml"
 API = "https://api.github.com"
 

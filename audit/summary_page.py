@@ -1,7 +1,7 @@
 """본부 공유용 요약 웹페이지 생성 — 개인정보(수급자 이름 등) 완전 제외.
 
 audit_results/*.json → docs/audit_summary.html (지점별 36항목 신호등 + 건수만)
-생성 후 git push 하면 https://min743.github.io/carefor-auto/audit_summary.html 에서 열람.
+생성 후 git push 하면 https://caring-chungcheong.github.io/carefor-auto/audit_summary.html 에서 열람.
 """
 from __future__ import annotations
 
