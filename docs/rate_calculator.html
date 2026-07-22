@@ -87,8 +87,13 @@
       <option value="0">기초수급 0%</option>
     </select></div>
     <div><label>기준 월</label><input type="month" id="ym" value="2026-08"></div>
+    <div><label>주·야간보호 유형</label><div class="toggle" id="dtype">
+      <button data-t="normal" class="on">일반</button>
+      <button data-t="dementia">치매전담실</button>
+    </div></div>
     <div><label>월 한도액</label><div style="font-weight:600;font-size:16px" id="limitTxt">-</div></div>
   </div>
+  <div id="bonusBox"></div>
 </div>
 
 <div class="card">
@@ -127,6 +132,11 @@
     · 주·야간보호: 18시~22시 20% / 관공서 공휴일(일요일 포함) 30%<br>
     · 두 가산이 동시에 걸리면 <b>중복하지 않고 높은 쪽 하나만</b> 적용<br>
     · <b>토요일은 공휴일이 아니므로 두 급여 모두 가산 없음</b><br><br>
+    <b>월 한도액 추가 산정</b> — 주·야간보호를 <b>월 15일 이상(1일 8시간 이상)</b> 이용한 경우<br>
+    · 일반 주·야간보호: 1·2등급 <b>+10%</b> / 3~5등급 <b>+20%</b> 범위 내<br>
+    · 치매전담실: <b>+50%</b> 범위 내 · 인지지원등급은 월 9일 이상 <b>+30%</b> 범위 내<br>
+    · 계산기는 <b>범위의 최대치</b>를 적용합니다. 실제로는 "범위 내에서" 추가 산정하므로
+      공단 승인분이 이보다 적을 수 있습니다<br><br>
     <span style="color:var(--warn)">⚠ 확인 필요</span> — 가산은 <b>급여비용 전액에 가산율을 곱하는 방식</b>으로 계산했습니다.
     이용시간이 가산시간대에 일부만 걸칠 때 비례 산정하는지 여부는 고시 원문에서 확인하지 못했습니다.
     실제 청구 전 공단에 확인하세요.<br>
@@ -166,6 +176,7 @@ const DAYNM = ['일','월','화','수','목','금','토'];
 const won = n => Math.round(n).toLocaleString('ko-KR')+'원';
 
 /* ── 일정 상태 ── */
+let dementiaRoom = false;          // 주·야간보호 내 치매전담실 여부
 let scheds = [
   {svc:'day',   days:[1,2,3,4,5], from:'08:00', to:'18:00'},
   {svc:'visit', days:[5],         from:'17:30', to:'19:30'},
@@ -260,8 +271,42 @@ function calc(){
   const grade = document.getElementById('grade').value;
   const rate  = +document.getElementById('rate').value;
   const [Y,M] = document.getElementById('ym').value.split('-').map(Number);
-  const limit = LIMIT[grade];
-  document.getElementById('limitTxt').textContent = won(limit);
+  const base  = LIMIT[grade];
+  const last  = new Date(Y,M,0).getDate();
+
+  /* 월 한도액 추가 산정 — 주·야간보호 월 15일(1일 8시간 이상) 이상 이용 시 */
+  let cnt8=0;
+  for(let d=1; d<=last; d++){
+    const dow=new Date(Y,M-1,d).getDay();
+    if(scheds.some(s=>s.svc==='day' && s.days.includes(dow) && span(s).min>=480)) cnt8++;
+  }
+  let bonus=0, bonusWhy='';
+  if(dementiaRoom){
+    if(grade==='C'){
+      if(cnt8>=9){bonus=0.30; bonusWhy=`치매전담실 1일 8시간 이상 ${cnt8}일 이용 (기준 9일) → 한도액 +30%`;}
+      else bonusWhy=`치매전담실 8시간 이상 ${cnt8}일 — 인지지원등급 기준 9일 미달로 추가 산정 없음`;
+    }else if(cnt8>=15){
+      bonus=0.50; bonusWhy=`치매전담실 1일 8시간 이상 ${cnt8}일 이용 (기준 15일) → 한도액 +50%`;
+    }else bonusWhy=`치매전담실 8시간 이상 ${cnt8}일 — 기준 15일 미달로 추가 산정 없음`;
+  }else if(cnt8>=15){
+    if(grade==='C') bonusWhy=`8시간 이상 ${cnt8}일 — 인지지원등급은 일반 주·야간보호 추가 산정 대상이 아닙니다`;
+    else{
+      bonus = (grade==='1'||grade==='2') ? 0.10 : 0.20;
+      bonusWhy=`주·야간보호 1일 8시간 이상 ${cnt8}일 이용 (기준 15일) → `+
+               `${grade}등급 한도액 +${bonus*100}%`;
+    }
+  }else if(cnt8>0){
+    bonusWhy=`주·야간보호 8시간 이상 ${cnt8}일 — 기준 15일 미달로 추가 산정 없음`;
+  }
+  const limit = Math.round(base*(1+bonus));
+
+  document.getElementById('limitTxt').innerHTML = bonus
+    ? `<span style="color:var(--mut);text-decoration:line-through;font-size:13px">${won(base)}</span>
+       <span style="color:var(--ok)">${won(limit)}</span>`
+    : won(limit);
+  document.getElementById('bonusBox').innerHTML = bonusWhy
+    ? `<div class="warn" style="${bonus?'background:var(--ok-bg);border-color:#bfe3c9;color:var(--ok)':''}">
+        ${bonus?'✔':'ℹ'} ${bonusWhy}</div>` : '';
 
   /* ③ 요일별 단가 */
   const warns=new Set(); let unitRows='';
@@ -309,7 +354,6 @@ function calc(){
     [...warns,...clash].map(w=>`<div class="warn">⚠ ${w}</div>`).join('');
 
   /* ④ 월 집계 */
-  const last = new Date(Y,M,0).getDate();
   let used=0, over=0, self=0, gross=0, rows='';
   const dayTotals={};                       // 요일별 초과금 집계
   for(let d=1; d<=last; d++){
@@ -353,8 +397,16 @@ function calc(){
   /* ⑤ 계산식 */
   const f=[];
   f.push(`■ 기준`);
-  f.push(`  등급 ${grade==='C'?'인지지원':grade+'등급'} · 월 한도액 ${won(limit)} · 본인부담률 ${Math.round(rate*100)}%`);
-  f.push(`  기준월 ${Y}년 ${M}월`);
+  f.push(`  등급 ${grade==='C'?'인지지원':grade+'등급'} · 본인부담률 ${Math.round(rate*100)}%`);
+  f.push(`  기준월 ${Y}년 ${M}월 · 주·야간보호 ${dementiaRoom?'치매전담실':'일반'}`);
+  f.push(``);
+  f.push(`■ 월 한도액`);
+  f.push(`  기본 한도액   ${won(base)}`);
+  if(bonus){
+    f.push(`  추가 산정      ${bonusWhy}`);
+    f.push(`               ${won(base)} × ${1+bonus} = ${won(limit)}`);
+  }else if(bonusWhy) f.push(`  추가 산정      없음 — ${bonusWhy}`);
+  f.push(`  적용 한도액   ${won(limit)}`);
   f.push(``);
   f.push(`■ 1회 단가 산출`);
   seen.forEach(({dow,s,u})=>{
@@ -389,6 +441,11 @@ function calc(){
 document.getElementById('addBtn').onclick=()=>{
   scheds.push({svc:'visit',days:[],from:'09:00',to:'12:00'}); renderScheds(); calc(); };
 ['grade','rate','ym'].forEach(id=>document.getElementById(id).onchange=calc);
+document.querySelectorAll('#dtype button').forEach(b=>b.onclick=()=>{
+  dementiaRoom = b.dataset.t==='dementia';
+  document.querySelectorAll('#dtype button').forEach(x=>
+    x.classList.toggle('on', x.dataset.t===b.dataset.t));
+  calc(); });
 document.getElementById('copyBtn').onclick=()=>{
   navigator.clipboard.writeText(document.getElementById('formula').textContent);
   document.getElementById('copyBtn').textContent='복사됨'; };
