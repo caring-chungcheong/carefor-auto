@@ -240,7 +240,7 @@ if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catc
   function doInstall(){
     // Apps Script(iframe)는 원클릭 설치 불가 → GitHub Pages 설치 페이지를 새 탭으로 연다(거기선 원클릭 됨).
     if(dp){ dp.prompt(); dp.userChoice.then(function(){ dp=null; }); }
-    else { window.open('https://min743.github.io/carefor-auto/hq.html?install','_blank','noopener'); }
+    else { window.open('https://caring-chungcheong.github.io/carefor-auto/hq.html?install','_blank','noopener'); }
   }
   if(btn) btn.addEventListener('click', doInstall);
   if(top) top.addEventListener('click', doInstall);

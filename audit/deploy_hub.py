@@ -29,7 +29,7 @@ import urllib.request
 sys.stdout.reconfigure(encoding="utf-8")
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SHEET_ID = "1ErsNQ7elSORuB6Z20cKUOWjdroxp-4-01N0WoW6PAOI"   # 충청본부 차량관리 (시트를 더 늘리지 않는다)
-PAGES = "https://min743.github.io/carefor-auto/"
+PAGES = "https://caring-chungcheong.github.io/carefor-auto/"
 # ★ ID 를 코드에 박아둔다 — .gitignore 가 *.json 을 전부 막아 파일로 두면 버전관리 밖으로 샌다.
 #   이걸 잃으면 재배포가 **새 스크립트**를 만들어 주소가 바뀌고(관제탑·북마크 전부 깨짐)
 #   승인도 다시 받아야 한다. 비밀값 아님 — 허브 주소는 어차피 직원에게 공유한다.

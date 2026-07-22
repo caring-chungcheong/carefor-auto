@@ -4,7 +4,7 @@
 구글시트 → docs/consult_summary.html (센터 단위 집계만)
   · 신규상담 상담시트 입력 현황 (신규상담 누적 / 시트 미입력 / 미입력률)
   · 센터별 상담 대기 명단 (대기 건수 / 기한경과 / 아웃콜 차수 분포)
-생성 후 git push 하면 https://min743.github.io/carefor-auto/consult_summary.html 에서 열람.
+생성 후 git push 하면 https://caring-chungcheong.github.io/carefor-auto/consult_summary.html 에서 열람.
 지점점검 요약페이지(summary_page.py)와 동일한 PIN 게이트·noindex 정책.
 
 실행: py -X utf8 consult_summary_page.py
