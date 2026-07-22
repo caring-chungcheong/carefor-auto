@@ -196,6 +196,9 @@
     <div><label>8시간 인정 횟수</label>
       <input type="text" id="cap8" placeholder="자동" style="width:64px"> 회
       <div style="font-size:11.5px;color:var(--mut)">비우면 자동 산출</div></div>
+    <div><label>4대보험 공제율 (실 중증가산 수령)</label>
+      <input type="text" id="deduct" value="9.4" style="width:56px"> %
+      <div style="font-size:11.5px;color:var(--mut)">센터 기준으로 조정</div></div>
     <div><label>월 한도액</label><div style="font-weight:600;font-size:16px" id="limitTxt">-</div></div>
   </div>
   <div id="bonusBox"></div>
@@ -508,7 +511,7 @@ function calc(){
     [...warns,...clash].map(w=>`<div class="warn">⚠ ${w}</div>`).join('');
 
   /* ④ 월 집계 */
-  let used=0, over=0, self=0, gross=0, rows='';
+  let used=0, over=0, self=0, gross=0, sevMonth=0, rows='';
   const dayTotals={};                       // 요일별 초과금 집계
   for(let d=1; d<=last; d++){
     const dt=new Date(Y,M-1,d), dow=dt.getDay();
@@ -523,7 +526,8 @@ function calc(){
       sevSum += u.severe;
       parts.push(`${s.svc==='visit'?'방문':'주보'} ${won(u.total)}`);
     });
-    fee += Math.min(sevSum, 6000);  // 중증가산 1일 최대 6,000원 (하루 여러 건 합산 상한)
+    const daySev = Math.min(sevSum, 6000);  // 중증가산 1일 최대 6,000원 (하루 여러 건 합산 상한)
+    fee += daySev; sevMonth += daySev;
     if(fee<=0) continue;
     gross+=fee;
     const room=Math.max(0,limit-used);
@@ -543,13 +547,21 @@ function calc(){
     `<thead><tr><th class="l">날짜</th><th class="l">내역</th><th>급여비용</th>
       <th>한도내</th><th>초과금</th><th>본인부담</th><th>한도잔액</th></tr></thead><tbody>${rows}</tbody>`;
 
+  const deductPct = Math.max(0, Math.min(100, parseFloat(document.getElementById('deduct').value)||0));
+  const sevNet = sevMonth*(1-deductPct/100);
   document.getElementById('totals').innerHTML = `
     <div><span class="k">월 총 급여비용</span><b>${won(gross)}</b></div>
     <div><span class="k">한도 내 사용</span><b>${won(used)}</b>
       <span class="k">한도 ${won(limit)}</span></div>
     <div class="big"><span class="k">한도 초과금 (전액 본인부담)</span><b>${won(over)}</b></div>
     <div><span class="k">본인부담 총액</span><b>${won(self)}</b>
-      <span class="k">한도내 ${Math.round(rate*100)}% + 초과분 100%</span></div>`;
+      <span class="k">한도내 ${Math.round(rate*100)}% + 초과분 100%</span></div>
+    ${sevMonth>0?`
+    <div><span class="k">월 중증가산 합계</span><b>${won(sevMonth)}</b>
+      <span class="k">1·2등급 방문요양</span></div>
+    <div style="background:var(--ok-bg);border-color:#bfe3c9">
+      <span class="k">실 중증가산 수령 (4대보험 ${deductPct}% 공제)</span>
+      <b style="color:var(--ok)">${won(sevNet)}</b></div>`:''}`;
 
   /* ⑤ 계산식 */
   const f=[];
@@ -591,6 +603,12 @@ function calc(){
   f.push(`  월 총 급여비용        ${won(gross)}`);
   f.push(`  － 한도 내 사용        ${won(used)}   (한도 ${won(limit)})`);
   f.push(`  ＝ 한도 초과금        ${won(over)}   ← 전액 본인부담`);
+  if(sevMonth>0){
+    f.push(``);
+    f.push(`■ 중증가산 (1·2등급 방문요양, 급여비용에 포함)`);
+    f.push(`  월 중증가산 합계      ${won(sevMonth)}`);
+    f.push(`  실 수령(4대보험 ${deductPct}% 공제) ${won(sevMonth)} × ${(1-deductPct/100).toFixed(3)} = ${won(sevNet)}`);
+  }
   f.push(``);
   f.push(`■ 본인부담 총액`);
   f.push(`  한도 내 ${won(used)} × ${Math.round(rate*100)}% = ${won(used*rate)}`);
@@ -622,6 +640,7 @@ document.getElementById('addBtn').onclick=()=>{
   scheds.push({svc:'visit',days:[],from:'09:00',to:'12:00'}); renderScheds(); calc(); };
 ['grade','rate','ym'].forEach(id=>document.getElementById(id).onchange=calc);
 document.getElementById('cap8').oninput = calc;
+document.getElementById('deduct').oninput = calc;
 document.getElementById('who').oninput = calc;
 document.getElementById('printBtn').onclick = ()=>window.print();
 
