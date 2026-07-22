@@ -791,6 +791,7 @@ def combine_month(y: int, m: int, branches, progress=print):
     have_prev = False
     prev_ym = None
     ex_names, ex_u8, ex_rev, tot_excess = set(), 0, 0, 0
+    np_total = np_meal = np_snack = 0   # 전체요약 비급여 합계(7-1 청구월 기준)
     for key, name, p in parts:
         t = _load_tot(key)
         link = f"<a href=\"#\" onclick=\"show('{key}');return false\">{name}</a>"
@@ -810,6 +811,10 @@ def combine_month(y: int, m: int, branches, progress=print):
             ex_u8 += cur.get("u8_excl", 0)
             ex_rev += cur.get("rev_under8_excl", 0)
             tot_excess += cur.get("excess", 0)
+            _np = t.get("nonpay") or {}
+            np_total += _np.get("비급여계", 0)
+            np_meal += _np.get("식사재료비", 0)
+            np_snack += _np.get("간식비", 0)
             ov += (f"<tr><td style='white-space:nowrap;text-align:center'>{link}</td><td class='num'>{target}</td>"
                    f"<td class='num' style='white-space:nowrap'>{_diff(prv['rev_billed'], cur['rev_billed'], True, '원')}"
                    f"<div style='font-size:11px;color:#8894a6'>{prv['pay']:,}건 → {cur['pay']:,}건</div></td>"
@@ -891,7 +896,7 @@ def combine_month(y: int, m: int, branches, progress=print):
         # parts 는 HTML 파싱 결과라 totals 가 없다 → 합계 파일에서 직접 읽는다
         d = ((_load_tot(key) or {}).get("nonpay")) or {}
         if not d:
-            np_rows += (f"<tr><td>{name}</td>"
+            np_rows += (f"<tr><td style='white-space:nowrap'>{name}</td>"
                         f"<td colspan={len(_NP) + 1} style='color:#c00'>재실행 후 표시됩니다</td></tr>")
             continue
         np_any = True
@@ -899,30 +904,29 @@ def combine_month(y: int, m: int, branches, progress=print):
         np_sum += s
         for l in _NP:
             np_tot[l] += d.get(l, 0)
-        np_rows += (f"<tr><td>{name}</td>"
+        np_rows += (f"<tr><td style='white-space:nowrap'>{name}</td>"
                     + "".join(f"<td class='num'>{d.get(l, 0):,}</td>" for l in _NP)
                     + f"<td class='num'><b>{s:,}</b></td></tr>")
     if np_any:
         np_rows += ("<tr style='font-weight:700;background:#eef3fb'><td>합계</td>"
                     + "".join(f"<td class='num'>{np_tot[l]:,}</td>" for l in _NP)
                     + f"<td class='num'>{np_sum:,}</td></tr>")
-    np_panel = (f"<div id='p__np' class='branch'><h1>🧾 비급여 항목 — {prev_ym}</h1>"
+    np_table = (f"<h2 style='margin-top:26px'>🧾 비급여 항목 — {prev_ym}</h2>"
                 f"<div class='sub'>공단급여·본인부담금을 <b>제외한</b> 비용. "
                 f"출처 7-1 본인부담금 청구관리 합계 행.<br>"
                 f"⚠️ 7-1은 <b>청구월 기준</b>이라 위 매출표의 '이번달'이 아니라 "
                 f"<b>{prev_ym}</b> 실적입니다(당월은 아직 청구 전).</div>"
-                f"<div style='overflow-x:auto'><table><thead><tr><th>지점</th>"
+                f"<div style='overflow-x:auto'><table class='nonpay'><thead><tr><th>지점</th>"
                 + "".join(f"<th>{l}</th>" for l in _NP)
                 + "<th>비급여 계</th></tr></thead>"
                 f"<tbody>{np_rows}</tbody></table></div>"
                 f"<div class='note'>· <b>비급여 계</b> = 식사재료비+간식비+이미용비+진료약제비+기타비용+등급외/한도초과. "
                 f"7-1의 <b>부담금합계 − 급여비용 본인부담금</b> 과 일치한다(수집 시 검산).<br>"
-                f"· 공단급여·본인부담금은 위 '전체 요약'의 매출에 이미 포함돼 있어 여기서 뺐다.</div></div>")
+                f"· 공단급여·본인부담금은 위 매출표에 이미 포함돼 있어 여기서 뺐다.</div>")
 
     btns = "<button class='tabbtn active' data-k='_ov' onclick=\"show('_ov')\">전체 요약</button>" + \
         "".join(f"<button class='tabbtn' data-k='{k}' onclick=\"show('{k}')\">{n}</button>"
-                for k, n, _ in parts) + \
-        "<button class='tabbtn' data-k='_np' onclick=\"show('_np')\">🧾 비급여</button>"
+                for k, n, _ in parts)
     _tc = date.today()
     partial_c = (" <b>진행중 당월: 등록일정 전체 기준</b>."
                  if (y, m) == (_tc.year, _tc.month) else "")
@@ -933,6 +937,7 @@ def combine_month(y: int, m: int, branches, progress=print):
                 f"<th>8시간 미만 매출<br><small>금액 · 건수</small></th>"
                 f"<th>잠재매출<sup>추정</sup><br><small>금액 · 근소차건</small></th></tr></thead>"
                 f"<tbody>{ov}</tbody></table></div>"
+                f"{np_table}"
                 f"{hold_table}"
                 f"<div class='note'>· <b>매출 = 공단 청구기준 급여비용</b>(7-1 급여비용 공단+본인). "
                 f"<b>전월</b>은 청구월 실측이라 정확(한도초과·등급외 자동 제외), <b>당월</b>은 전월 비율로 추정(진행중·청구 전)."
@@ -943,7 +948,7 @@ def combine_month(y: int, m: int, branches, progress=print):
                    if ex_names else "")
                 + "</div></div>")
     panels = ov_panel + "".join(f"<div id='p_{k}' class='branch'>{p['body']}</div>"
-                                for k, n, p in parts) + np_panel
+                                for k, n, p in parts)
 
     combined = f"""<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <title>매출점검 합본 {y}-{m:02d}</title>
@@ -965,7 +970,10 @@ def combine_month(y: int, m: int, branches, progress=print):
     (사용자 지적 2026-07-22 '사이즈 정렬 필요'). */
  /* 표 폭도 내용에 맞게 줄인다 — 100% 로 두면 '보류 사유' 칸만 화면 끝까지 늘어난다
     (사용자 요청 2026-07-22 '보류사유는 칸을 줄여서'). 칸 폭은 고정해 지점끼리 세로줄을 맞춘다. */
- table.hold{{width:auto;max-width:100%;margin:0 0 6px 0;table-layout:fixed}}
+ /* 비급여 표는 보류자 표와 **항상 같은 폭**이어야 한다(사용자 요청 2026-07-22).
+    둘 다 같은 고정폭을 쓰면 내용이 바뀌어도 어긋나지 않는다. */
+ table.hold,table.nonpay{{width:867px;max-width:100%;margin:0 0 6px 0;table-layout:fixed}}
+ table.nonpay th:first-child,table.nonpay td:first-child{{width:110px}}
  table.hold th:nth-child(1),table.hold td:nth-child(1){{width:110px}}
  table.hold th:nth-child(2),table.hold td:nth-child(2){{width:80px}}
  table.hold th:nth-child(3),table.hold td:nth-child(3){{width:170px}}
