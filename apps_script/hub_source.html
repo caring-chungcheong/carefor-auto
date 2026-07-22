@@ -135,6 +135,28 @@
   .iosbox .sh{display:inline-block;background:#eef2f9;border-radius:7px;padding:1px 8px;font-weight:700;color:var(--navy2)}
   .iosbox button{background:var(--navy);color:#fff;border:0;padding:11px 22px;border-radius:10px;
     font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
+  /* 계산기 — 평소엔 접혀 있고 필요할 때 펼친다(화면을 안 어지럽히려고) */
+  .calcbar{display:flex;justify-content:flex-end;margin:0 0 10px}
+  .calcbtn{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--line);
+    border-radius:11px;padding:9px 15px;font-size:13.5px;font-weight:700;color:var(--navy2);
+    cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(31,45,71,.06)}
+  .calcbtn:hover{background:#eef3fb}
+  .calcbox{display:none;background:var(--card);border:1px solid var(--line);border-radius:15px;
+    padding:16px;margin:0 0 20px;box-shadow:0 3px 14px rgba(31,45,71,.08);max-width:330px;margin-left:auto}
+  .calcbox.on{display:block}
+  .calcout{background:#f7f9fb;border:1px solid var(--line);border-radius:10px;padding:10px 12px;
+    text-align:right;font-size:24px;font-weight:800;color:var(--ink);min-height:34px;
+    font-variant-numeric:tabular-nums;overflow-x:auto;white-space:nowrap}
+  .calcexp{text-align:right;font-size:11.5px;color:var(--faint);min-height:15px;margin-bottom:5px;
+    overflow-x:auto;white-space:nowrap}
+  .calcgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
+  .calcgrid button{border:1px solid var(--line);background:#fff;border-radius:9px;padding:11px 0;
+    font-size:15px;font-family:inherit;cursor:pointer;color:var(--ink)}
+  .calcgrid button:hover{background:#eef3fb}
+  .calcgrid button.op{background:#f2f6fc;color:var(--navy2);font-weight:700}
+  .calcgrid button.eq{background:var(--navy2);color:#fff;font-weight:700}
+  .calcgrid button.fn{background:#fdf1ec;color:#b4451f;font-weight:700}
+  .calchint{font-size:11px;color:var(--faint);margin-top:8px;line-height:1.6}
 </style></head><body>
 
 <div id="gate">
@@ -157,6 +179,32 @@
 
 <div class="wrap">
 
+
+
+  <!-- 계산기: 매출·비급여 보다가 바로 쓰라고 허브 상단에 둔다(모든 화면의 입구라서) -->
+  <div class="calcbar">
+    <button class="calcbtn" onclick="calcToggle()">🧮 계산기</button>
+  </div>
+  <div class="calcbox" id="calcBox">
+    <div class="calcexp" id="calcExp"></div>
+    <div class="calcout" id="calcOut">0</div>
+    <div class="calcgrid">
+      <button class="fn" onclick="calcClear()">C</button>
+      <button class="fn" onclick="calcBack()">←</button>
+      <button class="fn" onclick="calcPct()">%</button>
+      <button class="op" onclick="calcOp('/')">÷</button>
+      <button onclick="calcNum('7')">7</button><button onclick="calcNum('8')">8</button>
+      <button onclick="calcNum('9')">9</button><button class="op" onclick="calcOp('*')">×</button>
+      <button onclick="calcNum('4')">4</button><button onclick="calcNum('5')">5</button>
+      <button onclick="calcNum('6')">6</button><button class="op" onclick="calcOp('-')">−</button>
+      <button onclick="calcNum('1')">1</button><button onclick="calcNum('2')">2</button>
+      <button onclick="calcNum('3')">3</button><button class="op" onclick="calcOp('+')">+</button>
+      <button onclick="calcNum('0')">0</button><button onclick="calcNum('000')">000</button>
+      <button onclick="calcDot()">.</button><button class="eq" onclick="calcEq()">=</button>
+    </div>
+    <div class="calchint">키보드로도 입력됩니다 (Enter=계산, Esc=지움).<br>
+      % = 앞 숫자의 몇 퍼센트 (예: 1,000,000 × 15 % → 150,000)</div>
+  </div>
 
   <div class="installbar" id="installBar">
     <button class="installbtn" id="installBtn">
@@ -246,6 +294,85 @@ if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catc
   if(btn) btn.addEventListener('click', doInstall);
   if(top) top.addEventListener('click', doInstall);
   window.addEventListener('appinstalled', function(){ bar.style.display='none'; if(top) top.style.display='none'; });
+})();
+</script>
+
+<script>
+/* 계산기 — 금액을 다루므로 세 자리 콤마를 항상 붙여 보여준다.
+   eval 은 쓰지 않는다(입력이 코드로 실행되면 위험). 누산기 방식으로 직접 계산. */
+(function(){
+  var cur = '0', acc = null, op = null, fresh = true;
+  function fmt(s){
+    if (s === '' || s === '-') return s || '0';
+    var neg = s[0] === '-', b = neg ? s.slice(1) : s;
+    var pt = b.split('.');
+    var i = pt[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return (neg?'-':'') + i + (pt.length>1 ? '.'+pt[1] : '');
+  }
+  function draw(){
+    document.getElementById('calcOut').textContent = fmt(cur);
+    document.getElementById('calcExp').textContent =
+      acc === null ? '' : fmt(String(acc)) + ' ' + ({'+':'+','-':'−','*':'×','/':'÷'}[op]||'');
+  }
+  function calc(a, b, o){
+    a = parseFloat(a); b = parseFloat(b);
+    if (o === '+') return a + b;
+    if (o === '-') return a - b;
+    if (o === '*') return a * b;
+    if (o === '/') return b === 0 ? 0 : a / b;
+    return b;
+  }
+  function round(v){ return Math.round(v * 1e6) / 1e6; }   /* 부동소수 잔재 정리 */
+
+  window.calcToggle = function(){
+    var el = document.getElementById('calcBox');
+    el.classList.toggle('on');
+  };
+  window.calcNum = function(n){
+    if (fresh) { cur = (n === '000' ? '0' : n); fresh = false; }
+    else if (cur === '0') { cur = (n === '000' ? '0' : n); }
+    else { cur += n; }
+    draw();
+  };
+  window.calcDot = function(){
+    if (fresh) { cur = '0.'; fresh = false; }
+    else if (cur.indexOf('.') < 0) cur += '.';
+    draw();
+  };
+  window.calcOp = function(o){
+    if (acc !== null && !fresh) { cur = String(round(calc(acc, cur, op))); }
+    acc = parseFloat(cur); op = o; fresh = true; draw();
+  };
+  window.calcEq = function(){
+    if (acc === null || op === null) return;
+    cur = String(round(calc(acc, cur, op)));
+    acc = null; op = null; fresh = true; draw();
+  };
+  window.calcPct = function(){
+    /* 앞 숫자의 몇 % — 1,000,000 × 15 % → 150,000 (금액 업무에서 이 쪽이 자연스럽다) */
+    if (acc !== null) { cur = String(round(acc * parseFloat(cur) / 100)); }
+    else { cur = String(round(parseFloat(cur) / 100)); }
+    fresh = false; draw();
+  };
+  window.calcClear = function(){ cur='0'; acc=null; op=null; fresh=true; draw(); };
+  window.calcBack = function(){
+    if (fresh) return;
+    cur = cur.length > 1 ? cur.slice(0, -1) : '0';
+    if (cur === '' || cur === '-') cur = '0';
+    draw();
+  };
+  document.addEventListener('keydown', function(e){
+    var box = document.getElementById('calcBox');
+    if (!box || !box.classList.contains('on')) return;
+    var k = e.key;
+    if (k >= '0' && k <= '9') { calcNum(k); e.preventDefault(); }
+    else if (k === '.') { calcDot(); e.preventDefault(); }
+    else if ('+-*/'.indexOf(k) >= 0) { calcOp(k); e.preventDefault(); }
+    else if (k === 'Enter' || k === '=') { calcEq(); e.preventDefault(); }
+    else if (k === 'Backspace') { calcBack(); e.preventDefault(); }
+    else if (k === 'Escape') { calcClear(); e.preventDefault(); }
+    else if (k === '%') { calcPct(); e.preventDefault(); }
+  });
 })();
 </script>
 </body></html>
