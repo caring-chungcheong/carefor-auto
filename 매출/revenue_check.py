@@ -828,7 +828,9 @@ def combine_month(y: int, m: int, branches, progress=print):
     np_total = np_meal = np_snack = 0   # 전체요약 비급여 합계(7-1 청구월 기준)
     for key, name, p in parts:
         t = _load_tot(key)
-        link = f"<a href=\"#\" onclick=\"show('{key}');return false\">{name}</a>"
+        # 상단 탭바·지점 드롭다운으로 이미 지점 전환이 되므로 표 안 링크는 중복
+        # (사용자 지적 2026-07-22 — 두 번 되살아났으니 다시 링크로 되돌리지 말 것)
+        link = name
         if t and "rev_total" in t.get("cur", {}):
             have_prev = True
             prev_ym = t.get("prev_ym")
