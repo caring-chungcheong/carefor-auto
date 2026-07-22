@@ -91,9 +91,13 @@
       <button data-t="normal" class="on">일반</button>
       <button data-t="dementia">치매전담실</button>
     </div></div>
+    <div><label>8시간 인정 횟수</label>
+      <input type="text" id="cap8" placeholder="자동" style="width:64px"> 회
+      <div style="font-size:11.5px;color:var(--mut)">비우면 자동 산출</div></div>
     <div><label>월 한도액</label><div style="font-weight:600;font-size:16px" id="limitTxt">-</div></div>
   </div>
   <div id="bonusBox"></div>
+  <div id="capBox"></div>
 </div>
 
 <div class="card">
@@ -308,6 +312,25 @@ function calc(){
     ? `<div class="warn" style="${bonus?'background:var(--ok-bg);border-color:#bfe3c9;color:var(--ok)':''}">
         ${bonus?'✔':'ℹ'} ${bonusWhy}</div>` : '';
 
+  /* 증액분으로 커버되는 8시간 이용 횟수 */
+  const addAmt = limit - base;              // 한도액 증액분
+  const fee8   = DAY[2][1][grade];          // 주·야간보호 8시간 이상 구간 수가
+  const autoCap= fee8 ? addAmt/fee8 : 0;
+  const manual = parseFloat(document.getElementById('cap8').value);
+  const useMan = Number.isFinite(manual);
+  const cap    = useMan ? manual : Math.floor(autoCap);
+  let capTxt='';
+  if(addAmt>0){
+    capTxt = useMan
+      ? `8시간 인정 횟수 <b>${cap}회</b> (직접 입력) — 자동 산출값은 `+
+        `${won(addAmt)} ÷ ${won(fee8)} = ${autoCap.toFixed(1)}회분(내림 ${Math.floor(autoCap)}회)입니다`
+      : `증액분 ${won(addAmt)} ÷ 8시간 수가 ${won(fee8)} = <b>${autoCap.toFixed(1)}회분</b> `+
+        `→ 8시간 이용을 <b>${cap}회</b> 더 할 수 있는 금액입니다`;
+  }
+  document.getElementById('capBox').innerHTML = capTxt
+    ? `<div class="warn" style="background:var(--accent-soft);border-color:#c5d9f7;color:var(--accent)">
+        📐 ${capTxt}</div>` : '';
+
   /* ③ 요일별 단가 */
   const warns=new Set(); let unitRows='';
   const unitOf = (s,dow,hol)=>{
@@ -407,6 +430,12 @@ function calc(){
     f.push(`               ${won(base)} × ${1+bonus} = ${won(limit)}`);
   }else if(bonusWhy) f.push(`  추가 산정      없음 — ${bonusWhy}`);
   f.push(`  적용 한도액   ${won(limit)}`);
+  if(addAmt>0){
+    f.push(``);
+    f.push(`■ 증액분으로 커버되는 8시간 이용 횟수`);
+    f.push(`  증액분 ${won(addAmt)} ÷ 8시간 수가 ${won(fee8)} = ${autoCap.toFixed(2)}회분`);
+    f.push(`  적용 횟수 ${cap}회${useMan?' (직접 입력)':' (자동 산출·내림)'}`);
+  }
   f.push(``);
   f.push(`■ 1회 단가 산출`);
   seen.forEach(({dow,s,u})=>{
@@ -441,6 +470,7 @@ function calc(){
 document.getElementById('addBtn').onclick=()=>{
   scheds.push({svc:'visit',days:[],from:'09:00',to:'12:00'}); renderScheds(); calc(); };
 ['grade','rate','ym'].forEach(id=>document.getElementById(id).onchange=calc);
+document.getElementById('cap8').oninput = calc;
 document.querySelectorAll('#dtype button').forEach(b=>b.onclick=()=>{
   dementiaRoom = b.dataset.t==='dementia';
   document.querySelectorAll('#dtype button').forEach(x=>
