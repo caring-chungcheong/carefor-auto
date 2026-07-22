@@ -1,0 +1,45 @@
+name: 공유 허브 자동 배포
+
+# 허브 메뉴(apps_script/hub_source.html)를 고쳐 push 하면 실제 허브 화면에 자동 반영된다.
+# ⚠️ 매출점검·차량수리비·운영런북 페이지는 원본이 저장소 밖에 있어 CI 가 못 만든다.
+#    → deploy_hub_ci 가 현재 배포본을 읽어 그대로 보존한다. 그 내용을 바꾸려면
+#      로컬에서 `py -X utf8 -m audit.deploy_hub` 를 돌려야 한다.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps_script/hub_source.html'
+      - 'audit/deploy_hub.py'
+      - 'audit/deploy_hub_ci.py'
+      - '.github/workflows/hub_deploy.yml'
+  workflow_dispatch:
+
+# 연속 push 때 배포가 겹치지 않게 — 마지막 것만 살린다
+concurrency:
+  group: hub-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 허브 배포 (메뉴만 교체·데이터 페이지 보존)
+        env:
+          GOOGLE_OAUTH_JSON: ${{ secrets.GOOGLE_OAUTH_JSON }}
+          PYTHONIOENCODING: utf-8
+        run: python -m audit.deploy_hub_ci
+
+      - name: 배포 확인 (302 = 도메인 로그인 요구 = 정상)
+        run: |
+          URL="https://script.google.com/a/macros/caring.co.kr/s/AKfycby4fQaPyn3AthrSy3NAnbnTRqyXxt-HiB3AHv2uWutQEUWA-xQnMDcOD0f_3XGhTD3Z/exec"
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$URL")
+          echo "허브 응답: $CODE"
+          # 302(로그인 요구)·200 이면 정상. 그 외는 배포가 깨진 것이므로 실패시킨다.
+          case "$CODE" in 200|302) echo "정상" ;; *) echo "::error::허브 접속 실패 ($CODE)"; exit 1 ;; esac
