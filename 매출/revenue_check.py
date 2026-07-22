@@ -915,9 +915,9 @@ def combine_month(y: int, m: int, branches, progress=print):
         np_rows += ("<tr style='font-weight:700;background:#eef3fb'><td>합계</td>"
                     + "".join(f"<td class='num'>{np_tot[l]:,}</td>" for l in _NP)
                     + f"<td class='num'>{np_sum:,}</td></tr>")
-    # ── 월별 매출 이력 (개소월~지난달) ──────────────────────────────────────
-    # revenue_history_collect.py 가 한 번 긁어 쌓아둔 revenue_monthly.json 을 읽는다.
-    # 비교값(전월비)은 넣지 않는다 — 복잡해진다는 사용자 판단(2026-07-22). 실적만 세로로 쌓는다.
+    # ── 월별 실적 (매출 + 비급여 항목) — 연·월 드롭다운으로 그 달만 ────────────
+    # 매출과 비급여를 따로 두면 선택월이 어긋난다 → 한 표에 합치고 선택도 하나로.
+    # 지점을 세로(행), 항목을 가로(열)로 둬야 비급여 항목별 금액이 다 보인다.
     hist_table = ""
     try:
         _hf = hist_dir / "revenue_monthly.json"
@@ -926,45 +926,49 @@ def combine_month(y: int, m: int, branches, progress=print):
         _hist = {}
     if _hist:
         _keys = [(k, n) for k, n, _ in parts if k in _hist]
-        _yms = sorted({ym for k, _ in _keys for ym in _hist.get(k, {})}, reverse=True)
+        _yms = sorted({v for k, _ in _keys for v in _hist.get(k, {})}, reverse=True)
         if _keys and _yms:
-            _hrows = ""
-            for _ym in _yms:          # ★ym 을 쓰면 파일명 변수를 덮어써 엉뚱한 달로 저장된다
-                _mtot = _mnp = 0
-                _tds = ""
-                for k, _n in _keys:
+            _blocks = ""
+            for _ym in _yms:
+                _rows, _sum = "", {"rev": 0, "계": 0, **{l: 0 for l in _NP}}
+                for k, nm in _keys:
                     d = _hist.get(k, {}).get(_ym)
-                    if d:
-                        _mtot += d["rev_total"]
-                        _np = (d.get("nonpay") or {}).get("비급여계", 0)
-                        _mnp += _np
-                        _tds += (f"<td class='num'>{d['rev_total']:,}"
-                                 f"<div style='font-size:11px;color:#8894a6'>"
-                                 f"비급여 {_np:,}</div></td>")
-                    else:
-                        _tds += "<td class='num' style='color:#c8ced8'>–</td>"
-                _hrows += (f"<tr class='hrow' data-ym='{_ym}'><td class='ce'><b>{_ym[:4]}-{_ym[4:]}</b></td>{_tds}"
-                           f"<td class='num'><b>{_mtot:,}</b>"
-                           f"<div style='font-size:11px;color:#667'>비급여 {_mnp:,}</div></td></tr>")
-            # 연·월 선택 UI — 26개월을 한꺼번에 늘어놓지 않고 고른 달만 보여준다.
+                    if not d:
+                        _rows += (f"<tr><td style='white-space:nowrap'>{nm}</td>"
+                                  f"<td colspan={len(_NP) + 2} style='color:#c8ced8'>개소 전</td></tr>")
+                        continue
+                    np = d.get("nonpay") or {}
+                    _sum["rev"] += d["rev_total"]
+                    _sum["계"] += np.get("비급여계", 0)
+                    for l in _NP:
+                        _sum[l] += np.get(l, 0)
+                    _rows += (f"<tr><td style='white-space:nowrap'>{nm}</td>"
+                              f"<td class='num'><b>{d['rev_total']:,}</b></td>"
+                              + "".join(f"<td class='num'>{np.get(l, 0):,}</td>" for l in _NP)
+                              + f"<td class='num'><b>{np.get('비급여계', 0):,}</b></td></tr>")
+                _rows += ("<tr style='font-weight:700;background:#eef3fb'><td>합계</td>"
+                          f"<td class='num'>{_sum['rev']:,}</td>"
+                          + "".join(f"<td class='num'>{_sum[l]:,}</td>" for l in _NP)
+                          + f"<td class='num'>{_sum['계']:,}</td></tr>")
+                _blocks += (
+                    f"<div class='hblk' data-ym='{_ym}'>"
+                    f"<div style='overflow-x:auto'><table class='hist'><thead><tr>"
+                    f"<th>지점</th><th>급여매출</th>"
+                    + "".join(f"<th>{l}</th>" for l in _NP)
+                    + "<th>비급여 계</th></tr></thead>"
+                    f"<tbody>{_rows}</tbody></table></div></div>")
+
             _years = sorted({v[:4] for v in _yms}, reverse=True)
-            _ybtn = "".join(
-                f"<button class='ybtn{" active" if i == 0 else ""}' data-y='{yy}' "
-                f"onclick=\"histYear('{yy}')\">{yy}년</button>" for i, yy in enumerate(_years))
-            _mbtn = "".join(
-                f"<button class='mbtn' data-ym='{v}' onclick=\"histShow('{v}')\">"
-                f"{int(v[4:])}월</button>" for v in sorted(_yms))
+            _yopt = "".join(f"<option value='{yy}'>{yy}년</option>" for yy in _years)
             hist_table = (
-                f"<h2 style='margin-top:26px'>📈 월별 매출 이력</h2>"
-                f"<div class='sub'>연도·월을 눌러 그 달 실적을 봅니다. 위=급여매출(급여수가 합), "
-                f"아래 작은 글씨=비급여(식사재료비·간식비 등 7-1 청구 기준). 개소 전은 <b>–</b>.<br>"
+                f"<h2 style='margin-top:26px'>📊 월별 실적 — 매출 · 비급여</h2>"
+                f"<div class='sub'>연도·월을 고르면 그 달 실적이 나옵니다. "
+                f"급여매출=급여수가 합(제공기준), 비급여=7-1 청구 기준.<br>"
                 f"전월 대비 증감은 넣지 않았습니다 — 실적만 봅니다.</div>"
-                f"<div class='histpick'>{_ybtn}</div>"
-                f"<div class='histpick' id='histMonths'>{_mbtn}</div>"
-                f"<div style='overflow-x:auto'><table class='hist'><thead><tr><th>연월</th>"
-                + "".join(f"<th>{n}</th>" for _k, n in _keys)
-                + "<th>합계</th></tr></thead>"
-                f"<tbody>{_hrows}</tbody></table></div>")
+                f"<div class='histpick'>"
+                f"<select id='histY' onchange='histYear(this.value)'>{_yopt}</select>"
+                f"<select id='histM' onchange='histShow(this.value)'></select>"
+                f"</div>{_blocks}")
 
     np_table = (f"<h2 style='margin-top:26px'>🧾 비급여 항목 — {prev_ym}</h2>"
                 f"<div class='sub'>공단급여·본인부담금을 <b>제외한</b> 비용. "
@@ -993,7 +997,6 @@ def combine_month(y: int, m: int, branches, progress=print):
                 f"<th>잠재매출<sup>추정</sup><br><small>금액 · 근소차건</small></th></tr></thead>"
                 f"<tbody>{ov}</tbody></table></div>"
                 f"{hist_table}"
-                f"{np_table}"
                 f"{hold_table}"
                 f"<div class='note'>· <b>매출 = 공단 청구기준 급여비용</b>(7-1 급여비용 공단+본인). "
                 f"<b>전월</b>은 청구월 실측이라 정확(한도초과·등급외 자동 제외), <b>당월</b>은 전월 비율로 추정(진행중·청구 전)."
@@ -1031,11 +1034,10 @@ def combine_month(y: int, m: int, branches, progress=print):
  table.hold,table.nonpay{{width:867px;max-width:100%;margin:0 0 6px 0;table-layout:fixed}}
  /* 월별 이력은 행이 20+개라 연월 칸을 고정해 세로줄을 맞춘다 */
  table.hist{{width:auto;max-width:100%}}
- .histpick{{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}}
- .histpick button{{border:1px solid #cdd6e4;background:#fff;border-radius:8px;
-   padding:5px 12px;font-size:13px;cursor:pointer;font-family:inherit;color:#334}}
- .histpick button.active{{background:#2f6fdb;border-color:#2f6fdb;color:#fff;font-weight:700}}
- tr.hrow{{display:none}} tr.hrow.on{{display:table-row}}
+ .histpick{{display:flex;gap:8px;margin:10px 0}}
+ .histpick select{{border:1px solid #cdd6e4;background:#fff;border-radius:8px;
+   padding:6px 12px;font-size:14px;font-family:inherit;color:#1a2233;cursor:pointer}}
+ .hblk{{display:none}}   /* histYear 가 최신 달 하나만 켠다 */
  table.hist th:first-child,table.hist td:first-child{{width:90px;white-space:nowrap}}
  table.nonpay th:first-child,table.nonpay td:first-child{{width:110px}}
  table.hold th:nth-child(1),table.hold td:nth-child(1){{width:110px}}
@@ -1070,16 +1072,21 @@ def combine_month(y: int, m: int, branches, progress=print):
  /* 월별 이력: 연도 고르면 그 해 월 버튼만, 월 고르면 그 달 행만 보인다.
     26개월을 한꺼번에 늘어놓으면 길어서 못 본다(사용자 요청 2026-07-22). */
  function histShow(ym){{
-   document.querySelectorAll('tr.hrow').forEach(r=>r.classList.toggle('on', r.dataset.ym===ym));
-   document.querySelectorAll('.mbtn').forEach(b=>b.classList.toggle('active', b.dataset.ym===ym));
+   document.querySelectorAll('.hblk').forEach(function(b){{
+     b.style.display = (b.dataset.ym === ym) ? 'block' : 'none';
+   }});
  }}
  function histYear(y){{
-   document.querySelectorAll('.ybtn').forEach(b=>b.classList.toggle('active', b.dataset.y===y));
-   var vis=[];
-   document.querySelectorAll('.mbtn').forEach(function(b){{
-     var ok=b.dataset.ym.slice(0,4)===y; b.style.display=ok?'':'none'; if(ok)vis.push(b.dataset.ym);
+   var ms = [];
+   document.querySelectorAll('.hblk').forEach(function(b){{
+     if (b.dataset.ym.slice(0,4) === y) ms.push(b.dataset.ym);
    }});
-   if(vis.length) histShow(vis[vis.length-1]);   /* 그 해 최신 달 */
+   ms.sort();
+   var sel = document.getElementById('histM');
+   sel.innerHTML = ms.map(function(v){{
+     return "<option value='" + v + "'>" + parseInt(v.slice(4),10) + "월</option>";
+   }}).join('');
+   if (ms.length) {{ sel.value = ms[ms.length-1]; histShow(sel.value); }}   /* 그 해 최신 달 */
  }}
  function show(k){{
    document.querySelectorAll('.branch').forEach(e=>e.classList.remove('active'));
@@ -1090,7 +1097,7 @@ def combine_month(y: int, m: int, branches, progress=print):
  }}
  window.addEventListener('load', function(){{
    fitTables(document.querySelector('.branch.active'));
-   var y=document.querySelector('.ybtn'); if(y) histYear(y.dataset.y);   /* 최신 연도·달로 시작 */
+   var ys=document.getElementById('histY'); if(ys) histYear(ys.value);   /* 최신 연도·달로 시작 */
  }});
  window.addEventListener('resize', function(){{ fitTables(document.querySelector('.branch.active')); }});
 </script>
