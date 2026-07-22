@@ -144,6 +144,48 @@ def _click_tab(page, name: str) -> None:
     page.wait_for_timeout(2500)
 
 
+# 7-1 합계 행의 칸 순서 (실측 2026-07-22, 천안점).
+#  헤더 21칸: [chk,연번,수급자명,등급/본인부담률,일수, 공단부담금,본인부담금,
+#              식사재료비,간식비,이·미용비,진료약제비,기타비용,등급외/한도초과,
+#              부담금합계,선납적용액,당월총액,이전미납액,청구액,청구입금액,처리,(빈)]
+#  합계행 17칸: 앞 5칸(chk~일수)이 '총 N 건' 하나로 병합 → 합계[i] = 헤더[i+4]
+#  검산: 부담금합계 = 본인부담금+식사+간식+이미용+진료약제+기타+등급외한도초과 (천안 18,721,610 일치)
+NONPAY_COLS = [(3, "식사재료비"), (4, "간식비"), (5, "이미용비"),
+               (6, "진료약제비"), (7, "기타비용"), (8, "등급외한도초과")]
+
+
+def scrape_7_1_nonpay(page, progress=print) -> dict:
+    """7-1 합계 행에서 비급여(공단급여·본인부담금 제외) 항목별 금액을 뽑는다.
+    ⚠️ 7-1은 **청구월 = 전월** 기준이다(당월은 아직 청구 전) — 표기할 때 밝힐 것."""
+    try:
+        rows = page.evaluate(
+            "()=>[...document.querySelectorAll('table.frame_list_tbl tr')]"
+            ".map(tr=>[...tr.querySelectorAll('td,th')].map(c=>c.innerText.trim()))")
+        tot = next((r for r in rows if r and r[0].startswith("총 ") and len(r) >= 15), None)
+        if not tot:
+            progress("  7-1 비급여: 합계 행을 못 찾음")
+            return {}
+        def _n(i):
+            return int(re.sub(r"[^\d]", "", tot[i]) or 0)
+        out = {label: _n(i) for i, label in NONPAY_COLS}
+        out["본인부담금"] = _n(2)
+        out["공단부담금"] = _n(1)
+        out["부담금합계"] = _n(9)
+        out["비급여계"] = sum(out[l] for _, l in NONPAY_COLS)
+        # 검산 — 합이 안 맞으면 열 위치가 바뀐 것이므로 조용히 넘기지 말고 알린다
+        if out["본인부담금"] + out["비급여계"] != out["부담금합계"]:
+            progress(f"  ⚠️ 7-1 비급여 검산 불일치 "
+                     f"(본인 {out['본인부담금']:,} + 비급여 {out['비급여계']:,} "
+                     f"≠ 부담금합계 {out['부담금합계']:,}) — 열 위치 확인 필요")
+        progress(f"  7-1 비급여(청구월): {out['비급여계']:,}원 "
+                 f"(식사 {out['식사재료비']:,} · 간식 {out['간식비']:,} · "
+                 f"진료약제 {out['진료약제비']:,} · 등급외한도초과 {out['등급외한도초과']:,})")
+        return out
+    except Exception as e:
+        progress(f"  7-1 비급여 수집 실패: {e}")
+        return {}
+
+
 def scrape_7_1_billed(page, g_pammgno: str, progress=print) -> int:
     """7-1 본인부담금 청구관리(청구월=전월 자동)에서 급여비용(공단부담+본인부담) 총액 = 공단 청구기준 매출.
     열: [chk,연번,수급자명,등급/본인부담률,일수,급여비용공단,급여비용본인,...,등급외/한도초과].
@@ -417,10 +459,13 @@ def collect_branch(page, g_pammgno: str, y: int, m: int, py: int, pm: int,
 
     # 6) 7-1 급여비용(공단+본인) — 청구월(=전월) 실측 = 청구기준 매출. 당월은 비율로 추정.
     billed_prev = scrape_7_1_billed(page, g_pammgno, progress)
+    # 6-1) 같은 화면의 합계 행에서 비급여(식사재료비·간식비·진료약제비·기타·등급외한도초과) 수집.
+    #      scrape_7_1_billed 가 이미 7-1 로 이동해 놨으므로 재이동 없이 바로 읽는다.
+    nonpay = scrape_7_1_nonpay(page, progress)
 
     return {"roster": roster, "cur": cur_recs, "prev": prev_recs,
             "grade_of": grade_of, "hold_last": last_sched, "hold_grade": hold_grade,
-            "hold_info": hold_info, "billed_prev": billed_prev}
+            "hold_info": hold_info, "billed_prev": billed_prev, "nonpay": nonpay}
 
 
 # ── 집계·판정 ──────────────────────────────────────────────────────────────
@@ -836,9 +881,48 @@ def combine_month(y: int, m: int, branches, progress=print):
                    f"<div class='hint'>보류일 오래된 순 · 3개월 이상 <span class='up'>빨강</span> = 퇴소 검토/재개 상담 대상.</div>"
                    f"{hold_sections}") if hold_total else "")
 
+    # ── 비급여 탭 (7-1 청구월 합계) ────────────────────────────────────────
+    # 공단급여·본인부담금을 뺀 나머지 = 식사재료비·간식비·이미용비·진료약제비·기타·등급외한도초과.
+    # ⚠️ 7-1은 **청구월(=전월)** 기준이라 위 매출표의 '이번달'과 대상월이 다르다 — 반드시 밝힌다.
+    _NP = [l for _, l in NONPAY_COLS]
+    np_rows, np_tot = "", {l: 0 for l in _NP}
+    np_sum, np_any = 0, False
+    for key, name, p in parts:
+        # parts 는 HTML 파싱 결과라 totals 가 없다 → 합계 파일에서 직접 읽는다
+        d = ((_load_tot(key) or {}).get("nonpay")) or {}
+        if not d:
+            np_rows += (f"<tr><td>{name}</td>"
+                        f"<td colspan={len(_NP) + 1} style='color:#c00'>재실행 후 표시됩니다</td></tr>")
+            continue
+        np_any = True
+        s = d.get("비급여계", 0)
+        np_sum += s
+        for l in _NP:
+            np_tot[l] += d.get(l, 0)
+        np_rows += (f"<tr><td>{name}</td>"
+                    + "".join(f"<td class='num'>{d.get(l, 0):,}</td>" for l in _NP)
+                    + f"<td class='num'><b>{s:,}</b></td></tr>")
+    if np_any:
+        np_rows += ("<tr style='font-weight:700;background:#eef3fb'><td>합계</td>"
+                    + "".join(f"<td class='num'>{np_tot[l]:,}</td>" for l in _NP)
+                    + f"<td class='num'>{np_sum:,}</td></tr>")
+    np_panel = (f"<div id='p__np' class='branch'><h1>🧾 비급여 항목 — {prev_ym}</h1>"
+                f"<div class='sub'>공단급여·본인부담금을 <b>제외한</b> 비용. "
+                f"출처 7-1 본인부담금 청구관리 합계 행.<br>"
+                f"⚠️ 7-1은 <b>청구월 기준</b>이라 위 매출표의 '이번달'이 아니라 "
+                f"<b>{prev_ym}</b> 실적입니다(당월은 아직 청구 전).</div>"
+                f"<div style='overflow-x:auto'><table><thead><tr><th>지점</th>"
+                + "".join(f"<th>{l}</th>" for l in _NP)
+                + "<th>비급여 계</th></tr></thead>"
+                f"<tbody>{np_rows}</tbody></table></div>"
+                f"<div class='note'>· <b>비급여 계</b> = 식사재료비+간식비+이미용비+진료약제비+기타비용+등급외/한도초과. "
+                f"7-1의 <b>부담금합계 − 급여비용 본인부담금</b> 과 일치한다(수집 시 검산).<br>"
+                f"· 공단급여·본인부담금은 위 '전체 요약'의 매출에 이미 포함돼 있어 여기서 뺐다.</div></div>")
+
     btns = "<button class='tabbtn active' data-k='_ov' onclick=\"show('_ov')\">전체 요약</button>" + \
         "".join(f"<button class='tabbtn' data-k='{k}' onclick=\"show('{k}')\">{n}</button>"
-                for k, n, _ in parts)
+                for k, n, _ in parts) + \
+        "<button class='tabbtn' data-k='_np' onclick=\"show('_np')\">🧾 비급여</button>"
     _tc = date.today()
     partial_c = (" <b>진행중 당월: 등록일정 전체 기준</b>."
                  if (y, m) == (_tc.year, _tc.month) else "")
@@ -859,7 +943,7 @@ def combine_month(y: int, m: int, branches, progress=print):
                    if ex_names else "")
                 + "</div></div>")
     panels = ov_panel + "".join(f"<div id='p_{k}' class='branch'>{p['body']}</div>"
-                                for k, n, p in parts)
+                                for k, n, p in parts) + np_panel
 
     combined = f"""<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <title>매출점검 합본 {y}-{m:02d}</title>
@@ -986,6 +1070,7 @@ def finalize_branch(b, y, m, py, pm, data, hist_dir, progress=print):
     cur_t["excess"] = cur_t["rev_total"] - cur_t["rev_billed"]
     totals = {"branch": b.name, "ym": f"{y}-{m:02d}", "prev_ym": f"{py}-{pm:02d}",
               "target": n_active, "excl": sorted(excl), "billed_prev": billed_prev,
+              "nonpay": data.get("nonpay", {}),
               "cur": cur_t, "prev": prev_t}
     (hist_dir / f"{key}_{y}{m:02d}_totals.json").write_text(
         json.dumps(totals, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -996,7 +1081,7 @@ def _save_raw(key, y, m, data, hist_dir):
     raw = {"cur": data["cur"], "prev": data["prev"], "roster": data["roster"],
            "grade_of": data["grade_of"], "hold_last": data["hold_last"],
            "hold_grade": data.get("hold_grade", {}), "hold_info": data.get("hold_info", {}),
-           "billed_prev": data.get("billed_prev", 0)}
+           "billed_prev": data.get("billed_prev", 0), "nonpay": data.get("nonpay", {})}
     (hist_dir / f"{key}_{y}{m:02d}_data.json").write_text(
         json.dumps(raw, ensure_ascii=False), encoding="utf-8")
 
