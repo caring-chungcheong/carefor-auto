@@ -21,6 +21,7 @@ import argparse
 import json
 import pathlib
 import re
+import subprocess
 import sys
 import urllib.error
 import urllib.parse
@@ -230,10 +231,48 @@ document.addEventListener('click', function(e){
 """
 
 
+def _git_md(path: str) -> str:
+    """저장소 파일의 마지막 커밋 시각 → 'MM/DD' (항목별 갱신시각 초기값). 실패 시 빈 문자열."""
+    try:
+        out = subprocess.run(["git", "-C", str(ROOT), "log", "-1", "--format=%cI", "--", path],
+                             capture_output=True, text=True, encoding="utf-8").stdout.strip()
+        if len(out) >= 10:                       # 2026-07-21T10:16:32+09:00
+            return out[5:7] + "/" + out[8:10]
+    except Exception:
+        pass
+    return ""
+
+
+def _embed_date(kind: str) -> str:
+    """매출·차량수리비(Apps Script 서빙, 커밋 안 됨)의 데이터 기준일 → 'MM/DD 기준' 캡션.
+    차량수리비는 파일에 박힌 '데이터 기준일'을, 매출은 합본 파일 수정시각을 쓴다."""
+    if kind == "carcost":
+        t = (CC / "차량_월별수리비내역.html").read_text(encoding="utf-8")
+        m = re.search(r"데이터 기준일\s*(\d{4})-(\d{2})-(\d{2})", t)
+        if m:
+            return "🔄 " + m.group(2) + "/" + m.group(3) + " 기준"
+        return ""
+    if kind == "revenue":
+        cands = sorted((CC / "매출점검").glob("매출점검_합본_*.html"))
+        if cands:
+            import datetime
+            mt = datetime.datetime.fromtimestamp(cands[-1].stat().st_mtime)
+            return "🔄 " + mt.strftime("%m/%d") + " 기준"
+    return ""
+
+
 def build_html() -> str:
     """허브 원본 → Apps Script 용으로 변환. 원본은 건드리지 않는다."""
     # 원본은 **Pages 밖**(apps_script/)에 둔다 — docs/ 에 두면 허브 내용이 공개 저장소에서 그대로 읽힌다.
     s = (ROOT / "apps_script" / "hub_source.html").read_text(encoding="utf-8")
+    # 0) 항목별 갱신시각 — 커밋된 페이지는 커밋시각을 초기값으로 심고(로드 시 라이브 갱신),
+    #    매출·차량수리비는 데이터 기준일을 직접 박는다.
+    s = re.sub(r'<span class="upd" data-gh="([^"]+)"></span>',
+               lambda m: '<span class="upd" data-gh="%s">%s</span>' % (
+                   m.group(1), ("🔄 " + _git_md(m.group(1)) + " 갱신") if _git_md(m.group(1)) else ""),
+               s)
+    s = s.replace("{{UPD_REVENUE}}", _embed_date("revenue"))
+    s = s.replace("{{UPD_CARCOST}}", _embed_date("carcost"))
     # 1) PIN 게이트 제거 — 도메인 인증이 대신한다(PIN 은 소스에 노출돼 있어 보호 효과도 없었다)
     s = re.sub(r'<div id="gate">.*?</div>\s*(?=<header>)', "", s, flags=re.S)
     s = re.sub(r"const PIN='[^']*';", "", s)
@@ -271,20 +310,51 @@ def _mask_name(nm: str) -> str:
 
 
 def _inject_topbar(s: str) -> str:
-    """맨 위 '← 공유 허브' 줄 주입(일반 흐름 — 고정 아님). 페이지 sticky 툴바는 원래대로 top:0 유지.
-    이러면 바가 탭 위에 올라올 일이 없어 절대 안 겹친다(스크롤하면 바는 위로 사라지고 툴바만 붙음).
+    """'← 공유 허브' 복귀 링크를 페이지 **맨 위 sticky 바**로 주입한다.
+    이 페이지들은 상단에 전체폭 sticky 탭바(매출 .tabbar)·툴바(차량 .toolbar top:0)가 있어,
+    그냥 위에 얹으면 그것들이 덮어 잘렸다 → 복귀 바를 top:0 sticky(z 최상단)로 두고,
+    페이지의 sticky 요소는 그 높이만큼 아래로 내려(top:BARH) 겹치지 않게 한다.
     target=_top: Apps Script iframe 밖(최상위 창)으로 이동해야 허브가 정상 로드됨."""
-    bar = ('<div style="background:#152647;padding:14px 18px;text-align:left;line-height:1">'
+    # ⚠️ 오프셋을 상수로 박지 말 것 — 글꼴·확대율에 따라 바 높이가 달라져 탭이 그만큼 잘린다(실제로 그랬다).
+    #    바 높이를 실측해 sticky top 에 그대로 넣고, 창 크기·폰트 변화에도 다시 맞춘다.
+    bar = ('<div id="hubbackbar" style="background:#eef3fa;'
+           'border-bottom:1px solid #d4deec;padding:8px 14px;line-height:1;'
+           'box-shadow:0 2px 8px rgba(21,38,71,.06)">'
            '<a href="' + HUB_URL + '" target="_top" style="display:inline-block;'
-           'background:#ffffff;color:#152647 !important;-webkit-text-fill-color:#152647;'
-           'padding:9px 18px;border-radius:9px;text-decoration:none;'
-           'font-family:\'Malgun Gothic\',system-ui,sans-serif;font-size:14px;font-weight:700;line-height:1.2">'
-           '← 공유 허브</a></div>')
+           'background:#eaf0f8;color:#152647 !important;-webkit-text-fill-color:#152647;'
+           'border:1px solid #c4d0e6;padding:8px 16px;border-radius:9px;text-decoration:none;'
+           'font-family:\'Malgun Gothic\',system-ui,sans-serif;font-size:13.5px;font-weight:700;line-height:1.2">'
+           '← 공유 허브</a></div>'
+           '<script>(function(){'
+           # ★ 페이지의 sticky(.tabbar/.toolbar)는 **건드리지 않는다**.
+           #   전에는 복귀 바를 sticky 로 띄우고 탭바 top 을 밀었는데, 그때마다
+           #   (1) 최상단에서 바가 탭을 덮거나 (2) 탭바가 본문 제목을 덮는 문제가 번갈아 났다.
+           #   원인은 '보이는 위치'와 '차지하는 자리'가 어긋나서다. 그래서 바는 일반 흐름에 두고
+           #   페이지 레이아웃은 원래 설계 그대로 둔다 — 간섭이 0이라 어떤 확대율에서도 안 깨진다.
+           #   (스크롤을 내리면 바는 위로 사라지고, 탭바가 원래대로 top:0 에 붙는다.)
+           'var bar=document.getElementById("hubbackbar");'
+           'function sync(){var cs=getComputedStyle(document.body),'
+           'ml=parseFloat(cs.marginLeft)||0,mr=parseFloat(cs.marginRight)||0,'
+           'mt=parseFloat(cs.marginTop)||0;'
+           'bar.style.marginTop=(-mt)+"px";'          # 바만 위로 붙임 — 아래 내용은 그대로
+           'bar.style.marginBottom=mt+"px";'          # 줄어든 자리를 아래 여백으로 되돌려 준다
+           'bar.style.marginLeft=(-ml)+"px";bar.style.marginRight=(-mr)+"px";}'
+           'sync();addEventListener("resize",sync);'
+           'if(document.fonts&&document.fonts.ready)document.fonts.ready.then(sync);'
+           '})();</script>')
     return re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + bar, s, count=1)
 
 
+def _inject_bg(s: str) -> str:
+    """페이지 배경이 거의 흰색(매출 #f6f8fb·차량 #fff)이라 밋밋 → 소프트 블루 틴트로 교체.
+    흰 카드·표가 배경 위로 도드라져 눈에 잘 들어온다. !important 로 원본 body 배경만 덮는다."""
+    css = ('<style>body{background:radial-gradient(1100px 460px at 50% -150px,'
+           '#cfddf3 0%,rgba(207,221,243,0) 68%),#dde7f4 !important}</style>')
+    return re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + css, s, count=1)
+
+
 def page_html(kind: str) -> str:
-    """도메인 제한 서빙용 페이지 HTML — 원본 + 이름 마스킹(매출) + 상단 복귀 바."""
+    """도메인 제한 서빙용 페이지 HTML — 원본 + 이름 마스킹(매출) + 배경 틴트 + 하단 복귀 링크."""
     p = PAGE_SRC[kind]
     if kind == "revenue":
         cands = sorted((CC / "매출점검").glob("매출점검_합본_*.html"))
@@ -294,6 +364,7 @@ def page_html(kind: str) -> str:
     s = pathlib.Path(p).read_text(encoding="utf-8")
     if kind == "revenue":
         s = _mask_revenue_names(s)
+    s = _inject_bg(s)
     s = _inject_topbar(s)
     return s
 
