@@ -57,7 +57,8 @@ function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) || '';
   var map = { revenue: '매출 점검', carcost: '차량 월별 수리비', runbook: '케어포 운영 런북' };  // 도메인(caring.co.kr) 로그인해야 열림
   if (map[page]) { log_(map[page]); return out_(page, map[page]); }
-  log_('허브 열기');
+  // ★허브 열기 로깅은 status() 로 옮겼다 — doGet 에서 시트를 만지면 그게 끝나야 화면이 뜬다.
+  //   시트 열기·쓰기가 초 단위라 '멈춘 것처럼' 보였고, 다른 자동화와 쓰기가 겹치면 아예 지연됐다.
   return out_('hub', '충청본부 공유 허브');
 }
 function out_(file, title) {
@@ -84,8 +85,12 @@ function nameOf_(email) {
   return m[email] || email.split('@')[0];
 }
 
+/** openById 는 호출당 0.5~1.5초다. 한 실행 안에서 한 번만 열어 재사용한다. */
+var _ssCache = null;
+function ss_() { if (!_ssCache) _ssCache = SpreadsheetApp.openById(SHEET_ID); return _ssCache; }
+
 function nameSheet_() {
-  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var ss = ss_();
   var sh = ss.getSheetByName(NAME_SHEET);
   if (!sh) {
     sh = ss.insertSheet(NAME_SHEET);
@@ -103,6 +108,10 @@ function nameSheet_() {
 var _nm = null;
 function nameMap_() {
   if (_nm) return _nm;
+  try {   // 요청 간 캐시(10분) — 이름표는 거의 안 바뀌는데 매번 전체를 읽고 있었다
+    var c = CacheService.getScriptCache().get('nm');
+    if (c) { _nm = JSON.parse(c); return _nm; }
+  } catch (err) {}
   _nm = {};
   try {
     var sh = nameSheet_();
@@ -112,6 +121,7 @@ function nameMap_() {
         if (e && n) _nm[e] = n;
       });
     }
+    try { CacheService.getScriptCache().put('nm', JSON.stringify(_nm), 600); } catch (e2) {}
   } catch (err) {}
   return _nm;
 }
@@ -119,17 +129,21 @@ function nameMap_() {
 /** 처음 보는 이메일이면 이름표에 빈 줄로 추가 — 채울 대상이 저절로 모인다 */
 function seedName_(email) {
   if (!email) return;
-  try {
+  try {   // 이미 등록된 사람은 스캔 자체를 건너뛴다(전체 열 읽기가 매번 돌고 있었다)
+    var ck = 'seed:' + email, cache = CacheService.getScriptCache();
+    if (cache.get(ck)) return;
+    if (nameMap_()[email]) { cache.put(ck, '1', 21600); return; }
     var sh = nameSheet_();
     var have = sh.getLastRow() > 1
       ? sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().map(function (r) { return String(r[0]).trim(); })
       : [];
     if (have.indexOf(email) === -1) sh.appendRow([email, '']);
+    cache.put(ck, '1', 21600);
   } catch (err) {}
 }
 
 function sheet_() {
-  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var ss = ss_();
   var sh = ss.getSheetByName(LOG_SHEET);
   if (!sh) {
     sh = ss.insertSheet(LOG_SHEET);
@@ -153,6 +167,7 @@ function logItem(item) { log_(String(item || '').slice(0, 60)); return true; }
 
 /** 상단 바에 뿌릴 현황: 나 · 최근 접속자 · 항목별 조회수 */
 function status() {
+  log_('허브 열기');   // doGet 대신 여기서 — 화면이 먼저 뜬 뒤 백그라운드로 기록된다
   var email = who_();
   var out = { me: nameOf_(email), recent: [], items: [], todo: 0 };
   try {   // 이름 안 채워진 사람이 몇인지 — 안 알려주면 이름표가 영영 안 채워진다
@@ -166,7 +181,7 @@ function status() {
     var sh = sheet_();
     var last = sh.getLastRow();
     if (last < 2) return out;
-    var n = Math.min(last - 1, 800);
+    var n = Math.min(last - 1, 400);
     var rows = sh.getRange(last - n + 1, 1, n, HEADERS.length).getValues();
     var seen = {}, cnt = {};
     for (var i = rows.length - 1; i >= 0; i--) {
