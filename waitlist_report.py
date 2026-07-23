@@ -52,12 +52,17 @@ def load_rows() -> list[list[str]]:
 CENTER_RE = re.compile(r"\[([^\]]+?)\s*센터장\]")
 ROUND_RE = re.compile(r"(\d+)\s*차\s*아웃콜")
 
+# 센터명 별칭 → 정식 지점명. 담당자가 다른 이름으로 태그돼도 같은 지점으로 묶는다.
+#   "청주점"(김미림 센터장, 개소예정)은 청주오창점으로 집계 — 별도 행으로 새면 지점 집계에서 누락된다.
+CENTER_ALIAS = {"청주점": "청주오창점"}
+
 
 def parse_center(manager: str) -> str:
     m = CENTER_RE.search(manager)
     if not m:
         return manager.strip()
-    return m.group(1).replace("대전 ", "").strip()  # "대전 서구점"→"서구점"
+    name = m.group(1).replace("대전 ", "").strip()  # "대전 서구점"→"서구점"
+    return CENTER_ALIAS.get(name, name)
 
 
 def parse_round(type2: str) -> str:
