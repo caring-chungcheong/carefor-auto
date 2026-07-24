@@ -74,9 +74,22 @@ def run_branch_audit(
             })()
             """
         )
-        page.wait_for_timeout(3000)
-        n_rows = page.evaluate("document.querySelectorAll('table.frame_list_tbl tr.cr').length")
-        progress_cb(f"[{branch_name}] 수급자 {n_rows}명 (퇴소자 포함)")
+        # ★퇴소자 목록 리로드는 고정 3초로 부족할 때가 있다 — 둔산 실측 138명→74명(퇴소자 65명 누락).
+        #   행 수를 폴링해 '최댓값이 연속 유지'될 때까지 기다린 뒤 확정한다(최소 8초 관찰·최대 25초).
+        #   퇴소자 포함은 행을 늘리기만 하므로 관측된 최댓값이 완전한 목록이다.
+        _count = "document.querySelectorAll('table.frame_list_tbl tr.cr').length"
+        best, stable, _i = 0, 0, 0
+        for _i in range(25):
+            page.wait_for_timeout(1000)
+            n = page.evaluate(_count)
+            if n > best:
+                best, stable = n, 0
+            elif n == best and n > 0:
+                stable += 1
+            if _i >= 7 and stable >= 5:   # 8초 이상 관찰 + 5초 연속 최대치 유지 = 리로드 완료
+                break
+        n_rows = best
+        progress_cb(f"[{branch_name}] 수급자 {n_rows}명 (퇴소자 포함, {_i + 1}s 안정화)")
         if not n_rows:
             raise RuntimeError("수급자 리스트를 찾지 못했습니다.")
 
