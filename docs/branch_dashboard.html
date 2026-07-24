@@ -11,12 +11,18 @@
   header { background: #2f5496; color: #fff; padding: 14px 24px; display: flex; align-items: center; gap: 16px; }
   header h1 { font-size: 19px; margin: 0; }
   header .sub { font-size: 12px; opacity: .85; }
-  .tabs { display: flex; gap: 6px; padding: 12px 24px 0; }
+  .tabs { display: flex; gap: 6px; padding: 12px 24px 0; position: sticky; top: 0; z-index: 31; background: #f4f6fa; }
   .tab { padding: 9px 22px; border-radius: 8px 8px 0 0; background: #d7dfee; cursor: pointer; font-weight: bold; font-size: 14px; }
   .tab.on { background: #fff; color: #2f5496; box-shadow: 0 -2px 6px rgba(0,0,0,.06); }
   .wrap { background: #fff; margin: 0 24px 24px; padding: 18px; border-radius: 0 8px 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,.07); }
   .meta { font-size: 13px; color: #666; margin-bottom: 12px; display:flex; gap:18px; flex-wrap:wrap; }
-  .summary { display: flex; gap: 12px; flex-wrap: wrap; position: sticky; top: 0; z-index: 30; background: #fff; margin: 0 -18px 14px; padding: 12px 18px; box-shadow: 0 3px 8px rgba(0,0,0,.10); }
+  .summary { display: flex; gap: 12px; flex-wrap: wrap; position: sticky; top: 50px; z-index: 30; background: #fff; margin: 0 -18px 14px; padding: 12px 18px; box-shadow: 0 3px 8px rgba(0,0,0,.10); }
+  .flagged-box { margin-top: 18px; border: 1px solid #f0c9c9; border-radius: 8px; background: #fdf7f7; padding: 6px 12px; }
+  .flagged-box > summary { font-weight: bold; color: #c02020; cursor: pointer; padding: 6px 0; }
+  .flag-item { border-top: 1px solid #eedede; padding: 8px 0; }
+  .flag-item .st-bad { color: #c02020; font-weight: bold; }
+  .flag-item .st-warn { color: #b57a00; font-weight: bold; }
+  .flag-item .fdet { font-size: 12px; color: #555; margin: 3px 0 5px; line-height: 1.5; }
   .card { background: #f6f8fc; border: 1px solid #e0e6f0; border-radius: 8px; padding: 10px 18px; text-align: center; min-width: 90px; }
   .card b { display: block; font-size: 22px; }
   table { border-collapse: collapse; width: 100%; font-size: 13px; }
@@ -284,6 +290,30 @@ function render(){
       html += `<details><summary>🔎 수급자별 연간작성·계약 점검 (${an.rows_check.length}명)</summary>
         <table class="small-table"><tr><th>수급자</th><th>현황</th><th>수급기간</th><th>누락①</th><th>누락②</th><th>누락③</th><th>표준약관</th><th>계약연속</th><th>계획점검</th></tr>
         ${an.rows_check.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table></details>`;
+    }
+    // ⚠️ 자동 지적(미흡·주의) 항목 상세를 하단에 모아 표시 — 점수 미부여된 빨간/주황 항목을 한눈에.
+    //    항목에 전건 표(rows)가 있으면 표까지 펼친다(30 연계·34 상태변화 등).
+    const flagged = ITEMS.filter(it=>{
+      const r = d.item_results && d.item_results[String(it.no)];
+      return r && (r.status==='미흡' || r.status==='주의');
+    });
+    if(flagged.length){
+      html += `<details open class="flagged-box"><summary>⚠️ 자동 지적 항목 상세 (${flagged.length}개 — 미흡·주의)</summary>`;
+      flagged.forEach(it=>{
+        const r = d.item_results[String(it.no)];
+        const cls = r.status==='미흡' ? 'st-bad' : 'st-warn';
+        html += `<div class="flag-item"><div><b>${it.no}. ${it.name}</b> <span class="${cls}">● ${r.status}</span></div>`
+          + `<div class="fdet">${r.detail||''}</div>`;
+        if(Array.isArray(r.rows) && r.rows.length){
+          const cols = Array.isArray(r.cols) ? r.cols : [];
+          html += `<table class="small-table">`
+            + (cols.length ? `<tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr>` : '')
+            + r.rows.map(row=>`<tr>${row.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')
+            + `</table>`;
+        }
+        html += `</div>`;
+      });
+      html += `</details>`;
     }
   }
 
