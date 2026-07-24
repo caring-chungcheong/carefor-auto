@@ -1771,6 +1771,7 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None,
     health_parsed = {int(y): parse_health(t) for y, t in (data.get("health") or {}).items()}
     prejoin_parsed = {int(y): parse_prejoin(t) for y, t in (data.get("health_pre") or {}).items()}
     health_miss, health_note = [], []
+    prejoin_seen = set()   # 입사전 미제출은 연도탭마다 같은 신규자가 잡혀 중복된다 → 이름 기준 1회만
     for y in sorted(health_parsed):
         if not _period_ok(date(y, 1, 1), date(y, 12, 31)):
             continue
@@ -1802,7 +1803,10 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None,
         for r in prejoin_parsed.get(y, []):
             if r["left"] or r["status"] == "작성" or r["name"] in EXCLUDE_STAFF:
                 continue
+            if r["name"] in prejoin_seen:
+                continue   # 다른 연도탭에서 이미 잡은 신규자 — 중복 표시 방지(판정 불변)
             if r["join"] and datetime.strptime(r["join"], "%Y.%m.%d").date() <= today:
+                prejoin_seen.add(r["name"])
                 health_miss.append(f"입사전 미제출: {r['name']}(입사 {r['join']})")
 
     # ---- 항목 8③: 복지(포상) 분기별 1회 이상 (8-1-1 대장) ----
