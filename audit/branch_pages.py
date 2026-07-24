@@ -1669,6 +1669,7 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None,
     for ym in sorted(data.get("status") or {}):
         status_weeks += parse_status((data["status"] or {})[ym], ym)
     status_miss = []
+    status_rows = []   # 34④ 전건 표(잘림 없음, 대시보드 drill-down용) — [주차, 작성, 미작성 전체명단]
     for w in status_weeks:
         if w["end"] >= today or w["start"] < eff:
             continue  # 진행중 주·개소 전 주 제외
@@ -1677,6 +1678,9 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None,
             # (이름은 본부 공유 살균기가 '김○숙'으로 마스킹).
             nm = w.get("missing") or []
             gap = (w["total"] or 0) - (w["done"] or 0)   # 케어포 비율이 말하는 누락 인원
+            status_rows.append([f"{w['start'].strftime('%y.%m.%d')}주",
+                                f"{w['done']}/{w['total']}",
+                                ", ".join(nm) if nm else (f"명단 미확인 {gap}명" if gap > 0 else "")])
             if nm:
                 # 명단 수 ≠ 비율상 누락 수 = 행 파싱 드리프트(셀 누락 등) → 조용히 넘기지 않고 드러낸다
                 who = (" (미작성: " + ", ".join(nm[:5])
@@ -1895,7 +1899,9 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None,
             "detail": "2026년 기준 — " + " · ".join(parts),
         }
     if data.get("status") or data.get("result_eval"):
-        sub34 = {}
+        # ★①④ 기본값=주의(폴백 방지) — auto_subs 에 ①②③④가 다 있어 sub_status 가 비면 autoVal 이
+        #   항목 status 로 폴백해 '안 본 결과평가/주간기록'에 만점이 자동기입된다. 한쪽 소스만 있어도 방어.
+        sub34 = {"①": "주의", "④": "주의"}
         if data.get("result_eval"):
             sub34["①"] = st(eval_miss)
         if data.get("status"):
@@ -1906,8 +1912,11 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None,
             "detail": f"[①결과평가·④주1회 상태변화({len(status_weeks)}주 검사)] "
                       + ("; ".join(eval_miss + status_miss) or "결과평가·주간 기록 충족")
                       + (" / " + "; ".join(eval_note) if eval_note else "")
-                      + " (기록 충실성·②30일 재작성·③기록지 제공은 수기)",
+                      + " (기록 충실성은 수기 확인)",
         }
+        if status_rows:   # 34④ 미작성 주차 전건(잘림 없이) — 대시보드 drill-down
+            item_results["34"]["cols"] = ["주차", "작성", "미작성 명단(전체)"]
+            item_results["34"]["rows"] = status_rows
     if data.get("connect") or data.get("medical"):
         # ① 의료기관 동행 진료 작성자 자격(4-4 병의원 + 8-1 직종): 4-4엔 '동행자' 필드가 없어
         #    작성자(입력자)가 운전/사무직이면 '주의(실제 동행자 자격 수기확인)' — 미흡 확정 안 함(오탐 방지)
@@ -1916,10 +1925,13 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None,
         if med.get("records") is not None and med.get("staff_jobs") is not None:
             try:
                 from .collect_medical import judge_item30_1
-                m30 = judge_item30_1(med["records"], med["staff_jobs"], prog_by_person=med.get("prog"))
+                m30 = judge_item30_1(med["records"], med["staff_jobs"],
+                                     prog_by_person=med.get("prog"), branch_name=branch_name)
             except Exception:
                 m30 = None
-        sub = {"②": st(conn_miss)}
+        # ★① 기본값=주의(판정불가·수기) — items.py auto_subs 에 ①을 넣었으므로 sub_status 가 비면
+        #   autoVal 이 항목 status 로 폴백해 '안 본 동행자격'에 만점이 자동기입된다(28③ 검증). 기본값이 이를 막는다.
+        sub = {"②": st(conn_miss), "①": "주의"}
         if m30:
             sub["①"] = m30["status"]
         # 종합: ①미흡 또는 ②미흡 → 미흡, ①주의 → 주의
