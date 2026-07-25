@@ -13,8 +13,25 @@ import re
 HOSP_VIEW = "/share/nursing/view.nursing_hospital_report"
 STAFF_VIEW = "/staff/view.staff_manage"
 PROG_VIEW = "/share/program/view.program_record"   # 5-7 수급자 참여프로그램 리포트
-# 자격 미달(동행/작성 부적격) 직종 키워드
+# 자격 미달(동행/작성 부적격) 직종 키워드 — 운전원·사무원만 부적격(사용자 확정 2026-07-24)
 BAD_JOB_KEYS = ("사무", "운전")
+
+# 8-1 직원목록에 안 잡히는(퇴사·시설장 별도등록·이름표기 차이 등) 자격 작성자 수동 보정.
+# 시설장·(사회)복지사는 동행 진료 자격자라 30① 작성자 지적에서 제외한다. (사용자 확정 2026-07-24)
+# ★직원 실명(개인정보)이라 공개 저장소 소스에 박지 않는다 — gitignore되는 audit_results/에서 로드.
+#   파일 없으면 빈 맵(일반 규칙만으로도 30①은 양호). 지점 PC 로컬에만 known_writers.json을 둔다.
+def _load_known_writer_jobs() -> dict:
+    import json
+    from pathlib import Path
+    p = Path(__file__).resolve().parent.parent / "audit_results" / "known_writers.json"
+    try:
+        raw = json.loads(p.read_text(encoding="utf-8"))
+        return {k: v for k, v in raw.items() if isinstance(v, dict)}   # '_note' 등 메타 제외
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+KNOWN_WRITER_JOBS = _load_known_writer_jobs()
 
 
 def _set_period(page, sdate, edate):
@@ -161,19 +178,24 @@ def _job_bad(job: str) -> bool:
     return bool(job) and any(k in job for k in BAD_JOB_KEYS)
 
 
-def judge_item30_1(records: list, staff_jobs: dict, prog_by_person: dict | None = None) -> dict:
+def judge_item30_1(records: list, staff_jobs: dict, prog_by_person: dict | None = None,
+                   branch_name: str = "") -> dict:
     """작성자 자격(사무원·운전원 지적) + 진료일↔같은 수급자 프로그램 참여 겹침.
 
     prog_by_person: {수급자명: [YYYY.MM.DD,...]} (5-7 참여프로그램). None이면 겹침 판정 생략.
     겹침 = 진료 간 날 그 수급자가 프로그램 참여로도 기록됨 → 모순 소지(수기 시간확인).
+
+    상태 판정(사용자 확정 2026-07-24): 작성자가 운전원·사무원인 건만 '주의'. 시설장·(사회)복지사·
+    간호사 등 자격자와 직종미매칭('?'), 진료-프로그램 겹침은 참고로만 표시하고 상태에 반영하지 않는다.
     """
+    override = KNOWN_WRITER_JOBS.get(branch_name, {})
     if not records:
         return {"status": "주의", "detail": "4-4 병의원 진료내역 없음(기간 내 동행 진료 없음 또는 수집 실패) — 수기 확인",
                 "writers": {}, "bad_writers": [], "overlap": []}
     writers = {}
     for r in records:
         w = r["writer"] or "(미기재)"
-        writers.setdefault(w, {"cnt": 0, "job": staff_jobs.get(w, "?")})
+        writers.setdefault(w, {"cnt": 0, "job": staff_jobs.get(w) or override.get(w) or "?"})
         writers[w]["cnt"] += 1
     bad_writers = [(w, v["job"], v["cnt"]) for w, v in writers.items() if _job_bad(v["job"])]
     unknown = [w for w, v in writers.items() if v["job"] == "?" and w != "(미기재)"]
@@ -189,8 +211,9 @@ def judge_item30_1(records: list, staff_jobs: dict, prog_by_person: dict | None 
     #    실제 동행 진료는 자격자(간호사 등)가 하고 운전·기록입력만 맡은 경우가 있어 작성자만으로
     #    미흡 확정은 오탐이다(실사례: 운전직 직원이 차량운행+기록입력, 실제 동행 진료는 간호사가 수행).
     #    → 운전/사무 작성건은 '주의(실제 동행자 자격 수기확인)'로만 표시하고 미흡 확정 안 함.
-    #    프로그램 겹침·직종미매칭도 주의(수기 시간확인). (사용자 확정 2026-07-21)
-    if bad_writers or overlap or unknown:
+    #    직종미매칭('?')·프로그램 겹침은 참고 표시만 하고 상태에는 반영하지 않는다 — 시설장·
+    #    (사회)복지사 등 자격자는 지적 제외(운전원·사무원만 부적격). (사용자 확정 2026-07-24)
+    if bad_writers:
         status = "주의"
     else:
         status = "양호"
@@ -200,7 +223,8 @@ def judge_item30_1(records: list, staff_jobs: dict, prog_by_person: dict | None 
         detail += (" · ⚠주의 작성자 운전/사무직(실제 동행자 자격 수기확인 — 작성자는 운전지원·입력자일 수 있음): "
                    + ", ".join(f"{w}({j},{c}건)" for w, j, c in bad_writers))
     if unknown:
-        detail += f" · 직종미매칭(수기확인): {', '.join(unknown[:5])}"
+        detail += (" · 직종 8-1 미등록(시설장·과거직원 등 — 자격 무관, 상태 미반영): "
+                   + ", ".join(unknown[:5]))
     if prog_by_person is not None:
         if overlap:
             detail += (f" · ★진료일에 프로그램 참여로도 기록 {len(overlap)}건(모순·수기 시간확인): "

@@ -55,7 +55,7 @@ function setup() {
 
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) || '';
-  var map = { revenue: '매출 점검', carcost: '차량 월별 수리비', runbook: '케어포 운영 런북' };  // 도메인(caring.co.kr) 로그인해야 열림
+  var map = { revenue: '매출 점검', carcost: '차량 월별 수리비', runbook: '케어포 운영 런북', sysmap: '시스템 점검 지도' };  // 도메인(caring.co.kr) 로그인해야 열림
   if (map[page]) { log_(map[page]); return out_(page, map[page]); }
   // ★허브 열기 로깅은 status() 로 옮겼다 — doGet 에서 시트를 만지면 그게 끝나야 화면이 뜬다.
   //   시트 열기·쓰기가 초 단위라 '멈춘 것처럼' 보였고, 다른 자동화와 쓰기가 겹치면 아예 지연됐다.
@@ -321,6 +321,8 @@ PAGE_SRC = {
     # 운영 런북 — 공개 저장소에서 뺀 SKILL.md 내용(케어포 로그인·시트/채널 ID·사고 이력)을
     # 본부에만 도메인 제한으로 서빙한다. 원본은 Pages 밖 클로드코드/ 폴더.
     "runbook": CC / "케어포_운영런북.html",
+    # 시스템 점검 지도 — 본부 이전·자동실행 전체 지도(개인정보 없음). 원본은 클로드코드/.
+    "sysmap": CC / "본부_시스템_점검지도.html",
 }
 
 
@@ -475,6 +477,7 @@ def main():
                 {"name": "revenue", "type": "HTML", "source": page_html("revenue")},
                 {"name": "carcost", "type": "HTML", "source": page_html("carcost")},
                 {"name": "runbook", "type": "HTML", "source": page_html("runbook")},
+                {"name": "sysmap", "type": "HTML", "source": page_html("sysmap")},
             ]}, method="PUT")
     print("코드 업로드:", "OK" if r.get("files") else r.get("ERR"))
     if r.get("ERR"):

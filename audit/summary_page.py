@@ -61,9 +61,15 @@ def _branch_summary(d: dict, rx) -> dict:
     safe_items = {}
     for no, r in (d.get("item_results") or {}).items():
         rr = dict(r) if isinstance(r, dict) else r
-        if isinstance(rr, dict) and rr.get("detail"):
-            # 마스킹 후 HTML 이스케이프(<, &, > 로 표 렌더 깨짐/주입 방지 — innerHTML 삽입됨)
-            rr["detail"] = html.escape(detail_for_share(rr["detail"], rx))
+        if isinstance(rr, dict):
+            # ★rows/cols(전건 명단, 실명)는 요약이 렌더에 쓰지 않는다 → 그대로 두면 마스킹 없이
+            #   실명이 요약 payload 로 샌다(대시보드는 별도 마스킹하지만 요약은 detail 만 처리).
+            #   요약에선 아예 제거한다(개인정보 유출 차단).
+            rr.pop("rows", None)
+            rr.pop("cols", None)
+            if rr.get("detail"):
+                # 마스킹 후 HTML 이스케이프(<, &, > 로 표 렌더 깨짐/주입 방지 — innerHTML 삽입됨)
+                rr["detail"] = html.escape(detail_for_share(rr["detail"], rx))
         safe_items[no] = rr
     return {
         "run_at": d.get("run_at", ""),

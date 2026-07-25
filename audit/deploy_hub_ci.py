@@ -34,7 +34,7 @@ from audit.deploy_hub import (CODE, MANIFEST, SCRIPT_ID, DEPLOY_ID, build_html, 
                               _mask_revenue_names, _inject_topbar)
 
 # 저장소 밖 원본이 필요해 CI 에서 못 만드는 페이지들 — 현재 배포본을 그대로 살린다
-PRESERVE = ("revenue", "carcost", "runbook")
+PRESERVE = ("revenue", "carcost", "runbook", "sysmap")
 
 
 def revenue_page_from(path: str) -> str:

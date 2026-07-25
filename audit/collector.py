@@ -74,9 +74,22 @@ def run_branch_audit(
             })()
             """
         )
-        page.wait_for_timeout(3000)
-        n_rows = page.evaluate("document.querySelectorAll('table.frame_list_tbl tr.cr').length")
-        progress_cb(f"[{branch_name}] 수급자 {n_rows}명 (퇴소자 포함)")
+        # ★퇴소자 목록 리로드는 고정 3초로 부족할 때가 있다 — 둔산 실측 138명→74명(퇴소자 65명 누락).
+        #   행 수를 폴링해 '최댓값이 연속 유지'될 때까지 기다린 뒤 확정한다(최소 8초 관찰·최대 25초).
+        #   퇴소자 포함은 행을 늘리기만 하므로 관측된 최댓값이 완전한 목록이다.
+        _count = "document.querySelectorAll('table.frame_list_tbl tr.cr').length"
+        best, stable, _i = 0, 0, 0
+        for _i in range(25):
+            page.wait_for_timeout(1000)
+            n = page.evaluate(_count)
+            if n > best:
+                best, stable = n, 0
+            elif n == best and n > 0:
+                stable += 1
+            if _i >= 7 and stable >= 5:   # 8초 이상 관찰 + 5초 연속 최대치 유지 = 리로드 완료
+                break
+        n_rows = best
+        progress_cb(f"[{branch_name}] 수급자 {n_rows}명 (퇴소자 포함, {_i + 1}s 안정화)")
         if not n_rows:
             raise RuntimeError("수급자 리스트를 찾지 못했습니다.")
 
@@ -184,6 +197,16 @@ def run_branch_audit(
                     progress_cb(f"[{branch_name}] 항목 28: {r28['status']}")
         except Exception as e:
             progress_cb(f"[{branch_name}] 항목 28 판정 건너뜀: {e}")
+
+        # ★34②③ 기본값을 판정 시도 '전'에 무조건 박는다(28③과 동일 이유) — items.py auto_subs 에
+        #   ②③을 넣었으므로 sub_status 가 비면 대시보드 autoVal 이 항목 status 로 폴백해 '안 본
+        #   재작성·기록지제공'에 만점이 자동기입된다. 수집물(결과평가/청구발송) 없음·judge 예외 등
+        #   어디서 터져도 이 기본값(주의=수기확인)이 남아야 한다. status 는 올리지 않는다.
+        cur34 = analysis["item_results"].get("34")
+        if cur34:
+            sd34 = cur34.setdefault("sub_status", {})
+            sd34.setdefault("②", "주의")
+            sd34.setdefault("③", "주의")
 
         # 항목 34② 보강: 결과평가 c3/c4 ↔ 30일 내 계획 재작성 (사전 수집물 있을 때만)
         # branch_pages 의 34 는 1-2 집계 숫자만 봐서 ①④ 부분판정 → ② 를 얹는다.

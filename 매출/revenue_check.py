@@ -1426,7 +1426,7 @@ def finalize_branch(b, y, m, py, pm, data, hist_dir, progress=print):
     # (7-1 급여비용은 한도초과·등급외가 자동 제외된 순수 공단청구 급여비용)
     billed_prev = int(data.get("billed_prev", 0) or 0)
     ratio = (billed_prev / prev_t["rev_total"]) if (billed_prev and prev_t["rev_total"]) else 1.0
-    # 8h미만 매출(표시)은 계약제외분(구제숙 등)도 포함해야 8h이상+8h미만=총매출 항등 유지
+    # 8h미만 매출(표시)은 계약제외분(구○숙 등)도 포함해야 8h이상+8h미만=총매출 항등 유지
     prev_t["rev_billed"] = billed_prev or prev_t["rev_total"]
     prev_t["rev_over8_billed"] = round(prev_t["rev_over8"] * ratio)
     prev_t["rev_under8_billed"] = round((prev_t["rev_under8"] + prev_t["rev_under8_excl"]) * ratio)
