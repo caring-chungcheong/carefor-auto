@@ -294,6 +294,14 @@ function render(){
     }
     // ⚠️ 자동 지적(미흡·주의) 항목 상세를 하단에 모아 표시 — 점수 미부여된 빨간/주황 항목을 한눈에.
     //    항목에 전건 표(rows)가 있으면 표까지 펼친다(30 연계·34 상태변화 등).
+    // 항목별 '건별 명단' 소스: item_results.rows 가 없는 항목은 analysis.* 의 건별 표를 붙인다
+    // (누가·뭐가 문제인지 항목 바로 아래에서 확인 → 조치 가능). [analysis키, 라벨, 헤더]
+    const AN_MAP = {
+      '20': [['rows_check', '수급자별 연간작성·계약 점검', ['수급자','현황','수급기간','누락①','누락②','누락③','표준약관','계약연속','계획점검'], true]],
+      '21': [['halfyear_miss', '반기별 평가 누락', ['수급자','현황','반기','평가','재적기간'], false]],
+      '22': [['plan_issues', '발송·서명 문제', ['수급자','작성일','적용기간','발송상태','동의일','문제'], false],
+             ['order_issues', '계획-기초평가 순서', ['수급자','계획작성일','내용'], false]],
+    };
     const flagged = ITEMS.filter(it=>{
       const r = d.item_results && d.item_results[String(it.no)];
       // 미흡·주의는 물론, 양호라도 특이사항(rows: 수기확인 명단)이 있으면 하단에 표시 — 30 연계 등
@@ -301,18 +309,23 @@ function render(){
     });
     if(flagged.length){
       html += `<details open class="flagged-box"><summary>⚠️ 자동 지적·특이사항 상세 (${flagged.length}개 — 미흡·주의·수기확인)</summary>`;
+      const tbl = (cols, rows)=> `<table class="small-table">`
+        + (cols.length ? `<tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr>` : '')
+        + rows.map(row=>`<tr>${row.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('') + `</table>`;
       flagged.forEach(it=>{
         const r = d.item_results[String(it.no)];
         const cls = r.status==='미흡' ? 'st-bad' : (r.status==='주의' ? 'st-warn' : 'st-ok');
         html += `<div class="flag-item"><div><b>${it.no}. ${it.name}</b> <span class="${cls}">● ${r.status}</span></div>`
           + `<div class="fdet">${r.detail||''}</div>`;
-        if(Array.isArray(r.rows) && r.rows.length){
-          const cols = Array.isArray(r.cols) ? r.cols : [];
-          html += `<table class="small-table">`
-            + (cols.length ? `<tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr>` : '')
-            + r.rows.map(row=>`<tr>${row.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')
-            + `</table>`;
-        }
+        // 1) 항목 자체 rows(30 연계·34 상태변화)
+        if(Array.isArray(r.rows) && r.rows.length) html += tbl(Array.isArray(r.cols)?r.cols:[], r.rows);
+        // 2) analysis.* 건별 명단(20 계약점검·21 반기누락·22 발송서명 등)
+        (AN_MAP[String(it.no)] || []).forEach(([akey, label, acols, onlyProblem])=>{
+          let arr = (an && an[akey]) || [];
+          if(onlyProblem) arr = arr.filter(row=>!/정상/.test(String(row[row.length-1]||'')));  // 20: 문제 행만
+          if(!arr.length) return;
+          html += `<div class="loc" style="margin-top:5px">↳ ${label} (${arr.length}건)</div>` + tbl(acols, arr);
+        });
         html += `</div>`;
       });
       html += `</details>`;
