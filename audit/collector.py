@@ -52,8 +52,19 @@ def run_branch_audit(
         ctx = browser.new_context(http_credentials={"username": portal_id, "password": portal_pw})
         portal_page = ctx.new_page()
         progress_cb(f"[{branch_name}] 포털 로그인 중...")
-        portal_page.goto(PORTAL_URL, wait_until="domcontentloaded")
-        portal_page.wait_for_function("typeof login2 === 'function'", timeout=15000)
+        # 포털 goto 는 4지점이 같은 계정으로 동시 로그인할 때(matrix 병렬) 간헐적으로 30초를 넘겨
+        # 타임아웃난다(둔산 실측 2026-07-25: Page.goto Timeout 30000ms → job 실패 → 허브에서 소멸).
+        # 타임아웃을 60초로 늘리고 3회 재시도(백오프)해 일시적 지연·혼잡을 견딘다.
+        for _attempt in range(3):
+            try:
+                portal_page.goto(PORTAL_URL, wait_until="domcontentloaded", timeout=60000)
+                portal_page.wait_for_function("typeof login2 === 'function'", timeout=20000)
+                break
+            except Exception as _e:
+                if _attempt == 2:
+                    raise
+                progress_cb(f"[{branch_name}] 포털 로그인 재시도 {_attempt + 2}/3 ({type(_e).__name__})")
+                portal_page.wait_for_timeout(5000 * (_attempt + 1))
         with ctx.expect_page(timeout=60000) as new_page_info:
             portal_page.evaluate(f"login2('{ctmnumb}')")
         page = new_page_info.value
