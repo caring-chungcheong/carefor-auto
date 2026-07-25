@@ -22,6 +22,7 @@
   .flag-item { border-top: 1px solid #eedede; padding: 8px 0; }
   .flag-item .st-bad { color: #c02020; font-weight: bold; }
   .flag-item .st-warn { color: #b57a00; font-weight: bold; }
+  .flag-item .st-ok { color: #2c8a41; font-weight: bold; }
   .flag-item .fdet { font-size: 12px; color: #555; margin: 3px 0 5px; line-height: 1.5; }
   .card { background: #f6f8fc; border: 1px solid #e0e6f0; border-radius: 8px; padding: 10px 18px; text-align: center; min-width: 90px; }
   .card b { display: block; font-size: 22px; }
@@ -295,13 +296,14 @@ function render(){
     //    항목에 전건 표(rows)가 있으면 표까지 펼친다(30 연계·34 상태변화 등).
     const flagged = ITEMS.filter(it=>{
       const r = d.item_results && d.item_results[String(it.no)];
-      return r && (r.status==='미흡' || r.status==='주의');
+      // 미흡·주의는 물론, 양호라도 특이사항(rows: 수기확인 명단)이 있으면 하단에 표시 — 30 연계 등
+      return r && (r.status==='미흡' || r.status==='주의' || (Array.isArray(r.rows) && r.rows.length));
     });
     if(flagged.length){
-      html += `<details open class="flagged-box"><summary>⚠️ 자동 지적 항목 상세 (${flagged.length}개 — 미흡·주의)</summary>`;
+      html += `<details open class="flagged-box"><summary>⚠️ 자동 지적·특이사항 상세 (${flagged.length}개 — 미흡·주의·수기확인)</summary>`;
       flagged.forEach(it=>{
         const r = d.item_results[String(it.no)];
-        const cls = r.status==='미흡' ? 'st-bad' : 'st-warn';
+        const cls = r.status==='미흡' ? 'st-bad' : (r.status==='주의' ? 'st-warn' : 'st-ok');
         html += `<div class="flag-item"><div><b>${it.no}. ${it.name}</b> <span class="${cls}">● ${r.status}</span></div>`
           + `<div class="fdet">${r.detail||''}</div>`;
         if(Array.isArray(r.rows) && r.rows.length){
