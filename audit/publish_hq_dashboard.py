@@ -184,14 +184,33 @@ def verify(payload: dict, names: set[str]) -> list[str]:
     return sorted(set(rx.findall(blob))) if rx else []
 
 
+def _existing_hub_data() -> dict:
+    """이미 발행된 docs/dashboard_data.js 의 AUDIT_DATA(마스킹본). 부분실패 시 보존용."""
+    try:
+        t = OUT.read_text(encoding="utf-8")
+        m = re.search(r"window\.AUDIT_DATA = (\{.*?\});\s*\nwindow\.AUDIT_ITEMS", t, re.S)
+        return json.loads(m.group(1)) if m else {}
+    except (OSError, json.JSONDecodeError, AttributeError):
+        return {}
+
+
 def main():
     payload = _load()
     payload, names = sanitize(payload)
     hits = verify(payload, names)
     if hits:
         raise SystemExit(f"❌ 살균 실패 — 잔여 이름 {len(hits)}건: {hits[:10]}")
+    # ★부분실패 보존: 이번 런에 없는 지점(실패·미포함)은 기존 docs 값을 유지한다.
+    #   merge 가 성공한 지점만 모아 재생성하면 실패지점이 허브에서 통째로 사라진다(둔산 실측 2026-07-25:
+    #   케어포 로그인 타임아웃으로 둔산 job 실패 → merge 가 3지점만 발행 → 둔산 소멸). 기존 docs 는
+    #   이미 마스킹본이라 병합해도 안전(실명 없음). 이번 런 지점만 갱신하고 나머지는 그대로 둔다.
+    merged = _existing_hub_data()
+    dropped = [b for b in merged if b not in payload["data"]]
+    merged.update(payload["data"])
+    if dropped:
+        print(f"⚠️ 이번 런에 없는 지점 {len(dropped)}개는 기존 허브 데이터 보존: {', '.join(dropped)}")
     js = ("// 본부 공유용 — 이름(개인정보) 제거본. 원본은 지점 PC audit_results/ 에만 존재.\n"
-          "window.AUDIT_DATA = " + json.dumps(payload["data"], ensure_ascii=False) + ";\n"
+          "window.AUDIT_DATA = " + json.dumps(merged, ensure_ascii=False) + ";\n"
           "window.AUDIT_ITEMS = " + json.dumps(payload["items"], ensure_ascii=False) + ";\n")
     OUT.parent.mkdir(exist_ok=True)
     OUT.write_text(js, encoding="utf-8")
