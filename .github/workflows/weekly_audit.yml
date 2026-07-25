@@ -184,6 +184,7 @@ jobs:
         timeout-minutes: 5
         env:
           CONFIG_YAML: ${{ secrets.CONFIG_YAML }}
+          LTC_API_KEY: ${{ secrets.LTC_API_KEY }}   # 공단 정원/현원 대조(18① 내용확인). 없으면 judge18 이 '주의'로 안전 폴백
           BRANCH:      ${{ matrix.name }}
           CI: "true"
         run: python -X utf8 -m audit.collect_ltc_public "$BRANCH"
