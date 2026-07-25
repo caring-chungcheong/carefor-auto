@@ -225,7 +225,8 @@ jobs:
         with:
           name: audit-${{ matrix.key }}
           path: result.json.gpg
-          retention-days: 1   # merge 가 바로 쓰고 버린다 — 노출 창을 최소화
+          retention-days: 5   # 로컬 동기화(CareforLocalDashboardSync)가 주말·타이밍 늦어도
+                              # 최신 런을 받을 수 있게 5일 보존(암호화본이라 노출위험 낮음).
           if-no-files-found: error
 
   merge:

@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <title>지점관리 점검 대시보드</title>
-<script src="audit_results/dashboard_data.js" onerror="window.AUDIT_DATA={};window.AUDIT_ITEMS=null;"></script>
+<script>/* 캐시 무력화: 매번 최신 데이터를 읽어 로컬↔허브 불일치 방지 */
+document.write('<sc'+'ript src="audit_results/dashboard_data.js?_='+Date.now()+'" onerror="window.AUDIT_DATA={};window.AUDIT_ITEMS=null;"><\/sc'+'ript>');</script>
 <script src="vendor/xlsx.full.min.js"></script>
 <style>
   * { box-sizing: border-box; }

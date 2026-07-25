@@ -81,7 +81,8 @@ _HQ_SCRIPT = """<script>
 def publish_dashboard_html():
     """원본 audit_dashboard.html → docs/branch_dashboard.html (본부 공유용) 변환 발행."""
     html = DASH_SRC.read_text(encoding="utf-8")
-    html = html.replace('src="audit_results/dashboard_data.js"', 'src="dashboard_data.js"')
+    # 데이터 경로: 로컬은 audit_results/, 허브는 같은 폴더. 캐시무력화(?_=) 형식도 함께 치환.
+    html = html.replace('audit_results/dashboard_data.js', 'dashboard_data.js')
     html = html.replace("</head>", _GATE_HEAD + "</head>", 1)
     html = html.replace("<body>", "<body>" + _GATE_BODY, 1)
     html = html.replace("<header>", "<header>" + _HEADER_BACK, 1)  # 상단에 ← 허브
