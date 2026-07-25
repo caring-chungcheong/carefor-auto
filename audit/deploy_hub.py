@@ -55,7 +55,8 @@ function setup() {
 
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) || '';
-  var map = { revenue: '매출 점검', carcost: '차량 월별 수리비', runbook: '케어포 운영 런북', sysmap: '시스템 점검 지도' };  // 도메인(caring.co.kr) 로그인해야 열림
+  var map = { revenue: '매출 점검', carcost: '차량 월별 수리비', runbook: '케어포 운영 런북', sysmap: '시스템 점검 지도',
+              dunsan: '둔산점 홍보 리포트', cheonan: '천안점 홍보 리포트', cheongju: '청주 오창점 홍보 리포트' };  // 도메인(caring.co.kr) 로그인해야 열림
   if (map[page]) { log_(map[page]); return out_(page, map[page]); }
   // ★허브 열기 로깅은 status() 로 옮겼다 — doGet 에서 시트를 만지면 그게 끝나야 화면이 뜬다.
   //   시트 열기·쓰기가 초 단위라 '멈춘 것처럼' 보였고, 다른 자동화와 쓰기가 겹치면 아예 지연됐다.
@@ -323,6 +324,11 @@ PAGE_SRC = {
     "runbook": CC / "케어포_운영런북.html",
     # 시스템 점검 지도 — 본부 이전·자동실행 전체 지도(개인정보 없음). 원본은 클로드코드/.
     "sysmap": CC / "본부_시스템_점검지도.html",
+    # 지점 홍보 리포트 — B2B 영업전략(접촉명단·경쟁센터 연락처)이라 공개 Pages 금지.
+    # docs/ 밖(클로드코드/지점홍보리포트/)에 두고 도메인 제한으로만 서빙한다.
+    "dunsan": CC / "지점홍보리포트" / "둔산.html",
+    "cheonan": CC / "지점홍보리포트" / "천안.html",
+    "cheongju": CC / "지점홍보리포트" / "청주오창.html",
 }
 
 
@@ -404,7 +410,8 @@ def page_html(kind: str) -> str:
     s = pathlib.Path(p).read_text(encoding="utf-8")
     if kind == "revenue":
         s = _mask_revenue_names(s)
-    s = _inject_bg(s)
+    if kind in ("revenue", "carcost"):   # 이 둘만 너무 흰 배경 → 틴트. 홍보 리포트는 자체 디자인 유지
+        s = _inject_bg(s)
     s = _inject_topbar(s)
     return s
 
@@ -478,6 +485,9 @@ def main():
                 {"name": "carcost", "type": "HTML", "source": page_html("carcost")},
                 {"name": "runbook", "type": "HTML", "source": page_html("runbook")},
                 {"name": "sysmap", "type": "HTML", "source": page_html("sysmap")},
+                {"name": "dunsan", "type": "HTML", "source": page_html("dunsan")},
+                {"name": "cheonan", "type": "HTML", "source": page_html("cheonan")},
+                {"name": "cheongju", "type": "HTML", "source": page_html("cheongju")},
             ]}, method="PUT")
     print("코드 업로드:", "OK" if r.get("files") else r.get("ERR"))
     if r.get("ERR"):
