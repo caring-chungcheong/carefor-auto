@@ -72,11 +72,8 @@
   .item:hover .ia{opacity:1}
   .item.sub{padding:9px 14px;background:#fbfcfe}
   .item.sub .it b{font-weight:600;font-size:13px;color:var(--muted)}
-  /* 전체폭 리포트 섹션: 내부 항목을 가로 3열로 */
-  .catwide{display:grid;grid-template-columns:repeat(3,1fr);gap:9px 14px}
-  .catwide .cathead{grid-column:1/-1}
-  .catwide .item{margin-bottom:0}
-  @media(max-width:680px){.catwide{grid-template-columns:1fr}}
+  /* 신규개소 + 기존지점 리포트를 한 열에 세로로 쌓음(나머지 섹션은 옆 열) */
+  .reportcol{display:flex;flex-direction:column;gap:20px}
 
   .card{background:var(--card);border-radius:18px;position:relative;overflow:hidden;
     border:1px solid var(--line);box-shadow:0 3px 14px rgba(31,45,71,.06);
@@ -221,19 +218,21 @@
 
   <div class="hubgrid">
 
-    <section class="cat catwide" style="--c:var(--teal);grid-column:1/-1">
+    <div class="reportcol">
+    <section class="cat" style="--c:var(--teal)">
       <div class="cathead">신규 개소 리포트 <span>· 지점 오픈 입지·홍보</span></div>
       <a class="item" href="bongmyeong.html" target="_top"><span class="ii">🗺️</span><span class="it"><b class="ttl">청주 봉명동 개소 리포트</b><span>청주 봉명동 · 2026.10 · 송영 30분권</span></span><span class="ia">→</span></a>
       <a class="item" href="junggu.html" target="_top"><span class="ii">🏙️</span><span class="it"><b class="ttl">대전 중구 개소 리포트</b><span>대전 대흥동 · 2026.11 · 원도심 초고령</span></span><span class="ia">→</span></a>
       <a class="item" href="yuseong.html" target="_top"><span class="ii">🚉</span><span class="it"><b class="ttl">대전 유성 개소 리포트</b><span>유성온천역 · 개소 미정 · 역세권 경쟁공백</span></span><span class="ia">→</span></a>
     </section>
 
-    <section class="cat catwide" style="--c:var(--amber);grid-column:1/-1">
+    <section class="cat" style="--c:var(--amber)">
       <div class="cathead">기존 지점 홍보 리포트 <span>· 운영 지점 입지·원생 모집</span></div>
       <a class="item" href="dunsan.html" target="_top"><span class="ii">🏙️</span><span class="it"><b class="ttl">둔산점 홍보 리포트</b><span>대전 서구 둔산 · 정원76·여석7 · 탄방역 도보권</span></span><span class="ia">→</span></a>
       <a class="item" href="cheonan.html" target="_top"><span class="ii">🏘️</span><span class="it"><b class="ttl">천안점 홍보 리포트</b><span>천안 서북구 성정동 · 정원82·여석17</span></span><span class="ia">→</span></a>
       <a class="item" href="cheongju.html" target="_top"><span class="ii">🌾</span><span class="it"><b class="ttl">청주 오창점 홍보 리포트</b><span>청주 청원구 오창읍 · 정원62·여석11 · 독립 생활권</span></span><span class="ia">→</span></a>
     </section>
+    </div>
 
     <section class="cat" style="--c:var(--navy2)">
       <div class="cathead">본부 운영 자료 <span>· 자동 점검·집계</span></div>
