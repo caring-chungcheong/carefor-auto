@@ -578,8 +578,33 @@ if(!ITEMS.length){
   document.getElementById('content').innerHTML =
     '<div class="nodata">audit_results/dashboard_data.js 가 없습니다.<br>먼저 <b>py run_audit.py</b> 를 한 번 실행하세요 (항목 정의가 함께 생성됩니다).</div>';
   document.getElementById('tabs').innerHTML = '';
+} else if(document.getElementById('hqgate')){
+  render();   // 허브(본부 공유): 읽기전용 — 자동동기화 안 함(_HQ_SCRIPT가 업로드값을 불러옴)
 } else {
-  render();
+  // ★로컬↔허브 점수 자동 일치 (로컬 대시보드 전용):
+  //   1) 공유 저장소(업로드값)를 먼저 불러와, 로컬에 수기 입력이 '없는' 지점은 그 값으로 표시
+  //      (로컬이 비었다고 공유값을 덮지 않음 — 허브와 같은 화면).
+  //   2) 로컬에 수기 입력이 '있는' 지점은 그게 원본이므로 공유로 자동 업로드 → 허브가 로컬과 같아짐.
+  //   버튼 안 눌러도 열기만 하면 양방향으로 맞춰진다.
+  var _hasManual = function(b){ var m=loadManual(b); return m && Object.keys(m).length>0; };
+  fetch(SCORES_HOOK+(SCORES_HOOK.indexOf('?')>=0?'&':'?')+'token='+encodeURIComponent(SCORES_TOKEN))
+    .then(function(r){return r.json();})
+    .then(function(j){
+      var scores = (j && j.ok && j.scores) ? j.scores : {};
+      BRANCHES.forEach(function(b){
+        if(_hasManual(b) || !scores[b]) return;   // 로컬 수기 있으면 그대로, 없고 공유값 있으면 내려받아 표시
+        var sc=scores[b], m={};
+        if(sc.sub_values) Object.keys(sc.sub_values).forEach(function(no){ m[no]={subs:{}}; Object.keys(sc.sub_values[no]).forEach(function(lab){ m[no].subs[lab]=sc.sub_values[no][lab].v; }); });
+        if(sc.memos) Object.keys(sc.memos).forEach(function(no){ m[no]=m[no]||{subs:{}}; m[no].memo=sc.memos[no]; });
+        saveManual(b, m);
+      });
+      render();
+      BRANCHES.forEach(async function(b){     // 로컬 수기 있는 지점은 공유로 올림(로컬이 원본)
+        if(!_hasManual(b)) return;
+        try{ var data=buildScoreData(b); if(data.filled>0) await postScores(b, data); }catch(e){}
+      });
+    })
+    .catch(function(){ render(); });   // 오프라인이면 로컬 값으로만 표시
 }
 </script>
 </body>
