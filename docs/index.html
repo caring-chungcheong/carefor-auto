@@ -19,6 +19,7 @@
     color: #2c3e50;
     min-height: 100vh;
     -webkit-text-size-adjust: 100%;
+    word-break: keep-all;   /* 한글 음절 중간 끊김 방지(모바일 두 줄 밀림 해결). 첨부링크는 .hist-att 가 break-all 로 예외 */
   }
   .header {
     background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
@@ -230,8 +231,10 @@
     border-bottom: 1px dashed #e2e8f0;
   }
   .info-row:last-child { border-bottom: none; }
-  .info-label { color: #64748b; }
-  .info-value { font-weight: 600; }
+  /* 라벨은 절대 두 줄로 쪼개지지 않게(예: '정기검사'→'정기검'/'사' 방지), 값은 좁은 폰에서
+     단어(한글) 단위로만 줄바꿈. word-break:keep-all 이 음절 중간 끊김을 막는다. */
+  .info-label { color: #64748b; white-space: nowrap; flex-shrink: 0; }
+  .info-value { font-weight: 600; text-align: right; word-break: keep-all; padding-left: 10px; min-width: 0; }
 
   .badges { margin-top: 10px; display: flex; gap: 6px; flex-wrap: nowrap; justify-content: center; }
   .badge {
