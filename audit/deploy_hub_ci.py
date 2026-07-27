@@ -34,7 +34,15 @@ from audit.deploy_hub import (CODE, MANIFEST, SCRIPT_ID, DEPLOY_ID, build_html, 
                               _mask_revenue_names, _inject_topbar)
 
 # 저장소 밖 원본이 필요해 CI 에서 못 만드는 페이지들 — 현재 배포본을 그대로 살린다
-PRESERVE = ("revenue", "carcost", "runbook", "sysmap")
+PRESERVE = ("revenue", "carcost", "runbook", "sysmap", "workreport")
+
+
+def workreport_page_from(path: str) -> str:
+    """CI 가 방금 만든 근무일지 점검 합본 HTML → 허브용 페이지.
+    ★마스킹하지 않는다 — 대상이 수급자가 아니라 '직원'이고, 누가 안 썼는지가 점검의 목적이다.
+      허브는 caring.co.kr 도메인 로그인 전용이라 외부에 열리지 않는다."""
+    s = pathlib.Path(path).read_text(encoding="utf-8")
+    return _inject_topbar(s)
 
 
 def revenue_page_from(path: str) -> str:
@@ -65,6 +73,10 @@ def main():
     src_revenue = None
     if "--revenue-from" in sys.argv:
         src_revenue = sys.argv[sys.argv.index("--revenue-from") + 1]
+    # --workreport-from <합본 HTML>: 근무일지 점검 페이지만 새로 만들어 올린다(나머지 보존)
+    src_workreport = None
+    if "--workreport-from" in sys.argv:
+        src_workreport = sys.argv[sys.argv.index("--workreport-from") + 1]
     # --carcost: 로컬 '차량_월별수리비내역.html' 로 차량 페이지도 갱신(로컬 정기실행용).
     #   경로가 고정이라 인자를 받지 않고 deploy_hub.page_html 을 그대로 쓴다(중복 구현 금지).
     #   CI 에는 그 원본이 없으므로 CI 에서는 이 플래그를 쓰지 않는다 — 안 주면 종전대로 보존.
@@ -83,6 +95,10 @@ def main():
         keep["revenue"] = {"name": "revenue", "type": "HTML",
                            "source": revenue_page_from(src_revenue)}
         print(f"  갱신: revenue ← {src_revenue} ({len(keep['revenue']['source'])}자, 이름 마스킹 적용)")
+    if src_workreport:   # 방금 만든 근무일지 점검 합본으로 교체
+        keep["workreport"] = {"name": "workreport", "type": "HTML",
+                              "source": workreport_page_from(src_workreport)}
+        print(f"  갱신: workreport ← {src_workreport} ({len(keep['workreport']['source'])}자)")
     if want_carcost:  # 로컬 차량 수리비 HTML 로 교체 (원본 없으면 조용히 보존)
         try:
             from audit.deploy_hub import page_html as _page_html
@@ -93,6 +109,8 @@ def main():
             print(f"  ⚠️ carcost 원본을 못 읽어 보존합니다: {ex}")
 
     _updated = {"revenue"} if src_revenue else set()
+    if src_workreport:
+        _updated.add("workreport")
     if want_carcost and "carcost" in keep:
         _updated.add("carcost")
     for n in PRESERVE:

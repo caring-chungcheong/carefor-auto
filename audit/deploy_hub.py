@@ -56,6 +56,7 @@ function setup() {
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) || '';
   var map = { revenue: '매출 점검', carcost: '차량 월별 수리비', runbook: '케어포 운영 런북', sysmap: '시스템 점검 지도',
+              workreport: '근무일지 점검',
               dunsan: '둔산점 홍보 리포트', cheonan: '천안점 홍보 리포트', cheongju: '청주 오창점 홍보 리포트' };  // 도메인(caring.co.kr) 로그인해야 열림
   if (map[page]) { log_(map[page]); return out_(page, map[page]); }
   // ★허브 열기 로깅은 status() 로 옮겼다 — doGet 에서 시트를 만지면 그게 끝나야 화면이 뜬다.
@@ -319,6 +320,9 @@ PAGE_SRC = {
     "carcost": CC / "차량_월별수리비내역.html",
     # 매출은 월별 합본 최신본을 자동 선택
     "revenue": None,
+    # 근무일지 점검(8-4) — 직원 실명이 들어 있어 공개 Pages 금지. 합본 최신본을 자동 선택.
+    #   CI(월 1회)는 러너에서 만든 합본을 deploy_hub_ci --workreport-from 으로 올린다.
+    "workreport": None,
     # 운영 런북 — 공개 저장소에서 뺀 SKILL.md 내용(케어포 로그인·시트/채널 ID·사고 이력)을
     # 본부에만 도메인 제한으로 서빙한다. 원본은 Pages 밖 클로드코드/ 폴더.
     "runbook": CC / "케어포_운영런북.html",
@@ -407,6 +411,11 @@ def page_html(kind: str) -> str:
         if not cands:
             raise SystemExit("매출점검 합본 HTML을 찾지 못함 (클로드코드/매출점검/)")
         p = cands[-1]
+    if kind == "workreport":
+        cands = sorted((CC / "근무일지점검").glob("근무일지점검_합본_*.html"))
+        if not cands:
+            raise SystemExit("근무일지점검 합본 HTML을 찾지 못함 (클로드코드/근무일지점검/)")
+        p = cands[-1]
     s = pathlib.Path(p).read_text(encoding="utf-8")
     if kind == "revenue":
         s = _mask_revenue_names(s)
@@ -482,6 +491,7 @@ def main():
                 {"name": "Code", "type": "SERVER_JS", "source": CODE},
                 {"name": "hub", "type": "HTML", "source": build_html()},
                 {"name": "revenue", "type": "HTML", "source": page_html("revenue")},
+                {"name": "workreport", "type": "HTML", "source": page_html("workreport")},
                 {"name": "carcost", "type": "HTML", "source": page_html("carcost")},
                 {"name": "runbook", "type": "HTML", "source": page_html("runbook")},
                 {"name": "sysmap", "type": "HTML", "source": page_html("sysmap")},
