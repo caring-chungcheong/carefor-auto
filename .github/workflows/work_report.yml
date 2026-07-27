@@ -18,6 +18,12 @@ on:
         description: '점검할 연월 YYYY-MM (비우면 전월)'
         required: false
         default: ''
+      publish:
+        description: "공유 허브에 게시 (검수 전에는 false — 허브는 지점도 보는 곳)"
+        required: false
+        default: 'false'
+        type: choice
+        options: ['false', 'true']
   schedule:
     - cron: '30 22 1 * *'   # UTC — 매월 2일 07:30 KST 백업(지연 전제)
 
@@ -54,8 +60,10 @@ jobs:
           CI: "true"
         run: python work_report_headless.py "${{ inputs.ym }}"
 
+      # ★공유 허브는 지점도 보는 곳이다. 검수 전 자동 게시 금지 — publish=true 로 명시할 때만 올린다.
+      #   (2026-07-27: 검수 전 게시했다가 내림. 검수용 열람은 관제탑 로컬 리포트로 한다)
       - name: 허브 '근무일지 점검' 페이지 갱신
-        if: steps.run.outputs.combined != ''
+        if: steps.run.outputs.combined != '' && inputs.publish == 'true'
         env:
           GOOGLE_OAUTH_JSON: ${{ secrets.GOOGLE_OAUTH_JSON }}
           PYTHONIOENCODING: utf-8
