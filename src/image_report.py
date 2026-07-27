@@ -82,10 +82,38 @@ def _draw_cell_text(
     draw.text((tx, ty), text, font=font, fill=color)
 
 
+def _fmt_avg(v) -> str | None:
+    """월평균 값 → 'XX.XX' 문자열. 없음/'-'/빈값이면 None."""
+    if v in (None, "-", ""):
+        return None
+    try:
+        return f"{float(v):.2f}"
+    except (TypeError, ValueError):
+        return None
+
+
+def _draw_avg_cell(draw, cur, prev, f_num, f_small, x, ry, cw, h,
+                   dark="#1A1A2E", gray="#555577") -> None:
+    """월평균 입소자 칸: 현월(큰 글씨) + 그 아래 '(전월 XX.XX)'(작은 회색). 전월 없으면 현월만 가운데."""
+    cur_s = _fmt_avg(cur) or "-"
+    prev_s = _fmt_avg(prev)
+    cw_i, ch = _text_size(draw, cur_s, f_num)
+    if prev_s is None:
+        draw.text((x + (cw - cw_i) // 2, ry + (h - ch) // 2), cur_s, font=f_num, fill=dark)
+        return
+    ptxt = f"(전월 {prev_s})"
+    pw, ph = _text_size(draw, ptxt, f_small)
+    gap = 4
+    total = ch + gap + ph
+    ty0 = ry + (h - total) // 2
+    draw.text((x + (cw - cw_i) // 2, ty0), cur_s, font=f_num, fill=dark)
+    draw.text((x + (cw - pw) // 2, ty0 + ch + gap), ptxt, font=f_small, fill=gray)
+
+
 def generate_image(target_date: date, branches_data: list[dict]) -> bytes:
     """출석 현황 표 PNG를 생성해 bytes로 반환."""
 
-    W          = 820
+    W          = 880
     SIDE       = 24
     TABLE_W    = W - 2 * SIDE
     TITLE_H    = 88
@@ -105,7 +133,7 @@ def generate_image(target_date: date, branches_data: list[dict]) -> bytes:
         ("결석",          107, "center"),
         ("출석",          107, "center"),
         ("정원",          135, "center"),
-        ("월평균\n입소자", 120, "center"),
+        ("월평균\n입소자", 180, "center"),
     ]
     assert sum(c[1] for c in cols) == TABLE_W, f"col sum={sum(c[1] for c in cols)} != {TABLE_W}"
 
@@ -117,6 +145,7 @@ def generate_image(target_date: date, branches_data: list[dict]) -> bytes:
     f_hdr   = _font(True,  16)
     f_name  = _font(True,  17)
     f_num   = _font(False, 17)
+    f_small = _font(False, 13)   # 월평균 아래 '(전월 XX.XX)' 회색 보조값
 
     # ── 제목 영역 ─────────────────────────────────────
     title_text = "지점별 출석 현황"
@@ -165,14 +194,15 @@ def generate_image(target_date: date, branches_data: list[dict]) -> bytes:
 
         x = SIDE
         for j, (_, cw, align) in enumerate(cols):
+            if j == 5:
+                _draw_avg_cell(draw, b.get("avg_attendees", "-"), b.get("prev_avg_attendees"),
+                               f_num, f_small, x, ry, cw, ROW_H)
+                x += cw
+                continue
             raw = b.get(keys[j], "-")
-            if j == 5 and raw != "-":  # 월평균입소자 소수점 포맷
-                val = f"{float(raw):.2f}"
-            else:
-                val = str(raw)
+            val = str(raw)
             font = f_name if j == 0 else f_num
-            col  = _TEXT_DARK
-            _draw_cell_text(draw, val, font, x, ry, cw, ROW_H, col, align)
+            _draw_cell_text(draw, val, font, x, ry, cw, ROW_H, _TEXT_DARK, align)
             x += cw
 
     # ── 합계 행 ───────────────────────────────────────
@@ -180,6 +210,8 @@ def generate_image(target_date: date, branches_data: list[dict]) -> bytes:
     draw.rectangle([SIDE, sy, W - SIDE, sy + SUM_ROW_H], fill=_SUM_BG)
     draw.rectangle([cap_x, sy, cap_end, sy + SUM_ROW_H], fill=_CAP_BG)  # 출석 열 노란색
 
+    prev_vals = [float(_fmt_avg(b.get("prev_avg_attendees"))) for b in branches_data
+                 if _fmt_avg(b.get("prev_avg_attendees")) is not None]
     totals = {
         "hyeon_won":  sum(b["hyeon_won"]  for b in branches_data),
         "gyeol_seok": sum(b["gyeol_seok"] for b in branches_data),
@@ -187,6 +219,7 @@ def generate_image(target_date: date, branches_data: list[dict]) -> bytes:
         "avg_attendees": round(
             sum(b.get("avg_attendees", 0) for b in branches_data) / len(branches_data), 1
         ) if branches_data else 0.0,
+        "prev_avg_attendees": round(sum(prev_vals) / len(prev_vals), 2) if prev_vals else None,
     }
     sum_vals = [
         "합계",
@@ -194,11 +227,16 @@ def generate_image(target_date: date, branches_data: list[dict]) -> bytes:
         str(totals["gyeol_seok"]),
         str(totals["chul_seok"]),
         str(totals["hyeon_won"]),
-        f"{totals['avg_attendees']:.2f}",
+        None,   # 월평균은 아래에서 스택 렌더
     ]
 
     x = SIDE
     for j, (_, cw, align) in enumerate(cols):
+        if j == 5:
+            _draw_avg_cell(draw, totals["avg_attendees"], totals["prev_avg_attendees"],
+                           f_num, f_small, x, sy, cw, SUM_ROW_H)
+            x += cw
+            continue
         font = f_hdr if j == 0 else f_num
         _draw_cell_text(draw, sum_vals[j], font, x, sy, cw, SUM_ROW_H, _TEXT_DARK, align)
         x += cw

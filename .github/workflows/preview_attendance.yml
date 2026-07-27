@@ -1,0 +1,36 @@
+name: preview_attendance
+
+# 출석 현황 이미지 '레이아웃 미리보기'를 슬랙 테스트 채널로 발송(케어포 수집 없음, 더미 전월값).
+# 수동 실행 전용. '월평균 입소자' 열 확대 + 전월 평균 입소자 표시 확인용.
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "발송 채널 ID (기본 C0BC37EB38C = 테스트 방)"
+        required: false
+        default: "C0BC37EB38C"
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: pip install pillow slack_sdk pyperclip requests
+
+      - name: Install Korean font
+        run: sudo apt-get update && sudo apt-get install -y fonts-nanum
+
+      - name: Send preview image
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          PREVIEW_CHANNEL: ${{ github.event.inputs.channel }}
+        run: python preview_attendance_send.py
