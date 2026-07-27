@@ -449,12 +449,16 @@ def scrape_car_oil_change(page: Page, default_interval: int = 8000) -> dict:
     #     → '필요교체/교체필요/엔진오일필요' 문구가 있고, '완료·다음교체주기·교환(Nkm)' 같은
     #        실제 교환 신호가 없으면 점검 메모로 보고 건너뛴다.
     def _is_real_change(r):
-        if '오일' not in r or not re.search(r'교[환체]', r):
-            return False
-        note = re.search(r'필요\s*교[환체]|교[환체]\s*필요|엔진\s*오일\s*필요', r)
-        done = (re.search(r'완료', r) or re.search(r'다음\s*교[환체]\s*주기', r)
-                or re.search(r'교[환체]\s*[\(（]?\s*[\d,]{3}', r))
-        return not (note and not done)
+        # ★2026-07-27 서구 검수로 교정. 기존 '오일 언급 + 아무 교환/교체'는 두 부류를 오판했다:
+        #   (오탐) "에어컨필터/타이어 교체 … 엔진오일 점검·확인" → 오일교환 아닌데 교환으로 잡힘
+        #   (누락) 한 줄에 실제 "엔진오일 교환" + "차후 …교체필요" 예고가 섞이면 통째로 제외됨
+        # → '오일'에 **바로 붙은** 교환/교체만 인정하고, 그 표현이 예고(필요·일때·예정·주기확인)면 무시.
+        for m in re.finditer(r'(?:엔진\s*)?오일\s*교[환체]', r):
+            tail = r[m.end():m.end() + 20]              # 교환/교체 직후 문맥
+            if re.search(r'필요|일\s*때|예정|주기\s*확인', tail):
+                continue                                # 예고성 → 이 표현은 실제 교환 아님
+            return True                                 # 오일에 붙은 실제 교환/교체
+        return False
     oil_rows = [r for r in records if _is_real_change(r)]
     if not oil_rows:
         return {}
