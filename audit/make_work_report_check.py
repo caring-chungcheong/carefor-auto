@@ -171,10 +171,11 @@ def main():
         p = out_root / f"근무일지점검_합본_{ym or today}.html"
         p.write_text(html, encoding="utf-8")
         print(f"  저장: {p}")
-        # 관제탑(메인 페이지) 링크가 매달 깨지지 않도록 이름 고정 사본도 갱신 — 매출점검과 같은 방식
-        latest = out_root / "근무일지점검_합본_최신.html"
-        latest.write_text(html, encoding="utf-8")
-        print(f"  저장(최신 고정): {latest}")
+        # 관제탑(메인 페이지) 링크가 안 깨지도록 이름 고정 사본 — 매출점검과 같은 방식.
+        #   월 점검(--ym)은 '최신', 개소일~현재 전체 점검은 '전체기간' 으로 **서로 덮지 않게** 나눈다.
+        alias = out_root / ("근무일지점검_합본_최신.html" if ym else "근무일지점검_합본_전체기간.html")
+        alias.write_text(html, encoding="utf-8")
+        print(f"  저장(고정 이름): {alias}")
         # CI 가 허브 배포에 쓰도록 합본 경로를 GitHub 출력으로 넘긴다
         gh = os.environ.get("GITHUB_OUTPUT")
         if gh:
