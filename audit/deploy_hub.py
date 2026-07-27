@@ -57,7 +57,8 @@ function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) || '';
   var map = { revenue: '매출 점검', carcost: '차량 월별 수리비', runbook: '케어포 운영 런북', sysmap: '시스템 점검 지도',
               workreport: '근무일지 점검',
-              dunsan: '둔산점 홍보 리포트', cheonan: '천안점 홍보 리포트', cheongju: '청주 오창점 홍보 리포트' };  // 도메인(caring.co.kr) 로그인해야 열림
+              dunsan: '둔산점 홍보 리포트', cheonan: '천안점 홍보 리포트', cheongju: '청주 오창점 홍보 리포트',
+              djhome: '대전 방문요양 홍보 리포트' };  // 도메인(caring.co.kr) 로그인해야 열림
   if (map[page]) { log_(map[page]); return out_(page, map[page]); }
   // ★허브 열기 로깅은 status() 로 옮겼다 — doGet 에서 시트를 만지면 그게 끝나야 화면이 뜬다.
   //   시트 열기·쓰기가 초 단위라 '멈춘 것처럼' 보였고, 다른 자동화와 쓰기가 겹치면 아예 지연됐다.
@@ -244,6 +245,23 @@ document.addEventListener('click', function(e){
   var nm = (t ? t.textContent : a.textContent).trim().slice(0,60);
   if(nm) google.script.run.logItem(nm);
 }, true);
+// 계산기 버튼을 접속현황 바 오른쪽으로 이동 — 혼자 한 줄 차지하던 빈칸 제거 + 최근접속 옆에 배치.
+// (계산기는 다른 데서 정의됨. 오류가 이 바를 깨지 않게 try로 감싼다.)
+addEventListener('DOMContentLoaded', function(){
+  try {
+    var cb = document.querySelector('.calcbar'), card = document.querySelector('#hubwho > div');
+    if (cb && card) {
+      // 카드를 [좌: 접속현황 내용][우: 계산기] flex 2열로. 절대위치는 칩과 겹쳐서 폐기.
+      var left = document.createElement('div');
+      left.style.cssText = 'flex:1;min-width:0';
+      while (card.firstChild) left.appendChild(card.firstChild);   // 기존 내용 전부 좌측으로
+      card.style.cssText += ';display:flex;align-items:flex-start;gap:12px';
+      cb.style.cssText += ';margin:0;flex:none';
+      card.appendChild(left);
+      card.appendChild(cb);
+    }
+  } catch(e){}
+});
 </script>
 """
 
@@ -333,6 +351,7 @@ PAGE_SRC = {
     "dunsan": CC / "지점홍보리포트" / "둔산.html",
     "cheonan": CC / "지점홍보리포트" / "천안.html",
     "cheongju": CC / "지점홍보리포트" / "청주오창.html",
+    "djhome": CC / "지점홍보리포트" / "대전방문요양.html",
 }
 
 
@@ -352,6 +371,9 @@ def _inject_topbar(s: str) -> str:
     그냥 위에 얹으면 그것들이 덮어 잘렸다 → 복귀 바를 top:0 sticky(z 최상단)로 두고,
     페이지의 sticky 요소는 그 높이만큼 아래로 내려(top:BARH) 겹치지 않게 한다.
     target=_top: Apps Script iframe 밖(최상위 창)으로 이동해야 허브가 정상 로드됨."""
+    # ★리포트가 자체 갖고 있는 .hubback(고정 버튼)은 제거한다 — deploy_hub 바와 좌상단에서 겹치고,
+    #   게다가 target=_top 이 없어 iframe 안에서 허브가 깨진다. 여기 바(target=_top)로 일원화.
+    s = re.sub(r'<a\b[^>]*class="hubback"[^>]*>.*?</a>', '', s, flags=re.S)
     # ★페이지에 헤더 슬롯(#hubslot)이 있으면 그 안에 복귀 버튼을 넣는다(매출 페이지).
     #   전에는 복귀 바를 body 맨 위에 얹었는데, 매출 페이지의 sticky 탭바와 top:0 에서 겹쳐
     #   노트북 화면에서 서로 덮었다(반복된 문제). 헤더 안에 넣으면 한 덩어리라 충돌이 없다.
@@ -498,6 +520,7 @@ def main():
                 {"name": "dunsan", "type": "HTML", "source": page_html("dunsan")},
                 {"name": "cheonan", "type": "HTML", "source": page_html("cheonan")},
                 {"name": "cheongju", "type": "HTML", "source": page_html("cheongju")},
+                {"name": "djhome", "type": "HTML", "source": page_html("djhome")},
             ]}, method="PUT")
     print("코드 업로드:", "OK" if r.get("files") else r.get("ERR"))
     if r.get("ERR"):
