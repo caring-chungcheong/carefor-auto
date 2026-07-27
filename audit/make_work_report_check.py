@@ -105,11 +105,39 @@ def _branch_html(data: dict) -> str:
             f"<div class='sub'>대상기간 {data['since']} ~ {data.get('until', '?')} · "
             f"수집일 {data.get('run_at', '?')} · 대상 {len(data['staff'])}명 · "
             f"작성대상 {tt}일 중 <b class='{'ok' if total_miss == 0 else 'bad'}'>누락 {total_miss}일</b></div>")
+    trend = _month_trend(data)
     table = ("<table><tr><th>직원명</th><th>담당직종</th><th>입사</th><th>점검기간</th>"
              "<th>작성대상일</th><th>작성</th><th>누락</th><th>작성률</th></tr>"
              + "".join(rows) + "</table>")
     period = f"{data['since']} ~ {data.get('until', '?')}"
-    return head + RULE.format(period=period) + table + "".join(detail)
+    return head + RULE.format(period=period) + table + trend + "".join(detail)
+
+
+def _month_trend(data: dict) -> str:
+    """월별 이력 표 — 직원 × 월, 셀은 '작성/대상'. 언제부터 안 쓰기 시작했는지 한눈에 보이게."""
+    yms = sorted({m["ym"] for s in data["staff"] for m in s["months"] if m["target"] > 0})
+    if len(yms) < 2:
+        return ""
+    head = "".join(f"<th>{y[2:4]}.{y[5:7]}</th>" for y in yms)
+    rows = []
+    for s in data["staff"]:
+        by = {m["ym"]: m for m in s["months"]}
+        cells = []
+        for y in yms:
+            m = by.get(y)
+            if not m or m["target"] == 0:
+                cells.append("<td class='mini'>-</td>")          # 재직 전·근무일정 없음
+            elif m["written"] == m["target"]:
+                cells.append(f"<td class='ok'>{m['written']}/{m['target']}</td>")
+            elif m["written"] == 0:
+                cells.append(f"<td class='bad'>0/{m['target']}</td>")
+            else:
+                cells.append(f"<td class='warn'>{m['written']}/{m['target']}</td>")
+        rows.append(f"<tr><td class='l'>{s['name']}</td>" + "".join(cells) + "</tr>")
+    return ("<h2>월별 이력 (작성/대상일)</h2>"
+            "<div style='overflow-x:auto'><table><tr><th>직원명</th>" + head + "</tr>"
+            + "".join(rows) + "</table></div>"
+            "<div class='mini'>· 초록=전부 작성 · 주황=일부 누락 · 빨강=그 달 전무 · '-'=재직 전이거나 근무일정 없음</div>")
 
 
 def _page(title: str, body: str) -> str:
