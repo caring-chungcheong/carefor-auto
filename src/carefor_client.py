@@ -419,6 +419,33 @@ def scrape_car_oil_change(page: Page, default_interval: int = 8000) -> dict:
     반환: {"oilDate": "2026-02-06", "oilKm": 40567, "oilNextKm": 48567}
     기록 없으면 {}
     """
+    # ★기본 화면은 최근분만 보여 옛 오일교환을 놓친다(2026-07 서구 31머2741: 실제 25.12.16인데 None이 나왔다).
+    #   정비일 범위를 넓게 채우고 '조회'해 전체이력을 띄운 뒤 읽는다(collect_car_maintenance 와 동일 방식).
+    try:
+        s0, e0 = "2023.01.01", date.today().strftime("%Y.%m.%d")
+        filled = page.evaluate(
+            """([s,e])=>{
+              const m=document.getElementById('mask_div'); if(m) m.style.display='none';
+              let sec=null;
+              document.querySelectorAll('div,section,form').forEach(d=>{
+                const t=d.textContent||'';
+                if(!sec && t.includes('정비구분') && t.includes('정비내역')
+                   && d.querySelectorAll('input').length>=2 && d.querySelectorAll('input').length<=6) sec=d;
+              });
+              if(!sec) return false;
+              const ins=Array.from(sec.querySelectorAll('input')).filter(i=>i.getBoundingClientRect().width>0);
+              if(ins.length<2) return false;
+              ins[0].value=s; ins[0].dispatchEvent(new Event('change',{bubbles:true}));
+              ins[1].value=e; ins[1].dispatchEvent(new Event('change',{bubbles:true}));
+              const b=Array.from(sec.querySelectorAll('button,a,span,div,input[type=button]'))
+                .find(x=>(x.textContent||x.value||'').trim()==='조회');
+              if(b) b.click();
+              return true;
+            }""", [s0, e0])
+        if filled:
+            page.wait_for_timeout(2500)
+    except Exception:
+        pass
     # 정비기록이 <tr>/<td> 테이블이 아닌 커스텀 구조라 innerText에서 직접 파싱
     body = page.evaluate("document.body.innerText")
     # 보이지 않는 제어문자 제거 (U+200E 등)
@@ -449,18 +476,27 @@ def scrape_car_oil_change(page: Page, default_interval: int = 8000) -> dict:
     #     → '필요교체/교체필요/엔진오일필요' 문구가 있고, '완료·다음교체주기·교환(Nkm)' 같은
     #        실제 교환 신호가 없으면 점검 메모로 보고 건너뛴다.
     def _is_real_change(r):
-        # ★2026-07-27 서구 검수로 교정. 기존 '오일 언급 + 아무 교환/교체'는 오판했다:
-        #   (오탐) "에어컨필터/타이어 교체 … 엔진오일 점검·확인" → 오일교환 아닌데 교환으로 잡힘
-        # → '오일'에 **바로 붙은** 교환/교체만 인정.
-        # 규칙(사용자 확인): '오일 교환'은 다음주기·'(Nkm) 일때 교체필요' 안내가 붙어도 실제 교환
-        #   (출고 후 첫 교체 표기). '오일 교체 주기 확인'·'오일 교체 필요'(교환 없음)는 점검·예고라 제외.
-        for m in re.finditer(r'(?:엔진\s*)?오일\s*교([환체])', r):
-            if m.group(1) == '환':                       # '오일 교환' = 실제 교환
-                return True
-            tail = r[m.end():m.end() + 10]               # '오일 교체' 직후 문맥
-            if re.match(r'\s*(?:주기\s*확인|필요)', tail):
-                continue                                 # '교체 주기 확인'·'교체 필요' = 점검·예고
-            return True                                  # 실제 '오일 교체'
+        # ★2026-07-27 서구 전체이력 검수로 확정. '오일 언급 + 아무 교환/교체'는 오판한다:
+        #   (오탐) "에어컨필터/와이퍼/타이어 교체 … 엔진오일 점검·확인" → 오일교환 아님
+        #   (누락) "엔진오일/에어크리너/오일필터/…/교환" 슬래시 나열은 오일-교환이 안 붙어 놓침
+        d = r.replace(' ', '')
+        if '오일' not in d:
+            return False
+        # (0) 오일이 '점검·확인·보충' 대상인 기록은 교환 아님 — 다른 부품(필터·와이퍼·타이어) 교체/교환이
+        #     같이 있어도 오일교환으로 오인하지 않게 먼저 걸러낸다.
+        if re.search(r'오일(?:점검|확인|보충)', d):
+            return False
+        # (1) '오일 교환' = 실제(다음주기·'(Nkm) 일때 교체필요'=첫교체 표기가 붙어도 인정).
+        if '오일교환' in d:
+            return True
+        # (2) '오일 교체' = 실제, 단 '교체 주기 확인'·'교체 필요'(예고)는 제외.
+        m = re.search(r'오일교체', d)
+        if m and not d[m.end():m.end() + 6].startswith(('주기확인', '필요')):
+            return True
+        # (3) 슬래시/공백 나열 정비에 '엔진오일' 항목 + '교환'이 있으면 실제
+        #     (라이브에선 '/'가 공백·줄바꿈으로 렌더돼 '엔진오일/' 매칭이 안 되므로 이 규칙으로 잡는다).
+        if '엔진오일' in d and '교환' in d:
+            return True
         return False
     oil_rows = [r for r in records if _is_real_change(r)]
     if not oil_rows:
