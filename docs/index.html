@@ -769,10 +769,15 @@ function getDashboardStats() {
       const oilOverKm = oilRemainKm !== null && oilRemainKm < 0;
       const oilOverDate = oilDaysSince !== null && oilDaysSince >= 365;
       const oilSoonKm = oilRemainKm !== null && oilRemainKm >= 0 && oilRemainKm <= 1000;
-      if (oilOverKm || oilOverDate) {
-        stats.oilOverdue.push({ branch, ...car, remainKm: oilRemainKm, daysSince: oilDaysSince });
-      } else if (oilSoonKm) {
-        stats.oilDueSoon.push({ branch, ...car, remainKm: oilRemainKm });
+      // 오일교환을 외부 업체에서 직접 관리하는 차량은 대시보드 오일 알림에서 제외(지점탭 카드엔 그대로 표시).
+      const OIL_DASH_EXCLUDE = ['721하5215'];
+      const _carNo = String(car.carNumber || '').replace(/\s/g, '');
+      if (!OIL_DASH_EXCLUDE.includes(_carNo)) {
+        if (oilOverKm || oilOverDate) {
+          stats.oilOverdue.push({ branch, ...car, remainKm: oilRemainKm, daysSince: oilDaysSince });
+        } else if (oilSoonKm) {
+          stats.oilDueSoon.push({ branch, ...car, remainKm: oilRemainKm });
+        }
       }
       if (car.inspectEnd) {
         const end = new Date(car.inspectEnd);
