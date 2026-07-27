@@ -245,20 +245,17 @@ document.addEventListener('click', function(e){
   var nm = (t ? t.textContent : a.textContent).trim().slice(0,60);
   if(nm) google.script.run.logItem(nm);
 }, true);
-// 계산기 버튼을 접속현황 바 오른쪽으로 이동 — 혼자 한 줄 차지하던 빈칸 제거 + 최근접속 옆에 배치.
-// (계산기는 다른 데서 정의됨. 오류가 이 바를 깨지 않게 try로 감싼다.)
+// 접속현황 바를 박스 그리드(1400) 폭으로 펼치고: 최근접속 탭은 왼쪽에 좁게(2줄, 옆 빈칸은 일부러),
+// 계산기는 맨 오른쪽(보라 박스 끝선)에 탭 '밑줄'(하단)에 맞춰 둔다.
 addEventListener('DOMContentLoaded', function(){
   try {
-    var cb = document.querySelector('.calcbar'), card = document.querySelector('#hubwho > div');
-    if (cb && card) {
-      // 카드를 [좌: 접속현황 내용][우: 계산기] flex 2열로. 절대위치는 칩과 겹쳐서 폐기.
-      var left = document.createElement('div');
-      left.style.cssText = 'flex:1;min-width:0';
-      while (card.firstChild) left.appendChild(card.firstChild);   // 기존 내용 전부 좌측으로
-      card.style.cssText += ';display:flex;align-items:flex-start;gap:12px';
-      cb.style.cssText += ';margin:0;flex:none';
-      card.appendChild(left);
-      card.appendChild(cb);
+    var cb = document.querySelector('.calcbar'), wrap = document.getElementById('hubwho');
+    var card = wrap && wrap.firstElementChild;
+    if (cb && wrap && card) {
+      wrap.style.cssText += ';max-width:1400px;padding:0 34px;display:flex;align-items:flex-end;gap:10px';
+      card.style.cssText += ';flex:1 1 auto;min-width:0';                    // 탭이 개발·인프라 앞까지 늘어남
+      cb.style.cssText += ';margin:0;flex:none';                             // 계산기 오른쪽 끝·밑줄 정렬
+      wrap.appendChild(cb);
     }
   } catch(e){}
 });
