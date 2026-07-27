@@ -19,10 +19,19 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
 
 from src.config import Config, config_path
-from .deskpath import DESK
 
 IN_DIR = Path(__file__).resolve().parent.parent / "audit_results"
-OUT_ROOT = DESK / "근무일지점검"
+
+
+def default_out_root() -> Path:
+    """기본 저장 폴더 — 로컬은 바탕화면/클로드코드/근무일지점검.
+    ★deskpath 는 로컬 전용(커밋 안 된) 모듈이라 CI 러너엔 없다 → 러너 경로로 폴백한다
+      (import 를 모듈 최상단에 두면 CI 가 import 단계에서 죽는다 — 실측 2026-07-27)."""
+    try:
+        from .deskpath import DESK
+        return DESK / "근무일지점검"
+    except ImportError:
+        return IN_DIR / "work_report_html"
 
 CSS = """
 body{font-family:'맑은 고딕',Malgun Gothic,sans-serif;margin:24px;color:#222;background:#fafafa}
@@ -118,7 +127,7 @@ def main():
 
     from .collect_work_report import prev_ym
     ym = prev_ym(date.today()) if a.ym == "prev" else a.ym
-    out_root = Path(a.out) if a.out else OUT_ROOT
+    out_root = Path(a.out) if a.out else default_out_root()
 
     cfg = Config.load(config_path())
     today = date.today().isoformat()
