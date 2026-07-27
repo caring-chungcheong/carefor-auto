@@ -30,10 +30,28 @@ import urllib.request
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-from audit.deploy_hub import CODE, MANIFEST, SCRIPT_ID, DEPLOY_ID, build_html, api
+from audit.deploy_hub import (CODE, MANIFEST, SCRIPT_ID, DEPLOY_ID, build_html, api,
+                              _mask_revenue_names, _inject_topbar)
 
 # 저장소 밖 원본이 필요해 CI 에서 못 만드는 페이지들 — 현재 배포본을 그대로 살린다
-PRESERVE = ("revenue", "carcost", "runbook")
+PRESERVE = ("revenue", "carcost", "runbook", "sysmap", "workreport")
+
+
+def workreport_page_from(path: str) -> str:
+    """CI 가 방금 만든 근무일지 점검 합본 HTML → 허브용 페이지.
+    ★마스킹하지 않는다 — 대상이 수급자가 아니라 '직원'이고, 누가 안 썼는지가 점검의 목적이다.
+      허브는 caring.co.kr 도메인 로그인 전용이라 외부에 열리지 않는다."""
+    s = pathlib.Path(path).read_text(encoding="utf-8")
+    return _inject_topbar(s)
+
+
+def revenue_page_from(path: str) -> str:
+    """CI 가 방금 만든 매출 합본 HTML → 허브용 페이지.
+    ★이름 마스킹 필수 — 합본 원본은 수급자 실명이 그대로 들어 있다."""
+    s = pathlib.Path(path).read_text(encoding="utf-8")
+    s = _mask_revenue_names(s)     # 실명 → 김○수
+    s = _inject_topbar(s)
+    return s
 
 
 def token_ci() -> str:
@@ -51,6 +69,19 @@ def token_ci() -> str:
 
 
 def main():
+    # --revenue-from <합본 HTML>: 그 페이지만 새로 만들어 올린다(나머지는 보존)
+    src_revenue = None
+    if "--revenue-from" in sys.argv:
+        src_revenue = sys.argv[sys.argv.index("--revenue-from") + 1]
+    # --workreport-from <합본 HTML>: 근무일지 점검 페이지만 새로 만들어 올린다(나머지 보존)
+    src_workreport = None
+    if "--workreport-from" in sys.argv:
+        src_workreport = sys.argv[sys.argv.index("--workreport-from") + 1]
+    # --carcost: 로컬 '차량_월별수리비내역.html' 로 차량 페이지도 갱신(로컬 정기실행용).
+    #   경로가 고정이라 인자를 받지 않고 deploy_hub.page_html 을 그대로 쓴다(중복 구현 금지).
+    #   CI 에는 그 원본이 없으므로 CI 에서는 이 플래그를 쓰지 않는다 — 안 주면 종전대로 보존.
+    want_carcost = "--carcost" in sys.argv
+
     at = token_ci()
     base = f"https://script.googleapis.com/v1/projects/{SCRIPT_ID}"
 
@@ -59,10 +90,33 @@ def main():
     if cur.get("ERR"):
         print("현재 내용 조회 실패:", cur["ERR"]); sys.exit(1)
     keep = {f["name"]: f for f in cur.get("files", []) if f["name"] in PRESERVE}
+
+    if src_revenue:   # 방금 만든 매출 합본으로 교체
+        keep["revenue"] = {"name": "revenue", "type": "HTML",
+                           "source": revenue_page_from(src_revenue)}
+        print(f"  갱신: revenue ← {src_revenue} ({len(keep['revenue']['source'])}자, 이름 마스킹 적용)")
+    if src_workreport:   # 방금 만든 근무일지 점검 합본으로 교체
+        keep["workreport"] = {"name": "workreport", "type": "HTML",
+                              "source": workreport_page_from(src_workreport)}
+        print(f"  갱신: workreport ← {src_workreport} ({len(keep['workreport']['source'])}자)")
+    if want_carcost:  # 로컬 차량 수리비 HTML 로 교체 (원본 없으면 조용히 보존)
+        try:
+            from audit.deploy_hub import page_html as _page_html
+            keep["carcost"] = {"name": "carcost", "type": "HTML",
+                               "source": _page_html("carcost")}
+            print(f"  갱신: carcost ← 로컬 차량 수리비 ({len(keep['carcost']['source'])}자)")
+        except Exception as ex:
+            print(f"  ⚠️ carcost 원본을 못 읽어 보존합니다: {ex}")
+
+    _updated = {"revenue"} if src_revenue else set()
+    if src_workreport:
+        _updated.add("workreport")
+    if want_carcost and "carcost" in keep:
+        _updated.add("carcost")
     for n in PRESERVE:
-        if n in keep:
+        if n in keep and n not in _updated:
             print(f"  보존: {n} ({len(keep[n].get('source',''))}자)")
-        else:
+        elif n not in keep:
             # 없으면 만들지 않는다 — 빈 페이지로 덮어 사라지게 하느니 그대로 두는 게 낫다
             print(f"  ⚠️ {n} 없음 — 이번 배포에서 제외(로컬 deploy_hub 로 올릴 것)")
 
@@ -70,7 +124,9 @@ def main():
     files = [
         {"name": "appsscript", "type": "JSON", "source": json.dumps(MANIFEST, ensure_ascii=False)},
         {"name": "Code", "type": "SERVER_JS", "source": CODE},
-        {"name": "hub", "type": "HTML", "source": build_html()},
+        {"name": "hub", "type": "HTML",
+         # 보존해 온 carcost 소스에서 기준일 캡션을 뽑는다(CI 엔 로컬 원본이 없다)
+         "source": build_html(carcost_src=keep.get("carcost", {}).get("source"))},
     ] + [keep[n] for n in PRESERVE if n in keep]
 
     r = api(at, f"{base}/content", {"files": files}, method="PUT")

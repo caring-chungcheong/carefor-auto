@@ -1,0 +1,80 @@
+name: 근무일지 점검 (월 1회)
+
+# 8-4 출퇴근/근무관리의 '근무일지'를 근무일정과 대조해 미작성일을 잡는다.
+# 대상 직종: 시설장(관리책임자)·사무원·간호(조무)사·사회복지사 (재직자만).
+# 결과는 공유 허브 '근무일지 점검' 페이지에 자동 반영된다.
+#
+# ⚠️ 산출물에는 **직원 실명**이 들어 있다 → 저장소에 커밋하지 않는다(.gitignore 이중 차단).
+#    허브는 caring.co.kr 도메인 로그인 전용이라 외부에 열리지 않는다.
+#
+# ⏰ 정시 실행은 cron-job.org 가 담당한다(GitHub schedule 은 9~12시간 지연).
+#    매월 1일 08:20 KST → 이 워크플로 workflow_dispatch 호출로 등록할 것.
+#    아래 schedule 은 cron-job.org 가 죽었을 때를 위한 백업(지연돼도 그 달 안에는 돈다).
+
+on:
+  workflow_dispatch:
+    inputs:
+      ym:
+        description: '점검할 연월 YYYY-MM (비우면 전월)'
+        required: false
+        default: ''
+      publish:
+        description: "공유 허브에 게시 (검수 전에는 false — 허브는 지점도 보는 곳)"
+        required: false
+        default: 'false'
+        type: choice
+        options: ['false', 'true']
+  schedule:
+    - cron: '30 22 1 * *'   # UTC — 매월 2일 07:30 KST 백업(지연 전제)
+
+# ★케어포는 계정이 하나다. 지점점검(weekly_audit)·매출점검(revenue_check)과 같은 그룹을 써서
+#   동시 로그인 충돌을 막는다. 그룹 이름을 바꾸면 충돌 방지가 깨진다.
+concurrency:
+  group: branch-audit
+  cancel-in-progress: false
+
+jobs:
+  work-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 패키지 설치
+        run: pip install -r requirements-ci.txt
+
+      - name: Playwright 브라우저 설치
+        run: playwright install chromium --with-deps
+
+      - name: 근무일지 점검 실행 (케어포 접속)
+        id: run
+        env:
+          CAREFOR_ID:  ${{ secrets.CAREFOR_ID }}
+          CAREFOR_PW:  ${{ secrets.CAREFOR_PW }}
+          CONFIG_YAML: ${{ secrets.CONFIG_YAML }}
+          PYTHONIOENCODING: utf-8
+          CI: "true"
+        run: python work_report_headless.py "${{ inputs.ym }}"
+
+      # ★공유 허브는 지점도 보는 곳이다. 검수 전 자동 게시 금지 — publish=true 로 명시할 때만 올린다.
+      #   (2026-07-27: 검수 전 게시했다가 내림. 검수용 열람은 관제탑 로컬 리포트로 한다)
+      - name: 허브 '근무일지 점검' 페이지 갱신
+        if: steps.run.outputs.combined != '' && inputs.publish == 'true'
+        env:
+          GOOGLE_OAUTH_JSON: ${{ secrets.GOOGLE_OAUTH_JSON }}
+          PYTHONIOENCODING: utf-8
+        run: python -m audit.deploy_hub_ci --workreport-from "${{ steps.run.outputs.combined }}"
+
+      - name: 실명 파일이 커밋 대상에 없는지 확인 (안전장치)
+        run: |
+          LEAK=$(git status --porcelain | grep -E 'work_report_|근무일지점검' || true)
+          if [ -n "$LEAK" ]; then
+            echo "::error::직원 실명 산출물이 git 에 노출됨 — .gitignore 확인 필요"
+            echo "$LEAK"
+            exit 1
+          fi
+          echo "실명 파일 노출 없음 (gitignore 정상)"

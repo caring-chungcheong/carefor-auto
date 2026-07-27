@@ -52,8 +52,19 @@ def run_branch_audit(
         ctx = browser.new_context(http_credentials={"username": portal_id, "password": portal_pw})
         portal_page = ctx.new_page()
         progress_cb(f"[{branch_name}] 포털 로그인 중...")
-        portal_page.goto(PORTAL_URL, wait_until="domcontentloaded")
-        portal_page.wait_for_function("typeof login2 === 'function'", timeout=15000)
+        # 포털 goto 는 4지점이 같은 계정으로 동시 로그인할 때(matrix 병렬) 간헐적으로 30초를 넘겨
+        # 타임아웃난다(둔산 실측 2026-07-25: Page.goto Timeout 30000ms → job 실패 → 허브에서 소멸).
+        # 타임아웃을 60초로 늘리고 3회 재시도(백오프)해 일시적 지연·혼잡을 견딘다.
+        for _attempt in range(3):
+            try:
+                portal_page.goto(PORTAL_URL, wait_until="domcontentloaded", timeout=60000)
+                portal_page.wait_for_function("typeof login2 === 'function'", timeout=20000)
+                break
+            except Exception as _e:
+                if _attempt == 2:
+                    raise
+                progress_cb(f"[{branch_name}] 포털 로그인 재시도 {_attempt + 2}/3 ({type(_e).__name__})")
+                portal_page.wait_for_timeout(5000 * (_attempt + 1))
         with ctx.expect_page(timeout=60000) as new_page_info:
             portal_page.evaluate(f"login2('{ctmnumb}')")
         page = new_page_info.value
@@ -74,9 +85,22 @@ def run_branch_audit(
             })()
             """
         )
-        page.wait_for_timeout(3000)
-        n_rows = page.evaluate("document.querySelectorAll('table.frame_list_tbl tr.cr').length")
-        progress_cb(f"[{branch_name}] 수급자 {n_rows}명 (퇴소자 포함)")
+        # ★퇴소자 목록 리로드는 고정 3초로 부족할 때가 있다 — 둔산 실측 138명→74명(퇴소자 65명 누락).
+        #   행 수를 폴링해 '최댓값이 연속 유지'될 때까지 기다린 뒤 확정한다(최소 8초 관찰·최대 25초).
+        #   퇴소자 포함은 행을 늘리기만 하므로 관측된 최댓값이 완전한 목록이다.
+        _count = "document.querySelectorAll('table.frame_list_tbl tr.cr').length"
+        best, stable, _i = 0, 0, 0
+        for _i in range(25):
+            page.wait_for_timeout(1000)
+            n = page.evaluate(_count)
+            if n > best:
+                best, stable = n, 0
+            elif n == best and n > 0:
+                stable += 1
+            if _i >= 7 and stable >= 5:   # 8초 이상 관찰 + 5초 연속 최대치 유지 = 리로드 완료
+                break
+        n_rows = best
+        progress_cb(f"[{branch_name}] 수급자 {n_rows}명 (퇴소자 포함, {_i + 1}s 안정화)")
         if not n_rows:
             raise RuntimeError("수급자 리스트를 찾지 못했습니다.")
 
@@ -185,6 +209,16 @@ def run_branch_audit(
         except Exception as e:
             progress_cb(f"[{branch_name}] 항목 28 판정 건너뜀: {e}")
 
+        # ★34②③ 기본값을 판정 시도 '전'에 무조건 박는다(28③과 동일 이유) — items.py auto_subs 에
+        #   ②③을 넣었으므로 sub_status 가 비면 대시보드 autoVal 이 항목 status 로 폴백해 '안 본
+        #   재작성·기록지제공'에 만점이 자동기입된다. 수집물(결과평가/청구발송) 없음·judge 예외 등
+        #   어디서 터져도 이 기본값(주의=수기확인)이 남아야 한다. status 는 올리지 않는다.
+        cur34 = analysis["item_results"].get("34")
+        if cur34:
+            sd34 = cur34.setdefault("sub_status", {})
+            sd34.setdefault("②", "주의")
+            sd34.setdefault("③", "주의")
+
         # 항목 34② 보강: 결과평가 c3/c4 ↔ 30일 내 계획 재작성 (사전 수집물 있을 때만)
         # branch_pages 의 34 는 1-2 집계 숫자만 봐서 ①④ 부분판정 → ② 를 얹는다.
         try:
@@ -269,6 +303,33 @@ def run_branch_audit(
                         r8["detail"] += " · 생일쿠폰 노션 대조 대상 월 없음(개소·평가기간 이후 자료 없음)"
         except Exception as e:
             progress_cb(f"[{branch_name}] 생일쿠폰 대조 건너뜀: {e}")
+
+        # 항목 28③ 자동차종합보험 가입기간 유효 — 노션 차량현황 기준 자동판정
+        # ★기본값을 try 진입 '전'에 무조건 박는다. items.py auto_subs 에 ③을 넣었기 때문에
+        #   sub_status 에 ③이 비어 있으면 대시보드 autoVal 이 '항목 status'로 폴백해
+        #   **안 본 보험에 만점이 자동 기입**된다(양호 지점 3곳에 1.0점 — 검수 실증).
+        #   import 실패(모듈 미커밋)·judge 내부 예외 등 어디서 터져도 이 기본값이 남아야 한다.
+        #   status 는 올리지 않는다 — 로컬 실행마다 28이 주의로 뒤집히는 노이즈 방지.
+        r28 = analysis["item_results"].get("28")
+        if r28:
+            r28.setdefault("sub_status", {})["③"] = "주의"   # 기본 = 판정 불가(수기)
+        try:
+            from .notion_insurance import judge as ins_judge
+            if r28:
+                ins = ins_judge(branch_name, all_branches=list(BRANCH_CUTOFFS), progress_cb=progress_cb)
+                if ins:
+                    r28.setdefault("sub_status", {})["③"] = ins["status"]
+                    # ③이 자동판정됐으니 '수기 확인' 안내에서 ③을 뺀다(모순 문구 방지)
+                    det = (r28.get("detail") or "").replace(
+                        "(③자동차종합보험 유효기간·④직원 수칙 준수 면담은 수기 확인)",
+                        "(④직원 수칙 준수 면담은 수기 확인)")
+                    r28["detail"] = det + " / " + ins["detail"]
+                    # 항목 상태는 하위 판정 중 가장 나쁜 것으로 맞춘다(③이 미흡인데 항목이 양호로 남지 않도록)
+                    rank = {"양호": 0, "주의": 1, "미흡": 2}
+                    if rank.get(ins["status"], 0) > rank.get(r28.get("status", "양호"), 0):
+                        r28["status"] = ins["status"]
+        except Exception as e:
+            progress_cb(f"[{branch_name}] 28③ 자동차보험 판정 건너뜀: {e}")
 
     if item33:
         analysis["item_results"]["33"] = item33

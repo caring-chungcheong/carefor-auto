@@ -21,6 +21,7 @@ import argparse
 import json
 import pathlib
 import re
+import subprocess
 import sys
 import urllib.error
 import urllib.parse
@@ -54,9 +55,12 @@ function setup() {
 
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) || '';
-  var map = { revenue: '매출 점검', carcost: '차량 월별 수리비', runbook: '케어포 운영 런북' };  // 도메인(caring.co.kr) 로그인해야 열림
+  var map = { revenue: '매출 점검', carcost: '차량 월별 수리비', runbook: '케어포 운영 런북', sysmap: '시스템 점검 지도',
+              workreport: '근무일지 점검',
+              dunsan: '둔산점 홍보 리포트', cheonan: '천안점 홍보 리포트', cheongju: '청주 오창점 홍보 리포트' };  // 도메인(caring.co.kr) 로그인해야 열림
   if (map[page]) { log_(map[page]); return out_(page, map[page]); }
-  log_('허브 열기');
+  // ★허브 열기 로깅은 status() 로 옮겼다 — doGet 에서 시트를 만지면 그게 끝나야 화면이 뜬다.
+  //   시트 열기·쓰기가 초 단위라 '멈춘 것처럼' 보였고, 다른 자동화와 쓰기가 겹치면 아예 지연됐다.
   return out_('hub', '충청본부 공유 허브');
 }
 function out_(file, title) {
@@ -83,8 +87,12 @@ function nameOf_(email) {
   return m[email] || email.split('@')[0];
 }
 
+/** openById 는 호출당 0.5~1.5초다. 한 실행 안에서 한 번만 열어 재사용한다. */
+var _ssCache = null;
+function ss_() { if (!_ssCache) _ssCache = SpreadsheetApp.openById(SHEET_ID); return _ssCache; }
+
 function nameSheet_() {
-  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var ss = ss_();
   var sh = ss.getSheetByName(NAME_SHEET);
   if (!sh) {
     sh = ss.insertSheet(NAME_SHEET);
@@ -102,6 +110,10 @@ function nameSheet_() {
 var _nm = null;
 function nameMap_() {
   if (_nm) return _nm;
+  try {   // 요청 간 캐시(10분) — 이름표는 거의 안 바뀌는데 매번 전체를 읽고 있었다
+    var c = CacheService.getScriptCache().get('nm');
+    if (c) { _nm = JSON.parse(c); return _nm; }
+  } catch (err) {}
   _nm = {};
   try {
     var sh = nameSheet_();
@@ -111,6 +123,7 @@ function nameMap_() {
         if (e && n) _nm[e] = n;
       });
     }
+    try { CacheService.getScriptCache().put('nm', JSON.stringify(_nm), 600); } catch (e2) {}
   } catch (err) {}
   return _nm;
 }
@@ -118,17 +131,21 @@ function nameMap_() {
 /** 처음 보는 이메일이면 이름표에 빈 줄로 추가 — 채울 대상이 저절로 모인다 */
 function seedName_(email) {
   if (!email) return;
-  try {
+  try {   // 이미 등록된 사람은 스캔 자체를 건너뛴다(전체 열 읽기가 매번 돌고 있었다)
+    var ck = 'seed:' + email, cache = CacheService.getScriptCache();
+    if (cache.get(ck)) return;
+    if (nameMap_()[email]) { cache.put(ck, '1', 21600); return; }
     var sh = nameSheet_();
     var have = sh.getLastRow() > 1
       ? sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().map(function (r) { return String(r[0]).trim(); })
       : [];
     if (have.indexOf(email) === -1) sh.appendRow([email, '']);
+    cache.put(ck, '1', 21600);
   } catch (err) {}
 }
 
 function sheet_() {
-  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var ss = ss_();
   var sh = ss.getSheetByName(LOG_SHEET);
   if (!sh) {
     sh = ss.insertSheet(LOG_SHEET);
@@ -152,6 +169,7 @@ function logItem(item) { log_(String(item || '').slice(0, 60)); return true; }
 
 /** 상단 바에 뿌릴 현황: 나 · 최근 접속자 · 항목별 조회수 */
 function status() {
+  log_('허브 열기');   // doGet 대신 여기서 — 화면이 먼저 뜬 뒤 백그라운드로 기록된다
   var email = who_();
   var out = { me: nameOf_(email), recent: [], items: [], todo: 0 };
   try {   // 이름 안 채워진 사람이 몇인지 — 안 알려주면 이름표가 영영 안 채워진다
@@ -165,7 +183,7 @@ function status() {
     var sh = sheet_();
     var last = sh.getLastRow();
     if (last < 2) return out;
-    var n = Math.min(last - 1, 800);
+    var n = Math.min(last - 1, 400);
     var rows = sh.getRange(last - n + 1, 1, n, HEADERS.length).getValues();
     var seen = {}, cnt = {};
     for (var i = rows.length - 1; i >= 0; i--) {
@@ -230,10 +248,58 @@ document.addEventListener('click', function(e){
 """
 
 
-def build_html() -> str:
+def _git_md(path: str) -> str:
+    """저장소 파일의 마지막 커밋 시각 → 'MM/DD' (항목별 갱신시각 초기값). 실패 시 빈 문자열."""
+    try:
+        out = subprocess.run(["git", "-C", str(ROOT), "log", "-1", "--format=%cI", "--", path],
+                             capture_output=True, text=True, encoding="utf-8").stdout.strip()
+        if len(out) >= 10:                       # 2026-07-21T10:16:32+09:00
+            return out[5:7] + "/" + out[8:10]
+    except Exception:
+        pass
+    return ""
+
+
+def _embed_date(kind: str, src: str | None = None) -> str:
+    """매출·차량수리비(Apps Script 서빙, 커밋 안 됨)의 데이터 기준일 → 'MM/DD 기준' 캡션.
+    차량수리비는 파일에 박힌 '데이터 기준일'을, 매출은 합본 파일 수정시각을 쓴다.
+
+    ★ src: 원본 HTML 문자열을 직접 넘기면 로컬 파일 대신 그걸 읽는다.
+      CI 러너에는 저장소 밖 원본(`클로드코드/`)이 없어 파일을 읽으면 죽는다
+      (실제로 2026-07-22~23 허브 자동배포가 이걸로 3회 연속 실패했다).
+      CI 는 보존해 온 carcost 소스를 넘겨 캡션을 유지한다. 없으면 캡션만 비운다."""
+    if kind == "carcost":
+        t = src
+        if t is None:
+            p = CC / "차량_월별수리비내역.html"
+            if not p.exists():
+                return ""
+            t = p.read_text(encoding="utf-8")
+        m = re.search(r"데이터 기준일\s*(\d{4})-(\d{2})-(\d{2})", t)
+        if m:
+            return "🔄 " + m.group(2) + "/" + m.group(3) + " 기준"
+        return ""
+    if kind == "revenue":
+        cands = sorted((CC / "매출점검").glob("매출점검_합본_*.html"))
+        if cands:
+            import datetime
+            mt = datetime.datetime.fromtimestamp(cands[-1].stat().st_mtime)
+            return "🔄 " + mt.strftime("%m/%d") + " 기준"
+    return ""
+
+
+def build_html(carcost_src: str | None = None) -> str:
     """허브 원본 → Apps Script 용으로 변환. 원본은 건드리지 않는다."""
     # 원본은 **Pages 밖**(apps_script/)에 둔다 — docs/ 에 두면 허브 내용이 공개 저장소에서 그대로 읽힌다.
     s = (ROOT / "apps_script" / "hub_source.html").read_text(encoding="utf-8")
+    # 0) 항목별 갱신시각 — 커밋된 페이지는 커밋시각을 초기값으로 심고(로드 시 라이브 갱신),
+    #    매출·차량수리비는 데이터 기준일을 직접 박는다.
+    s = re.sub(r'<span class="upd" data-gh="([^"]+)"></span>',
+               lambda m: '<span class="upd" data-gh="%s">%s</span>' % (
+                   m.group(1), ("🔄 " + _git_md(m.group(1)) + " 갱신") if _git_md(m.group(1)) else ""),
+               s)
+    s = s.replace("{{UPD_REVENUE}}", _embed_date("revenue"))
+    s = s.replace("{{UPD_CARCOST}}", _embed_date("carcost", carcost_src))
     # 1) PIN 게이트 제거 — 도메인 인증이 대신한다(PIN 은 소스에 노출돼 있어 보호 효과도 없었다)
     s = re.sub(r'<div id="gate">.*?</div>\s*(?=<header>)', "", s, flags=re.S)
     s = re.sub(r"const PIN='[^']*';", "", s)
@@ -254,9 +320,19 @@ PAGE_SRC = {
     "carcost": CC / "차량_월별수리비내역.html",
     # 매출은 월별 합본 최신본을 자동 선택
     "revenue": None,
+    # 근무일지 점검(8-4) — 직원 실명이 들어 있어 공개 Pages 금지. 합본 최신본을 자동 선택.
+    #   CI(월 1회)는 러너에서 만든 합본을 deploy_hub_ci --workreport-from 으로 올린다.
+    "workreport": None,
     # 운영 런북 — 공개 저장소에서 뺀 SKILL.md 내용(케어포 로그인·시트/채널 ID·사고 이력)을
     # 본부에만 도메인 제한으로 서빙한다. 원본은 Pages 밖 클로드코드/ 폴더.
     "runbook": CC / "케어포_운영런북.html",
+    # 시스템 점검 지도 — 본부 이전·자동실행 전체 지도(개인정보 없음). 원본은 클로드코드/.
+    "sysmap": CC / "본부_시스템_점검지도.html",
+    # 지점 홍보 리포트 — B2B 영업전략(접촉명단·경쟁센터 연락처)이라 공개 Pages 금지.
+    # docs/ 밖(클로드코드/지점홍보리포트/)에 두고 도메인 제한으로만 서빙한다.
+    "dunsan": CC / "지점홍보리포트" / "둔산.html",
+    "cheonan": CC / "지점홍보리포트" / "천안.html",
+    "cheongju": CC / "지점홍보리포트" / "청주오창.html",
 }
 
 
@@ -271,29 +347,80 @@ def _mask_name(nm: str) -> str:
 
 
 def _inject_topbar(s: str) -> str:
-    """맨 위 '← 공유 허브' 줄 주입(일반 흐름 — 고정 아님). 페이지 sticky 툴바는 원래대로 top:0 유지.
-    이러면 바가 탭 위에 올라올 일이 없어 절대 안 겹친다(스크롤하면 바는 위로 사라지고 툴바만 붙음).
+    """'← 공유 허브' 복귀 링크를 페이지 **맨 위 sticky 바**로 주입한다.
+    이 페이지들은 상단에 전체폭 sticky 탭바(매출 .tabbar)·툴바(차량 .toolbar top:0)가 있어,
+    그냥 위에 얹으면 그것들이 덮어 잘렸다 → 복귀 바를 top:0 sticky(z 최상단)로 두고,
+    페이지의 sticky 요소는 그 높이만큼 아래로 내려(top:BARH) 겹치지 않게 한다.
     target=_top: Apps Script iframe 밖(최상위 창)으로 이동해야 허브가 정상 로드됨."""
-    bar = ('<div style="background:#152647;padding:14px 18px;text-align:left;line-height:1">'
+    # ★페이지에 헤더 슬롯(#hubslot)이 있으면 그 안에 복귀 버튼을 넣는다(매출 페이지).
+    #   전에는 복귀 바를 body 맨 위에 얹었는데, 매출 페이지의 sticky 탭바와 top:0 에서 겹쳐
+    #   노트북 화면에서 서로 덮었다(반복된 문제). 헤더 안에 넣으면 한 덩어리라 충돌이 없다.
+    if 'id="hubslot"' in s:
+        pill = ('<a href="' + HUB_URL + '" target="_top" style="display:inline-flex;'
+                'align-items:center;gap:6px;background:#eaf0f8;color:#152647 !important;'
+                '-webkit-text-fill-color:#152647;border:1px solid #c4d0e6;padding:7px 15px;'
+                'border-radius:999px;text-decoration:none;'
+                'font-family:\'Malgun Gothic\',system-ui,sans-serif;font-size:13px;font-weight:700;'
+                'white-space:nowrap">← 🏢 본부 공유 허브</a>')
+        return s.replace('<span id="hubslot"></span>', '<span id="hubslot">' + pill + '</span>', 1)
+
+    # (그 외 페이지 — 차량 월별 수리비 등) 복귀 바를 맨 위에 얹는다.
+    # ⚠️ 오프셋을 상수로 박지 말 것 — 글꼴·확대율에 따라 바 높이가 달라져 탭이 그만큼 잘린다(실제로 그랬다).
+    #    바 높이를 실측해 sticky top 에 그대로 넣고, 창 크기·폰트 변화에도 다시 맞춘다.
+    bar = ('<div id="hubbackbar" style="background:#eef3fa;'
+           'border-bottom:1px solid #d4deec;padding:8px 14px;line-height:1;'
+           'box-shadow:0 2px 8px rgba(21,38,71,.06)">'
            '<a href="' + HUB_URL + '" target="_top" style="display:inline-block;'
-           'background:#ffffff;color:#152647 !important;-webkit-text-fill-color:#152647;'
-           'padding:9px 18px;border-radius:9px;text-decoration:none;'
-           'font-family:\'Malgun Gothic\',system-ui,sans-serif;font-size:14px;font-weight:700;line-height:1.2">'
-           '← 공유 허브</a></div>')
+           'background:#eaf0f8;color:#152647 !important;-webkit-text-fill-color:#152647;'
+           'border:1px solid #c4d0e6;padding:8px 16px;border-radius:9px;text-decoration:none;'
+           'font-family:\'Malgun Gothic\',system-ui,sans-serif;font-size:13.5px;font-weight:700;line-height:1.2">'
+           '← 공유 허브</a></div>'
+           '<script>(function(){'
+           # ★ 페이지의 sticky(.tabbar/.toolbar)는 **건드리지 않는다**.
+           #   전에는 복귀 바를 sticky 로 띄우고 탭바 top 을 밀었는데, 그때마다
+           #   (1) 최상단에서 바가 탭을 덮거나 (2) 탭바가 본문 제목을 덮는 문제가 번갈아 났다.
+           #   원인은 '보이는 위치'와 '차지하는 자리'가 어긋나서다. 그래서 바는 일반 흐름에 두고
+           #   페이지 레이아웃은 원래 설계 그대로 둔다 — 간섭이 0이라 어떤 확대율에서도 안 깨진다.
+           #   (스크롤을 내리면 바는 위로 사라지고, 탭바가 원래대로 top:0 에 붙는다.)
+           'var bar=document.getElementById("hubbackbar");'
+           'function sync(){var cs=getComputedStyle(document.body),'
+           'ml=parseFloat(cs.marginLeft)||0,mr=parseFloat(cs.marginRight)||0,'
+           'mt=parseFloat(cs.marginTop)||0;'
+           'bar.style.marginTop=(-mt)+"px";'          # 바만 위로 붙임 — 아래 내용은 그대로
+           'bar.style.marginBottom=mt+"px";'          # 줄어든 자리를 아래 여백으로 되돌려 준다
+           'bar.style.marginLeft=(-ml)+"px";bar.style.marginRight=(-mr)+"px";}'
+           'sync();addEventListener("resize",sync);'
+           'if(document.fonts&&document.fonts.ready)document.fonts.ready.then(sync);'
+           '})();</script>')
     return re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + bar, s, count=1)
 
 
+def _inject_bg(s: str) -> str:
+    """페이지 배경이 거의 흰색(매출 #f6f8fb·차량 #fff)이라 밋밋 → 소프트 블루 틴트로 교체.
+    흰 카드·표가 배경 위로 도드라져 눈에 잘 들어온다. !important 로 원본 body 배경만 덮는다."""
+    css = ('<style>body{background:radial-gradient(1100px 460px at 50% -150px,'
+           '#cfddf3 0%,rgba(207,221,243,0) 68%),#dde7f4 !important}</style>')
+    return re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + css, s, count=1)
+
+
 def page_html(kind: str) -> str:
-    """도메인 제한 서빙용 페이지 HTML — 원본 + 이름 마스킹(매출) + 상단 복귀 바."""
+    """도메인 제한 서빙용 페이지 HTML — 원본 + 이름 마스킹(매출) + 배경 틴트 + 하단 복귀 링크."""
     p = PAGE_SRC[kind]
     if kind == "revenue":
         cands = sorted((CC / "매출점검").glob("매출점검_합본_*.html"))
         if not cands:
             raise SystemExit("매출점검 합본 HTML을 찾지 못함 (클로드코드/매출점검/)")
         p = cands[-1]
+    if kind == "workreport":
+        cands = sorted((CC / "근무일지점검").glob("근무일지점검_합본_*.html"))
+        if not cands:
+            raise SystemExit("근무일지점검 합본 HTML을 찾지 못함 (클로드코드/근무일지점검/)")
+        p = cands[-1]
     s = pathlib.Path(p).read_text(encoding="utf-8")
     if kind == "revenue":
         s = _mask_revenue_names(s)
+    if kind in ("revenue", "carcost"):   # 이 둘만 너무 흰 배경 → 틴트. 홍보 리포트는 자체 디자인 유지
+        s = _inject_bg(s)
     s = _inject_topbar(s)
     return s
 
@@ -364,8 +491,13 @@ def main():
                 {"name": "Code", "type": "SERVER_JS", "source": CODE},
                 {"name": "hub", "type": "HTML", "source": build_html()},
                 {"name": "revenue", "type": "HTML", "source": page_html("revenue")},
+                {"name": "workreport", "type": "HTML", "source": page_html("workreport")},
                 {"name": "carcost", "type": "HTML", "source": page_html("carcost")},
                 {"name": "runbook", "type": "HTML", "source": page_html("runbook")},
+                {"name": "sysmap", "type": "HTML", "source": page_html("sysmap")},
+                {"name": "dunsan", "type": "HTML", "source": page_html("dunsan")},
+                {"name": "cheonan", "type": "HTML", "source": page_html("cheonan")},
+                {"name": "cheongju", "type": "HTML", "source": page_html("cheongju")},
             ]}, method="PUT")
     print("코드 업로드:", "OK" if r.get("files") else r.get("ERR"))
     if r.get("ERR"):

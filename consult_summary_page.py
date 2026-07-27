@@ -149,11 +149,11 @@ tr.sum td{background:#f6f8fc;font-weight:bold}
 <header><h1>☎️ 상담 현황 요약 (본부 공유용)</h1><div class="sub">생성: __GEN__ · __CUTOFF__~ 누적 · 전일자 기준</div></header>
 <div class="wrap">
 <a class="back" href="hq.html">← 🏢 본부 허브</a>
-<h2>📋 신규상담 상담시트 입력 현황 <span id="liveStat" style="font-size:12px;color:#888;font-weight:normal">⏳ 실시간 조회 중…</span></h2>
-<div id="consultLive"><div style="padding:18px;color:#888;font-size:14px">⏳ 실시간 집계를 불러오는 중입니다…</div></div>
-<!-- 실시간 조회 실패 시에만 쓰는 폴백(페이지 생성 시점의 값). 첫 화면에 보이면 옛 숫자를
-     현재값으로 오해하므로 숨겨둔다 — 2026-07-17: 이틀 전 값이 그대로 보이던 문제. -->
-<div id="consultFallback" style="display:none">__CONSULT_TABLE__</div>
+<h2>📋 신규상담 상담시트 입력 현황 <span id="liveStat" style="font-size:12px;color:#888;font-weight:normal">📅 __GEN__ 집계 기준</span></h2>
+<!-- ★라이브 엔드포인트(action=summary)는 제외번호(Lost Lead·오분류)를 반영하지 않아 미입력을
+     과다 집계한다(둔산 실제 3 → 라이브 29 = 3 + 제외 26). 그 엔드포인트를 고치기 전까지는
+     제외번호를 반영한 서버(consult_report) 집계를 그대로 쓴다. 2026-07-24. -->
+<div id="consultLive">__CONSULT_TABLE__</div>
 <h2 class="sec2">📞 센터별 상담 대기 명단</h2>
 __WAITLIST_TABLE__
 <div class="note">· 이 페이지에는 수급자 개인정보(이름·연락처)가 포함되어 있지 않습니다 — 센터 단위 집계만.<br>
@@ -167,32 +167,8 @@ document.getElementById('pin').addEventListener('input',e=>{
 });
 if(sessionStorage.getItem('ap')==='1')document.getElementById('gate').style.display='none';
 
-// 실시간 미입력 현황: 열 때마다 집계 엔드포인트 조회해 표 교체 (실패 시 서버 렌더값 유지)
-const SUMMARY_URL='__SUMMARY_URL__';
-function _rateCls(r){return r>=30?'bad':(r>0?'warn':'ok');}
-function _renderConsult(d){
-  let tot=0,miss=0,body='';
-  (d.centers||[]).forEach(c=>{tot+=c.total;miss+=c.miss;
-    body+='<tr><td class="name">'+c.short+'</td><td>'+c.total+'</td>'+
-      '<td class="'+(c.miss?'bad':'ok')+'">'+c.miss+'</td>'+
-      '<td class="'+_rateCls(c.rate)+'">'+c.rate+'%</td></tr>';});
-  const ra=tot?Math.round(miss/tot*100):0;
-  body+='<tr class="sum"><td class="name">합계</td><td>'+tot+'</td>'+
-    '<td class="'+(miss?'bad':'ok')+'">'+miss+'</td><td>'+ra+'%</td></tr>';
-  document.getElementById('consultLive').innerHTML=
-    '<table><tr><th>센터</th><th>신규상담(누적)</th><th>시트 미입력</th><th>미입력률</th></tr>'+body+'</table>';
-  const st=document.getElementById('liveStat');
-  if(st) st.textContent='🟢 실시간 · '+(d.generated||'')+' 기준';
-}
-// 실시간 실패 시에만 폴백(생성 시점 값)을 꺼내 보여주고, 언제 기준인지 명시한다.
-const GEN='__GEN__';
-function _useFallback(){
-  document.getElementById('consultLive').innerHTML=document.getElementById('consultFallback').innerHTML;
-  const st=document.getElementById('liveStat');
-  if(st){st.textContent='⚠️ '+GEN+' 기준 (실시간 조회 실패 — 현재값 아님)';st.style.color='#c00';}
-}
-fetch(SUMMARY_URL).then(r=>r.json()).then(d=>{if(d&&d.ok)_renderConsult(d);else _useFallback();})
-  .catch(_useFallback);
+// 라이브 미입력 조회는 제외번호 미반영 과다집계 문제로 비활성(위 주석 참조).
+// 표는 서버(consult_report, 제외번호 반영) 집계를 그대로 쓴다.
 </script>
 </body></html>"""
 

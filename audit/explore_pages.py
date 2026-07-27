@@ -98,6 +98,7 @@ PAGES = {
     "3-2":   ("left_sub3", "/share/care/view.status_change_report", "3-2.상태변화 기록"),
     "1-2":   ("left_sub1", "/patient/view.patient_case_total", "1-2.전체 기초평가 현황"),
     "1-3":   ("left_sub1", "/share/patient/view.patient_case", "1-3.기초평가 관리"),
+    "7-1":   ("left_sub7", "/share/cost/view.cost_master", "7-1.본인부담금 청구관리"),
 }
 
 

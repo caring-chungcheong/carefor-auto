@@ -110,7 +110,7 @@
       }
     });
     // 응답 서술(resp): 문항별 응답칸 <span class="dotdotdot">. 하나라도 채워지면 실시(치매 0점도 응답 있으면 인정).
-    // 빈 폼(김숙녀)은 전부 공란 → 미실시. total>0만으로는 '치매 0점 정상평가'를 오탐하므로 이 신호가 핵심.
+    // 빈 폼(김○녀)은 전부 공란 → 미실시. total>0만으로는 '치매 0점 정상평가'를 오탐하므로 이 신호가 핵심.
     // ★단 응답칸은 K-MMSE2 에만 있다 — 구 CIST 폼(230건 실측)은 dotdotdot 자체가 없어 공백 판정 불가.
     //   그래서 hasRespField=false(=CIST)면 '판정 불가'로 보고 실시 인정한다(오탐 방지).
     const spans = Array.from(doc.querySelectorAll('span.dotdotdot'));

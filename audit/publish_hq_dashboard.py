@@ -42,8 +42,9 @@ _GATE_BODY = """<div id="hqgate"><h2 style="color:#fff">🔒 지점 점검 대�
 <div>접속 번호를 입력하세요</div>
 <input id="hqpin" type="password" maxlength="12" inputmode="numeric" autofocus></div>
 """
-# 헤더 맨 앞(좌측)에 '🏢 본부 허브' — 제목은 오른쪽으로 밀림
-_HEADER_BACK = '<a href="hq.html" class="hqback">← 🏢 본부 허브</a>'
+# 본부 허브 돌아가기: sticky한 tabs 바 안에 렌더되도록 플래그만 심는다(헤더는 스크롤되면 사라져서).
+# audit_dashboard.html 의 render() 가 window.HQ_BACK 있으면 tabs 맨 앞에 링크를 넣는다 → 스크롤해도 항상 보임.
+_HQ_BACK_FLAG = '<script>window.HQ_BACK="hq.html";</script>'
 # 본부 공유 모드 스크립트: 게이트 + 업로드 비활성화 + 업로드된 점수 자동 로드(읽기 전용)
 _HQ_SCRIPT = """<script>
 (function(){
@@ -81,14 +82,23 @@ _HQ_SCRIPT = """<script>
 def publish_dashboard_html():
     """원본 audit_dashboard.html → docs/branch_dashboard.html (본부 공유용) 변환 발행."""
     html = DASH_SRC.read_text(encoding="utf-8")
-    html = html.replace('src="audit_results/dashboard_data.js"', 'src="dashboard_data.js"')
+    # 데이터 경로: 로컬은 audit_results/, 허브는 같은 폴더. 캐시무력화(?_=) 형식도 함께 치환.
+    html = html.replace('audit_results/dashboard_data.js', 'dashboard_data.js')
     html = html.replace("</head>", _GATE_HEAD + "</head>", 1)
-    html = html.replace("<body>", "<body>" + _GATE_BODY, 1)
-    html = html.replace("<header>", "<header>" + _HEADER_BACK, 1)  # 상단에 ← 허브
+    html = html.replace("<body>", "<body>" + _HQ_BACK_FLAG + _GATE_BODY, 1)  # 초기 render 전에 플래그 정의
     # 주의: exportPDF() 문자열 안에도 </body>가 있으므로 반드시 '마지막' </body>에 주입
     idx = html.rfind("</body>")
     html = html[:idx] + _HQ_SCRIPT + html[idx:]
     DASH_OUT.write_text(html, encoding="utf-8")
+    # ★엑셀 내보내기(XLSX)는 vendor/xlsx.full.min.js 를 상대경로로 읽는다.
+    #   Pages 는 docs/ 를 루트로 서빙하므로 docs/vendor 에도 있어야 한다(없으면 404 → 엑셀 버튼 오류).
+    import shutil
+    src = ROOT / "vendor" / "xlsx.full.min.js"
+    dst = DASH_OUT.parent / "vendor" / "xlsx.full.min.js"
+    if src.exists():
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        if not dst.exists() or dst.stat().st_size != src.stat().st_size:
+            shutil.copy2(src, dst)
     return DASH_OUT
 
 # 명단표: 0번 컬럼이 수급자 이름 (구조 고정)
@@ -154,10 +164,16 @@ def sanitize(payload: dict):
         for r in (b.get("item_results") or {}).values():
             if isinstance(r, dict) and r.get("detail"):
                 r["detail"] = html.escape(detail_for_share(r["detail"], rx))
-        # analysis.item_results 도 동일 처리(있으면)
+            # 전건 drill-down 표(rows): 명단 컬럼의 실명도 마스킹(안 하면 verify 백스톱이 발행을 막음)
+            if isinstance(r, dict) and r.get("rows"):
+                r["rows"] = _mask_array(r["rows"], rx)
+        # analysis.item_results 도 동일 처리(있으면) — ★rows 도 마스킹(top-level 과 같은 item_results
+        #   복사본이라 rows 실명이 여기로도 샌다. detail 만 처리하면 verify 백스톱이 발행을 막음)
         for r in (an.get("item_results") or {}).values():
             if isinstance(r, dict) and r.get("detail"):
                 r["detail"] = html.escape(detail_for_share(r["detail"], rx))
+            if isinstance(r, dict) and r.get("rows"):
+                r["rows"] = _mask_array(r["rows"], rx)
     return payload, names
 
 
@@ -168,14 +184,33 @@ def verify(payload: dict, names: set[str]) -> list[str]:
     return sorted(set(rx.findall(blob))) if rx else []
 
 
+def _existing_hub_data() -> dict:
+    """이미 발행된 docs/dashboard_data.js 의 AUDIT_DATA(마스킹본). 부분실패 시 보존용."""
+    try:
+        t = OUT.read_text(encoding="utf-8")
+        m = re.search(r"window\.AUDIT_DATA = (\{.*?\});\s*\nwindow\.AUDIT_ITEMS", t, re.S)
+        return json.loads(m.group(1)) if m else {}
+    except (OSError, json.JSONDecodeError, AttributeError):
+        return {}
+
+
 def main():
     payload = _load()
     payload, names = sanitize(payload)
     hits = verify(payload, names)
     if hits:
         raise SystemExit(f"❌ 살균 실패 — 잔여 이름 {len(hits)}건: {hits[:10]}")
+    # ★부분실패 보존: 이번 런에 없는 지점(실패·미포함)은 기존 docs 값을 유지한다.
+    #   merge 가 성공한 지점만 모아 재생성하면 실패지점이 허브에서 통째로 사라진다(둔산 실측 2026-07-25:
+    #   케어포 로그인 타임아웃으로 둔산 job 실패 → merge 가 3지점만 발행 → 둔산 소멸). 기존 docs 는
+    #   이미 마스킹본이라 병합해도 안전(실명 없음). 이번 런 지점만 갱신하고 나머지는 그대로 둔다.
+    merged = _existing_hub_data()
+    dropped = [b for b in merged if b not in payload["data"]]
+    merged.update(payload["data"])
+    if dropped:
+        print(f"⚠️ 이번 런에 없는 지점 {len(dropped)}개는 기존 허브 데이터 보존: {', '.join(dropped)}")
     js = ("// 본부 공유용 — 이름(개인정보) 제거본. 원본은 지점 PC audit_results/ 에만 존재.\n"
-          "window.AUDIT_DATA = " + json.dumps(payload["data"], ensure_ascii=False) + ";\n"
+          "window.AUDIT_DATA = " + json.dumps(merged, ensure_ascii=False) + ";\n"
           "window.AUDIT_ITEMS = " + json.dumps(payload["items"], ensure_ascii=False) + ";\n")
     OUT.parent.mkdir(exist_ok=True)
     OUT.write_text(js, encoding="utf-8")

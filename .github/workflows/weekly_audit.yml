@@ -96,6 +96,22 @@ jobs:
       - name: 패키지 설치
         run: pip install -r requirements-ci.txt
 
+      # 30① 동행 작성자 직종보정(known_writers.json)은 직원 실명이라 저장소에 커밋 못 한다(gitignore).
+      # 시크릿(KNOWN_WRITERS_JSON)에서 러너 안에만 복원 → collect_medical import 시 로드된다.
+      # 이 스텝이 없으면(시크릿 미설정) 보정 없이도 30①은 규칙만으로 양호 판정되고 직종만 '?'로 표시된다.
+      # ★반드시 collect_medical 을 import 하는 어떤 수집/점검 스텝보다 먼저 와야 한다.
+      - name: 30① known_writers 복원 (러너 내 임시 — 커밋 안 함)
+        env:
+          KNOWN_WRITERS_JSON: ${{ secrets.KNOWN_WRITERS_JSON }}
+        run: |
+          if [ -n "$KNOWN_WRITERS_JSON" ]; then
+            mkdir -p audit_results
+            printf '%s' "$KNOWN_WRITERS_JSON" > audit_results/known_writers.json
+            echo "known_writers.json 복원 ($(wc -c < audit_results/known_writers.json) bytes)"
+          else
+            echo "KNOWN_WRITERS_JSON 시크릿 없음 — 직종보정 생략(30①은 규칙으로 판정)"
+          fi
+
       - name: Playwright 브라우저 설치
         run: playwright install chromium --with-deps
 
@@ -168,6 +184,7 @@ jobs:
         timeout-minutes: 5
         env:
           CONFIG_YAML: ${{ secrets.CONFIG_YAML }}
+          LTC_API_KEY: ${{ secrets.LTC_API_KEY }}   # 공단 정원/현원 대조(18① 내용확인). 없으면 judge18 이 '주의'로 안전 폴백
           BRANCH:      ${{ matrix.name }}
           CI: "true"
         run: python -X utf8 -m audit.collect_ltc_public "$BRANCH"
@@ -209,7 +226,8 @@ jobs:
         with:
           name: audit-${{ matrix.key }}
           path: result.json.gpg
-          retention-days: 1   # merge 가 바로 쓰고 버린다 — 노출 창을 최소화
+          retention-days: 5   # 로컬 동기화(CareforLocalDashboardSync)가 주말·타이밍 늦어도
+                              # 최신 런을 받을 수 있게 5일 보존(암호화본이라 노출위험 낮음).
           if-no-files-found: error
 
   merge:

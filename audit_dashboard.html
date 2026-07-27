@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <title>지점관리 점검 대시보드</title>
-<script src="audit_results/dashboard_data.js" onerror="window.AUDIT_DATA={};window.AUDIT_ITEMS=null;"></script>
+<script>/* 캐시 무력화: 매번 최신 데이터를 읽어 로컬↔허브 불일치 방지 */
+document.write('<sc'+'ript src="audit_results/dashboard_data.js?_='+Date.now()+'" onerror="window.AUDIT_DATA={};window.AUDIT_ITEMS=null;"><\/sc'+'ript>');</script>
 <script src="vendor/xlsx.full.min.js"></script>
 <style>
   * { box-sizing: border-box; }
@@ -11,12 +12,21 @@
   header { background: #2f5496; color: #fff; padding: 14px 24px; display: flex; align-items: center; gap: 16px; }
   header h1 { font-size: 19px; margin: 0; }
   header .sub { font-size: 12px; opacity: .85; }
-  .tabs { display: flex; gap: 6px; padding: 12px 24px 0; }
+  .tabs { display: flex; gap: 6px; padding: 12px 24px 0; position: sticky; top: 0; z-index: 31; background: #f4f6fa; }
   .tab { padding: 9px 22px; border-radius: 8px 8px 0 0; background: #d7dfee; cursor: pointer; font-weight: bold; font-size: 14px; }
   .tab.on { background: #fff; color: #2f5496; box-shadow: 0 -2px 6px rgba(0,0,0,.06); }
+  .hqtab { display: inline-flex; align-items: center; background: #2f5496; color: #fff; padding: 9px 14px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 13px; white-space: nowrap; margin-right: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
+  .hqtab:hover { background: #24406f; }
   .wrap { background: #fff; margin: 0 24px 24px; padding: 18px; border-radius: 0 8px 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,.07); }
   .meta { font-size: 13px; color: #666; margin-bottom: 12px; display:flex; gap:18px; flex-wrap:wrap; }
-  .summary { display: flex; gap: 12px; flex-wrap: wrap; position: sticky; top: 0; z-index: 30; background: #fff; margin: 0 -18px 14px; padding: 12px 18px; box-shadow: 0 3px 8px rgba(0,0,0,.10); }
+  .summary { display: flex; gap: 12px; flex-wrap: wrap; position: sticky; top: 50px; z-index: 30; background: #fff; margin: 0 -18px 14px; padding: 12px 18px; box-shadow: 0 3px 8px rgba(0,0,0,.10); }
+  .flagged-box { margin-top: 18px; border: 1px solid #f0c9c9; border-radius: 8px; background: #fdf7f7; padding: 6px 12px; }
+  .flagged-box > summary { font-weight: bold; color: #c02020; cursor: pointer; padding: 6px 0; }
+  .flag-item { border-top: 1px solid #eedede; padding: 8px 0; }
+  .flag-item .st-bad { color: #c02020; font-weight: bold; }
+  .flag-item .st-warn { color: #b57a00; font-weight: bold; }
+  .flag-item .st-ok { color: #2c8a41; font-weight: bold; }
+  .flag-item .fdet { font-size: 12px; color: #555; margin: 3px 0 5px; line-height: 1.5; }
   .card { background: #f6f8fc; border: 1px solid #e0e6f0; border-radius: 8px; padding: 10px 18px; text-align: center; min-width: 90px; }
   .card b { display: block; font-size: 22px; }
   table { border-collapse: collapse; width: 100%; font-size: 13px; }
@@ -124,7 +134,9 @@ function itemScore(it, manual, d){
 function fmt(n){ return (Math.round(n*100)/100).toString(); }
 
 function render(){
-  document.getElementById('tabs').innerHTML = BRANCHES.map(b=>
+  document.getElementById('tabs').innerHTML =
+    (window.HQ_BACK ? `<a href="${window.HQ_BACK}" class="hqtab">← 🏢 본부 허브</a>` : '') +
+    BRANCHES.map(b=>
     `<div class="tab ${b===cur?'on':''}" onclick="switchTab('${b}')">${b}</div>`).join('');
   const d = DATA[cur];
   const manual = loadManual(cur);
@@ -275,6 +287,44 @@ function render(){
         <table class="small-table"><tr><th>수급자</th><th>현황</th><th>수급기간</th><th>누락①</th><th>누락②</th><th>누락③</th><th>표준약관</th><th>계약연속</th><th>계획점검</th></tr>
         ${an.rows_check.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table></details>`;
     }
+    // ⚠️ 자동 지적(미흡·주의) 항목 상세를 하단에 모아 표시 — 점수 미부여된 빨간/주황 항목을 한눈에.
+    //    항목에 전건 표(rows)가 있으면 표까지 펼친다(30 연계·34 상태변화 등).
+    // 항목별 '건별 명단' 소스: item_results.rows 가 없는 항목은 analysis.* 의 건별 표를 붙인다
+    // (누가·뭐가 문제인지 항목 바로 아래에서 확인 → 조치 가능). [analysis키, 라벨, 헤더]
+    const AN_MAP = {
+      '20': [['rows_check', '수급자별 연간작성·계약 점검', ['수급자','현황','수급기간','누락①','누락②','누락③','표준약관','계약연속','계획점검'], true]],
+      '21': [['halfyear_miss', '반기별 평가 누락', ['수급자','현황','반기','평가','재적기간'], false]],
+      '22': [['plan_issues', '발송·서명 문제', ['수급자','작성일','적용기간','발송상태','동의일','문제'], false],
+             ['order_issues', '계획-기초평가 순서', ['수급자','계획작성일','내용'], false]],
+    };
+    const flagged = ITEMS.filter(it=>{
+      const r = d.item_results && d.item_results[String(it.no)];
+      // 미흡·주의는 물론, 양호라도 특이사항(rows: 수기확인 명단)이 있으면 하단에 표시 — 30 연계 등
+      return r && (r.status==='미흡' || r.status==='주의' || (Array.isArray(r.rows) && r.rows.length));
+    });
+    if(flagged.length){
+      html += `<details open class="flagged-box"><summary>⚠️ 자동 지적·특이사항 상세 (${flagged.length}개 — 미흡·주의·수기확인)</summary>`;
+      const tbl = (cols, rows)=> `<table class="small-table">`
+        + (cols.length ? `<tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr>` : '')
+        + rows.map(row=>`<tr>${row.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('') + `</table>`;
+      flagged.forEach(it=>{
+        const r = d.item_results[String(it.no)];
+        const cls = r.status==='미흡' ? 'st-bad' : (r.status==='주의' ? 'st-warn' : 'st-ok');
+        html += `<div class="flag-item"><div><b>${it.no}. ${it.name}</b> <span class="${cls}">● ${r.status}</span></div>`
+          + `<div class="fdet">${r.detail||''}</div>`;
+        // 1) 항목 자체 rows(30 연계·34 상태변화)
+        if(Array.isArray(r.rows) && r.rows.length) html += tbl(Array.isArray(r.cols)?r.cols:[], r.rows);
+        // 2) analysis.* 건별 명단(20 계약점검·21 반기누락·22 발송서명 등)
+        (AN_MAP[String(it.no)] || []).forEach(([akey, label, acols, onlyProblem])=>{
+          let arr = (an && an[akey]) || [];
+          if(onlyProblem) arr = arr.filter(row=>!/정상/.test(String(row[row.length-1]||'')));  // 20: 문제 행만
+          if(!arr.length) return;
+          html += `<div class="loc" style="margin-top:5px">↳ ${label} (${arr.length}건)</div>` + tbl(acols, arr);
+        });
+        html += `</div>`;
+      });
+      html += `</details>`;
+    }
   }
 
   document.getElementById('content').innerHTML = html;
@@ -372,12 +422,11 @@ function exportExcel(){
 }
 function exportPDF(){
   const brs = expBranches();
-  let body = '';
-  brs.forEach((b, bi)=>{
+  const pages = [];
+  brs.forEach((b)=>{
     const manual = loadManual(b);
     const d = DATA[b];
-    let earned=0, naPts=0, filled=0, total=0;
-    let rows = '';
+    let earned=0, naPts=0, filled=0, total=0, rows='';
     ITEMS.forEach(it=>{
       let itE=0, itNa=0, itF=0;
       (it.subs||[]).forEach(s=>{
@@ -394,38 +443,54 @@ function exportPDF(){
       const cls = verdict==='충족' ? 'ok' : (verdict==='미달' ? 'bad' : 'na');
       const r = d && d.item_results && d.item_results[String(it.no)];
       rows += `<tr><td>${it.no}</td><td class="l">${it.name}</td><td>${it.total||'-'}</td>
-        <td>${itF===0?'-':fmt(itE)}</td><td class="${cls}">${verdict}</td><td>${r?r.status:''}</td></tr>`;
+        <td>${itF===0?'-':fmt(itE)}</td><td><span class="v ${cls}">${verdict}</span></td><td class="auto">${r?r.status:''}</td></tr>`;
     });
+    // 1) 점검표 — 한 페이지
+    pages.push(`
+      <div class="phead"><div class="ttl">지점 점검표</div><div class="br">${b}</div></div>
+      <div class="meta">생성 ${new Date().toLocaleDateString('ko-KR')} · 총점 <b>${fmt(earned)}점</b> / 만점 ${fmt(100-naPts)}점 <span class="dim">(해당없음 ${fmt(naPts)}점 제외)</span> · 기준 입력 ${filled}/${total} · 자동수집 ${(d||{}).run_at||'-'} · 기관 지정일 ${(d||{}).opened||'-'}</div>
+      <table class="grid"><thead><tr><th style="width:34px">번호</th><th>항목</th><th style="width:46px">배점</th><th style="width:46px">득점</th><th style="width:62px">판정</th><th style="width:66px">자동판정</th></tr></thead><tbody>${rows}</tbody></table>`);
+    // 2) 현장 확인 포인트 — 아예 다른 페이지(있을 때만)
     const chk = branchChecks(b);
-    let checksHtml = '';
     if(chk.length){
-      checksHtml = `<h2 class="chkh">✅ 현장 확인 포인트 (2026 보완) — 배점 무관, 현장 점검용</h2>
-        <table><tr><th style="width:36px">#</th><th>항목</th><th style="text-align:left">확인 포인트</th><th style="width:40px">확인</th></tr>
-        ${chk.map(r=>`<tr><td>${r[0]}</td><td class="l">${r[1]}</td><td class="l">${r[2]}</td><td>${r[3]?'☑':'☐'}</td></tr>`).join('')}</table>`;
+      pages.push(`
+        <div class="phead amber"><div class="ttl">✅ 현장 확인 포인트</div><div class="br">${b}</div></div>
+        <div class="meta">배점과 무관 · 현장에서 눈으로 확인하는 체크리스트 (2026 보완)</div>
+        <table class="grid amber"><thead><tr><th style="width:34px">#</th><th style="width:150px">항목</th><th class="l">확인 포인트</th><th style="width:46px">확인</th></tr></thead><tbody>
+        ${chk.map(r=>`<tr><td>${r[0]}</td><td class="l">${r[1]}</td><td class="l">${r[2]}</td><td class="cbox">${r[3]?'☑':'☐'}</td></tr>`).join('')}</tbody></table>`);
     }
-    body += `<div class="page${bi<brs.length-1?' brk':''}">
-      <h1>지점 점검표 — ${b}</h1>
-      <div class="meta">생성 ${new Date().toLocaleDateString('ko-KR')} · 총점 <b>${fmt(earned)}점</b> / 만점 ${fmt(100-naPts)}점(해당없음 ${fmt(naPts)}점 제외)
-        · 기준 입력 ${filled}/${total} · 자동수집 ${(d||{}).run_at||'-'} · 기관 지정일 ${(d||{}).opened||'-'}</div>
-      <table><tr><th style="width:36px">번호</th><th>항목</th><th style="width:50px">배점</th><th style="width:50px">득점</th><th style="width:60px">판정</th><th style="width:66px">자동판정</th></tr>${rows}</table>
-      ${checksHtml}
-    </div>`;
   });
+  const body = pages.map((pg,i)=>`<section class="page${i?' brk':''}">${pg}</section>`).join('');
   const w = window.open('', '_blank');
-  w.document.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><title>지점점검표</title><style>
-    body{font-family:'맑은 고딕',sans-serif;margin:14px;color:#222}
-    h1{font-size:17px;margin:0 0 4px}
-    h2.chkh{font-size:13px;margin:12px 0 4px;color:#b57a00}
-    .meta{font-size:11px;color:#666;margin-bottom:8px}
-    table{border-collapse:collapse;width:100%;font-size:10.5px}
-    th,td{border:1px solid #b9c4d8;padding:3px 6px;text-align:center}
-    th{background:#2f5496;color:#fff}
-    td.l{text-align:left}
-    .ok{color:#2c8a41;font-weight:bold}.bad{color:#c02020;font-weight:bold}.na{color:#888}
-    .brk{page-break-after:always}
-    @media print { body{margin:6mm} }
+  w.document.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><title>지점 점검표</title><style>
+    *{box-sizing:border-box}
+    body{font-family:'맑은 고딕','Malgun Gothic',sans-serif;margin:0;color:#1e2733;background:#fff}
+    .page{padding:15mm 13mm}
+    .brk{page-break-before:always}
+    .phead{display:flex;align-items:baseline;justify-content:space-between;border-bottom:3px solid #2f5496;padding-bottom:7px}
+    .phead.amber{border-color:#c07d10}
+    .phead .ttl{font-size:18px;font-weight:800;color:#2f5496;letter-spacing:-.3px}
+    .phead.amber .ttl{color:#b57a00}
+    .phead .br{font-size:15px;font-weight:700;color:#33445c}
+    .meta{font-size:10.5px;color:#6a7686;margin:7px 0 11px}
+    .meta .dim{color:#9aa6b5}
+    table.grid{border-collapse:collapse;width:100%;font-size:10.5px}
+    .grid th,.grid td{border:1px solid #d5dce8;padding:4px 7px;text-align:center;vertical-align:top}
+    .grid thead th{background:#2f5496;color:#fff;font-weight:700;border-color:#294a86}
+    .grid.amber thead th{background:#b57a00;border-color:#9c690a}
+    .grid td.l{text-align:left}
+    .grid tbody tr:nth-child(even){background:#f6f8fc}
+    .grid.amber tbody tr:nth-child(even){background:#fbf4e7}
+    .grid td.auto{color:#7a8698;font-size:9.5px}
+    .grid td.cbox{font-size:14px}
+    .grid tbody tr{break-inside:avoid}
+    .v{display:inline-block;border-radius:9px;padding:1px 8px;font-weight:700;font-size:10px}
+    .v.ok{background:#e4f4e8;color:#1f7a37}
+    .v.bad{background:#fbe6e6;color:#bb2020}
+    .v.na{background:#eef1f5;color:#7a8698}
+    @page{size:A4;margin:0}
   </style></head><body>${body}
-  <script>window.onload = () => setTimeout(() => window.print(), 300);<\/script></body></html>`);
+  <script>window.onload=()=>setTimeout(()=>window.print(),350);<\/script></body></html>`);
   w.document.close();
 }
 function setSub(no, label, val){
@@ -517,8 +582,33 @@ if(!ITEMS.length){
   document.getElementById('content').innerHTML =
     '<div class="nodata">audit_results/dashboard_data.js 가 없습니다.<br>먼저 <b>py run_audit.py</b> 를 한 번 실행하세요 (항목 정의가 함께 생성됩니다).</div>';
   document.getElementById('tabs').innerHTML = '';
+} else if(document.getElementById('hqgate')){
+  render();   // 허브(본부 공유): 읽기전용 — 자동동기화 안 함(_HQ_SCRIPT가 업로드값을 불러옴)
 } else {
-  render();
+  // ★로컬↔허브 점수 자동 일치 (로컬 대시보드 전용):
+  //   1) 공유 저장소(업로드값)를 먼저 불러와, 로컬에 수기 입력이 '없는' 지점은 그 값으로 표시
+  //      (로컬이 비었다고 공유값을 덮지 않음 — 허브와 같은 화면).
+  //   2) 로컬에 수기 입력이 '있는' 지점은 그게 원본이므로 공유로 자동 업로드 → 허브가 로컬과 같아짐.
+  //   버튼 안 눌러도 열기만 하면 양방향으로 맞춰진다.
+  var _hasManual = function(b){ var m=loadManual(b); return m && Object.keys(m).length>0; };
+  fetch(SCORES_HOOK+(SCORES_HOOK.indexOf('?')>=0?'&':'?')+'token='+encodeURIComponent(SCORES_TOKEN))
+    .then(function(r){return r.json();})
+    .then(function(j){
+      var scores = (j && j.ok && j.scores) ? j.scores : {};
+      BRANCHES.forEach(function(b){
+        if(_hasManual(b) || !scores[b]) return;   // 로컬 수기 있으면 그대로, 없고 공유값 있으면 내려받아 표시
+        var sc=scores[b], m={};
+        if(sc.sub_values) Object.keys(sc.sub_values).forEach(function(no){ m[no]={subs:{}}; Object.keys(sc.sub_values[no]).forEach(function(lab){ m[no].subs[lab]=sc.sub_values[no][lab].v; }); });
+        if(sc.memos) Object.keys(sc.memos).forEach(function(no){ m[no]=m[no]||{subs:{}}; m[no].memo=sc.memos[no]; });
+        saveManual(b, m);
+      });
+      render();
+      BRANCHES.forEach(async function(b){     // 로컬 수기 있는 지점은 공유로 올림(로컬이 원본)
+        if(!_hasManual(b)) return;
+        try{ var data=buildScoreData(b); if(data.filled>0) await postScores(b, data); }catch(e){}
+      });
+    })
+    .catch(function(){ render(); });   // 오프라인이면 로컬 값으로만 표시
 }
 </script>
 </body>

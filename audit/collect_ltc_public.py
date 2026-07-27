@@ -29,9 +29,11 @@ adminPttnCd: 급여종류별로 게시율이 따로 매겨진다(B01 방문요�
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 import time
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 
@@ -60,6 +62,44 @@ MANUAL_ITEMS = {
     "비급여 항목",                   # 매뉴얼의 '비급여대상 항목별 비용'
     "사진",
 }
+
+# 공단 장기요양기관 공식 API(B550928) — 정원/현원(내용 대조용). ★이 엔드포인트는 urllib 정상
+# (타임아웃 함정은 심평원 B551182 쪽 — 혼동 주의). 키는 심평원과 동일(LTC_API_KEY/keyring).
+CAP_BASE = "http://apis.data.go.kr/B550928/getLtcInsttDetailInfoService02/getAceptncNmprDetailInfoItem02"
+
+
+def _ltc_key() -> str:
+    k = os.environ.get("LTC_API_KEY")
+    if not k:
+        try:
+            import keyring
+            k = keyring.get_password("data.go.kr", "LTC_API_KEY")
+        except Exception:
+            k = None
+    return k or ""
+
+
+def _capacity(sym: str, pttn: str = PTTN_DAYCARE) -> dict | None:
+    """공단 API로 정원/현원 조회. {정원, 현원, 여석} 또는 데이터 없음/키없음이면 None.
+    (게시 '내용'이 실제와 맞는지 대조하는 근거 — 특히 정원을 config 값과 비교한다.)"""
+    key = _ltc_key()
+    if not key:
+        return None
+    url = (f"{CAP_BASE}?serviceKey={key}&longTermAdminSym={sym}"
+           f"&adminPttnCd={pttn}&numOfRows=10&pageNo=1")
+    try:
+        with urllib.request.urlopen(url, timeout=15) as r:
+            body = r.read().decode("utf-8")
+    except Exception:
+        return None
+    tot = re.search(r"<totPer>(\d+)</totPer>", body)
+    if not tot:
+        return None
+    ma = re.search(r"<maNowPer>(\d+)</maNowPer>", body)
+    fm = re.search(r"<fmNowPer>(\d+)</fmNowPer>", body)
+    jw = int(tot.group(1))
+    hw = (int(ma.group(1)) if ma else 0) + (int(fm.group(1)) if fm else 0)
+    return {"정원": jw, "현원": hw, "여석": jw - hw}
 
 
 def _text(html: str) -> str:
@@ -99,7 +139,7 @@ def fetch_branch(sym: str, pttn: str = PTTN_DAYCARE) -> dict:
     t = _text(_get(detail_url))
 
     m = re.search(r"게시율\s*:\s*([^(]{0,40})\((\d{1,3})\s*%\)", t)
-    inst = re.search(r"장기요양기관\s+(.{0,60}?)\s+주소\s+(.{0,80}?)\s+전화번호", t)
+    inst = re.search(r"장기요양기관\s+(.{0,60}?)\s+주소\s+(.{0,80}?)\s+전화번호\s*([\d][\d\-]{6,13})?", t)
     svc = re.search(r"제공서비스\s+(.{0,150}?)\s+통합재가급여", t)
 
     time.sleep(REQ_DELAY)
@@ -110,6 +150,7 @@ def fetch_branch(sym: str, pttn: str = PTTN_DAYCARE) -> dict:
         "admin_pttn_cd": pttn,
         "inst_name": inst.group(1).strip() if inst else None,
         "inst_addr": inst.group(2).strip() if inst else None,
+        "inst_tel": (inst.group(3) or "").strip() if inst else None,
         "services": svc.group(1).strip() if svc else None,
         "rate_label": m.group(1).strip() if m else None,
         "rate": int(m.group(2)) if m else None,
@@ -118,9 +159,13 @@ def fetch_branch(sym: str, pttn: str = PTTN_DAYCARE) -> dict:
     }
 
 
-def collect(branch_name: str, sym: str) -> dict:
+def collect(branch_name: str, sym: str, config_capacity: int | None = None) -> dict:
     d = fetch_branch(sym)
     d["branch_name"] = branch_name          # ⚠️ "branch" 아님 (위 주석 참고)
+    d["config_capacity"] = config_capacity  # 본부 관리 정원(대조 truth)
+    cap = _capacity(sym)                     # 공단 게시 정원/현원 — 내용 대조용
+    if cap:
+        d["ltc_정원"], d["ltc_현원"], d["ltc_여석"] = cap["정원"], cap["현원"], cap["여석"]
     RES.mkdir(parents=True, exist_ok=True)
     (RES / f"롱텀공개_{branch_name}.json").write_text(
         json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -193,10 +238,48 @@ def judge18(branch_name: str) -> dict | None:
         return {"status": "주의", "sub_status": {"①": "주의"},
                 "detail": head + f" — 미게시 {len(soft)}건({', '.join(soft)}). 매뉴얼 명시항목은 아니나"
                                  " 게시율 하락 요인이라 갱신 확인요망(자동 미흡 아님)"}
-    return {"status": "주의", "sub_status": {"①": "주의"},
-            "detail": head + " — 홈페이지 등록항목 전건 게시. 다만 게시율 산정에서 빠지는"
-                             " 지자체 신고항목(인력현황·시설현황)과 '변경 시 수정'(현행성)은"
-                             " 자동확인 불가 → 현장 확인요망"}
+    # ── 전건 게시 — 내용 대조·현행성으로 '양호' 승격 판단(사용자 확정 2026-07-26) ──
+    # 공개조회로 볼 수 있는 내용(정원·주소·전화·급여종류)을 본부 값과 대조하고, 게시항목
+    # 최종변경일로 현행성(최소 유지활동)을 확인한다. 모두 통과면 양호. 볼 수 없는 인력·시설
+    # 현황과 게시내용 텍스트값은 롱텀/현장 확인 잔여로 명시(공개조회 원천 한계).
+    reasons = []
+
+    cap_cfg, cap_ltc = d.get("config_capacity"), d.get("ltc_정원")
+    if cap_cfg is None or cap_ltc is None:
+        reasons.append("정원 대조 불가(공단·본부 정원 미수집)")
+    elif cap_cfg != cap_ltc:
+        reasons.append(f"게시 정원 불일치(공단 {cap_ltc} ≠ 본부 {cap_cfg})")
+
+    if not d.get("inst_addr"):
+        reasons.append("주소 미확인")
+    if not d.get("inst_tel"):
+        reasons.append("전화번호 미확인")
+
+    hw, jw = d.get("ltc_현원"), d.get("ltc_정원")
+    if hw is not None and jw is not None and hw > jw:
+        reasons.append(f"현원 정합성 오류(현원 {hw} > 정원 {jw})")
+
+    def _age_months(s: str):
+        try:
+            dt = datetime.strptime(s, "%Y-%m-%d")
+            base = datetime.strptime((d.get("collected_at") or "")[:10], "%Y-%m-%d")
+            return (base.year - dt.year) * 12 + (base.month - dt.month)
+        except Exception:
+            return None
+    ages = [a for a in (_age_months(i.get("changed", "")) for i in items) if a is not None]
+    if not ages:
+        reasons.append("게시 최종변경일 없음(현행성 확인 불가)")
+    elif min(ages) > 13:
+        reasons.append(f"게시 갱신 정체(최근 변경 {min(ages)}개월 전)")
+
+    residual = (" ※ 인력·시설 현황과 게시내용 텍스트값(비급여 금액 등)은 공개조회 밖"
+                " → 롱텀/현장 확인 잔여")
+    if reasons:
+        return {"status": "주의", "sub_status": {"①": "주의"},
+                "detail": head + " — 전건 게시이나 완료 승격 보류: " + " · ".join(reasons) + residual}
+    return {"status": "양호", "sub_status": {"①": "양호"},
+            "detail": head + f" — 전건 게시 + 내용대조 일치(정원 공단{cap_ltc}=본부{cap_cfg}·주소·전화·"
+                             f"주야간보호 게시) + 현행성 OK(최근변경 {min(ages)}개월 이내)." + residual}
 
 
 def main() -> int:
@@ -233,7 +316,7 @@ def main() -> int:
         if i:
             time.sleep(REQ_DELAY)
         try:
-            d = collect(b.name, b.ctmnumb)
+            d = collect(b.name, b.ctmnumb, getattr(b, "capacity", None))
         except Exception as e:
             print(f"  {b.name} 수집 실패: {e}", flush=True)
             failed.append(b.name)
