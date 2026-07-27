@@ -42,8 +42,9 @@ _GATE_BODY = """<div id="hqgate"><h2 style="color:#fff">🔒 지점 점검 대�
 <div>접속 번호를 입력하세요</div>
 <input id="hqpin" type="password" maxlength="12" inputmode="numeric" autofocus></div>
 """
-# 헤더 맨 앞(좌측)에 '🏢 본부 허브' — 제목은 오른쪽으로 밀림
-_HEADER_BACK = '<a href="hq.html" class="hqback">← 🏢 본부 허브</a>'
+# 본부 허브 돌아가기: sticky한 tabs 바 안에 렌더되도록 플래그만 심는다(헤더는 스크롤되면 사라져서).
+# audit_dashboard.html 의 render() 가 window.HQ_BACK 있으면 tabs 맨 앞에 링크를 넣는다 → 스크롤해도 항상 보임.
+_HQ_BACK_FLAG = '<script>window.HQ_BACK="hq.html";</script>'
 # 본부 공유 모드 스크립트: 게이트 + 업로드 비활성화 + 업로드된 점수 자동 로드(읽기 전용)
 _HQ_SCRIPT = """<script>
 (function(){
@@ -84,8 +85,7 @@ def publish_dashboard_html():
     # 데이터 경로: 로컬은 audit_results/, 허브는 같은 폴더. 캐시무력화(?_=) 형식도 함께 치환.
     html = html.replace('audit_results/dashboard_data.js', 'dashboard_data.js')
     html = html.replace("</head>", _GATE_HEAD + "</head>", 1)
-    html = html.replace("<body>", "<body>" + _GATE_BODY, 1)
-    html = html.replace("<header>", "<header>" + _HEADER_BACK, 1)  # 상단에 ← 허브
+    html = html.replace("<body>", "<body>" + _HQ_BACK_FLAG + _GATE_BODY, 1)  # 초기 render 전에 플래그 정의
     # 주의: exportPDF() 문자열 안에도 </body>가 있으므로 반드시 '마지막' </body>에 주입
     idx = html.rfind("</body>")
     html = html[:idx] + _HQ_SCRIPT + html[idx:]
