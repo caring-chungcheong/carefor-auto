@@ -211,20 +211,25 @@ def classify(cars, today):
 def build_vehicle_message(today, branches_data):
     weekday_kr = ["월","화","수","목","금","토","일"][today.weekday()]
 
-    # 오일교환을 외부 업체에서 직접 관리하는 지점은 오일 공지 대상에서 제외(정기검사는 그대로 보고).
-    OIL_SELF_MANAGED = ("서구",)   # 서구점: 오일교환 업체 직접 진행 → 오일 초과/임박 공지 제외
-    oil_excluded = False
+    # 오일교환을 외부 업체에서 직접 관리하는 '차량'은 오일 공지 대상에서 제외(정기검사는 그대로 보고).
+    OIL_EXCLUDE_CARS = {"721하5215"}   # 서구 721하5215: 오일교환 업체 직접 진행 → 오일 초과/임박 공지 제외
+    excluded_cars = set()
 
     all_oil_over, all_oil_soon, all_insp_soon = [], [], []
     total_cars = 0
     for br, cars in branches_data.items():
         total_cars += len(cars)
         oo, os_, is_ = classify(cars, today)
-        if any(k in br for k in OIL_SELF_MANAGED):
-            oil_excluded = True           # 오일 섹션에서만 제외
-        else:
-            all_oil_over  += [(br, *x) for x in oo]
-            all_oil_soon  += [(br, *x) for x in os_]
+        for x in oo:
+            if str(x[0]).replace(" ", "") in OIL_EXCLUDE_CARS:
+                excluded_cars.add(str(x[0]).replace(" ", ""))
+            else:
+                all_oil_over.append((br, *x))
+        for x in os_:
+            if str(x[0]).replace(" ", "") in OIL_EXCLUDE_CARS:
+                excluded_cars.add(str(x[0]).replace(" ", ""))
+            else:
+                all_oil_soon.append((br, *x))
         all_insp_soon += [(br, *x) for x in is_]
 
     lines = [
@@ -252,8 +257,9 @@ def build_vehicle_message(today, branches_data):
     else:
         lines.append("• 해당 없음")
 
-    if oil_excluded:
-        lines.append("_※ 서구점은 오일교환을 외부 업체에서 직접 관리하여 오일 공지 대상에서 제외_")
+    if excluded_cars:
+        lines.append("_※ " + ", ".join(sorted(excluded_cars))
+                     + "는 오일교환을 외부 업체에서 직접 관리하여 오일 공지 대상에서 제외_")
 
     # 정기검사 임박
     lines.append(f"")
