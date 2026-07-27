@@ -16,6 +16,7 @@ from . import credentials, sheet_writer, slack_notifier
 from .carefor_client import fetch_branch_attendance
 from .config import Config
 from .image_report import generate_image
+from . import prev_avg_store
 
 
 logger = logging.getLogger(__name__)
@@ -49,18 +50,21 @@ def run_slack_only(
 
     branches_data: list[dict] = []
     errors: list[str] = []
+    prev_store = prev_avg_store.load()                 # 전월 평균 폴백(수집 실패 대비)
+    month_key = target_date.strftime("%Y-%m")
 
     for branch in config.branches:
         cb(BranchProgress(name=branch.name, status="running"))
         try:
             att = fetch_branch_attendance(branch.ctmnumb, branch.name, target_date=target_date, headless=True)
+            prev_avg_store.save(prev_store, month_key, branch.name, att.prev_avg_attendees)
             row = {
                 "name": branch.name,
                 "hyeon_won": att.hyeon_won,
                 "gyeol_seok": att.gyeol_seok,
                 "chul_seok": att.chul_seok,
                 "avg_attendees": att.avg_attendees,
-                "prev_avg_attendees": att.prev_avg_attendees,
+                "prev_avg_attendees": prev_avg_store.resolve(prev_store, month_key, branch.name, att.prev_avg_attendees),
                 "capacity": branch.capacity,
             }
             branches_data.append(row)
@@ -160,19 +164,22 @@ def run_daily_report(
 
     branches_data: list[dict] = []
     errors: list[str] = []
+    prev_store = prev_avg_store.load()                 # 전월 평균 폴백(수집 실패 대비)
+    month_key = target_date.strftime("%Y-%m")
 
     # 1) 지점별 데이터 수집
     for branch in config.branches:
         cb(BranchProgress(name=branch.name, status="running"))
         try:
             att = fetch_branch_attendance(branch.ctmnumb, branch.name, headless=True)
+            prev_avg_store.save(prev_store, month_key, branch.name, att.prev_avg_attendees)
             row = {
                 "name": branch.name,
                 "hyeon_won": att.hyeon_won,
                 "gyeol_seok": att.gyeol_seok,
                 "chul_seok": att.chul_seok,
                 "avg_attendees": att.avg_attendees,
-                "prev_avg_attendees": att.prev_avg_attendees,
+                "prev_avg_attendees": prev_avg_store.resolve(prev_store, month_key, branch.name, att.prev_avg_attendees),
                 "capacity": branch.capacity,
             }
             branches_data.append(row)

@@ -359,16 +359,22 @@ def scrape_prev_month_avg(page: Page, target: date) -> float | None:
     y, m = target.year, target.month - 1
     if m == 0:
         y, m = y - 1, 12
-    try:
-        page.evaluate(f"reloadPage({{'yy':'{y}','mm':'{m:02d}'}})")
-        page.wait_for_load_state("networkidle", timeout=20000)
-        page.wait_for_timeout(2000)
-        _close_popups(page)
-        page.wait_for_timeout(500)
-        return _read_avg_param_info(page)
-    except Exception as e:
-        print(f"  [DEBUG] 전월({y}.{m:02d}) 평균 수집 실패: {e}")
-        return None
+    # 순간적 로딩 지연·팝업으로 한 번에 못 읽는 경우가 있어 재시도(전월값은 절대 빠지면 안 됨).
+    for attempt in range(3):
+        try:
+            page.evaluate(f"reloadPage({{'yy':'{y}','mm':'{m:02d}'}})")
+            page.wait_for_load_state("networkidle", timeout=20000)
+            page.wait_for_timeout(2000 + attempt * 1500)
+            _close_popups(page)
+            page.wait_for_timeout(500)
+            v = _read_avg_param_info(page)
+            if v is not None and v > 0:
+                return v
+        except Exception as e:
+            print(f"  [DEBUG] 전월({y}.{m:02d}) 평균 수집 시도{attempt + 1} 실패: {e}")
+        page.wait_for_timeout(1000)
+    print(f"  [WARN] 전월({y}.{m:02d}) 평균 3회 시도 실패 → 폴백값 사용 예정")
+    return None
 
 
 def _click_drive_record_tab(page: Page) -> None:

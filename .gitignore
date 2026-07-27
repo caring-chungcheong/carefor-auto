@@ -32,6 +32,8 @@ _보류제외.txt
 !docs/rate_calc_manifest.json
 # 진행추적 히스토리 — 커밋 필요(항목 상태만·개인정보 없음). *.json 에 막혀 예외 지정.
 !docs/audit_history.json
+# 출석보고 전월 평균 폴백값 — 커밋 필요(수치만·개인정보 없음). CI 폴백의 진실이라 반드시 올라가야 함.
+!attendance_prev_avg.json
 
 # 라이브 Slack 웹훅이 들어있다 — 실수로 커밋되면 GitHub 푸시보호에 막힌다(실제로 막혔다)
 apps_script_full.js
