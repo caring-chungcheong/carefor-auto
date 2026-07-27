@@ -293,8 +293,11 @@
               const fd = /재사정|신규/.test(rd.fall) ? dateOf(rd.fall) : '';
               const sd = /재사정|신규/.test(rd.sore) ? dateOf(rd.sore) : '';
               // 인지는 조사사유 '상태변화'도 정식 재평가라 포함(재사정/신규만 잡던 갭 수정, 사용자 확정 2026-07-21).
+              // ★조사사유 공란인 인지평가도 있다(둔산 김숙녀 2026.03.02: 낙상·욕창은 재사정인데 인지만 사유공란
+              //   → 통째 스킵되어 21③ 허위 누락). 같은 행에 낙상/욕창 재사정(fd|sd)이 잡히면 그날 실제 위험도평가
+              //   세션이므로, 인지도 날짜만 있으면 캡처한다. 내용 유효성은 아래 done 게이트가 재확인(빈폼 과탐 방지).
               // evals.cog(실시 인정)는 아래 팝업 파싱 후 '내용 있는 것만' 넣는다(총점0·비고공란=미실시).
-              const cd = /재사정|신규|상태변화/.test(rd.cog) ? dateOf(rd.cog) : '';
+              const cd = (/재사정|신규|상태변화/.test(rd.cog) || fd || sd) ? dateOf(rd.cog) : '';
               if (fd && !evals.fall.includes(fd)) evals.fall.push(fd);
               if (sd && !evals.sore.includes(sd)) evals.sore.push(sd);
               if (fd && !falls.some(f => f.date === fd)) {
