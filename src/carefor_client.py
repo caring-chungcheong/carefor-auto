@@ -37,7 +37,8 @@ class BranchAttendance:
     hyeon_won: int      # 현원(수급중)
     gyeol_seok: int     # 결석
     chul_seok: int      # 출석
-    avg_attendees: float = 0.0  # 월평균 입소자 수
+    avg_attendees: float = 0.0  # 월평균 입소자 수(현월, 진행 중이라 러닝 평균)
+    prev_avg_attendees: float | None = None  # 전월 최종 평균 입소자 수(마감값)
 
 
 PORTAL_URL = "https://eform.caring.co.kr/carefor"
@@ -331,6 +332,43 @@ def scrape_monthly_attend(page: Page, target: date) -> tuple[int, float]:
         avg = round(sum(daily_totals) / len(daily_totals), 2)
 
     return today_total, avg
+
+
+def _read_avg_param_info(page: Page) -> float | None:
+    """현재 2-8 화면 '평균 입소자 수 계산' param-info에서 '= X.XX 값의' 평균값을 읽는다."""
+    p = page.evaluate("""(() => {
+        const els = document.querySelectorAll('[param-info],[data-param-info]');
+        for (const el of els) {
+            const s = el.getAttribute('param-info') || el.getAttribute('data-param-info') || '';
+            if (s.includes('급여제공일') && s.includes('입소자 합계')) return s;
+        }
+        return null;
+    })()""")
+    if not p:
+        return None
+    m = re.search(r"=\s*([\d]+\.[\d]+)\s*값의", p)
+    return float(m.group(1)) if m else None
+
+
+def scrape_prev_month_avg(page: Page, target: date) -> float | None:
+    """2-8 화면을 직전 달로 이동해(reloadPage) 전월 최종 평균 입소자를 읽는다.
+
+    ★ mm 은 반드시 2자리('06'). 1자리('6')면 케어포가 엉뚱한 값을 반환한다(실측 2026-07: '6'→55.81, '06'→59.92).
+    전월은 마감돼 있어 이 값이 곧 '최종' 평균이다. 실패 시 None(보고는 계속되게).
+    """
+    y, m = target.year, target.month - 1
+    if m == 0:
+        y, m = y - 1, 12
+    try:
+        page.evaluate(f"reloadPage({{'yy':'{y}','mm':'{m:02d}'}})")
+        page.wait_for_load_state("networkidle", timeout=20000)
+        page.wait_for_timeout(2000)
+        _close_popups(page)
+        page.wait_for_timeout(500)
+        return _read_avg_param_info(page)
+    except Exception as e:
+        print(f"  [DEBUG] 전월({y}.{m:02d}) 평균 수집 실패: {e}")
+        return None
 
 
 def _click_drive_record_tab(page: Page) -> None:
@@ -650,9 +688,11 @@ def fetch_branch_attendance(
         chul_seok = iljung          # 출석 = 일정
         gyeol_seok = hyeon_won - iljung  # 결석 = 현원 - 일정
 
-        # 6) 2-8 월간 입소자 → 월평균 입소자 수만
+        # 6) 2-8 월간 입소자 → 현월 월평균 + 전월 최종 평균
         _navigate_spa(data_page, monthly_attend_url(g_pammgno))
         _, avg_attendees = scrape_monthly_attend(data_page, target_date)
+        # 전월은 같은 2-8 화면을 직전 달로 돌려 읽는다(reloadPage yy/mm). 현월 읽은 뒤 실행.
+        prev_avg_attendees = scrape_prev_month_avg(data_page, target_date)
 
         browser.close()
 
@@ -663,4 +703,5 @@ def fetch_branch_attendance(
             gyeol_seok=gyeol_seok,
             chul_seok=chul_seok,
             avg_attendees=avg_attendees,
+            prev_avg_attendees=prev_avg_attendees,
         )

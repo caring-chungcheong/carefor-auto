@@ -103,7 +103,7 @@ def _draw_avg_cell(draw, cur, prev, f_num, f_small, x, ry, cw, h,
         return
     ptxt = f"(전월 {prev_s})"
     pw, ph = _text_size(draw, ptxt, f_small)
-    gap = 4
+    gap = 10   # 현월 값과 '(전월 …)' 사이 간격
     total = ch + gap + ph
     ty0 = ry + (h - total) // 2
     draw.text((x + (cw - cw_i) // 2, ty0), cur_s, font=f_num, fill=dark)

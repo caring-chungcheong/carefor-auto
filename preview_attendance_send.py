@@ -17,21 +17,20 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from src.image_report import generate_image
 from src import slack_notifier
 
-# 회원님이 보여준 07-27 표 수치 + 전월은 예시(더미)
+# 07-27 실제 수치(현월) + 케어포 2-8에서 뽑은 실제 전월 최종 평균(서구 59.92 검증 완료)
 BRANCHES = [
     {"name": "둔산점",     "hyeon_won": 70, "gyeol_seok": 11, "chul_seok": 59, "capacity": 76,
-     "avg_attendees": 57.17, "prev_avg_attendees": 55.00},
+     "avg_attendees": 57.17, "prev_avg_attendees": 57.69},
     {"name": "서구점",     "hyeon_won": 80, "gyeol_seok": 15, "chul_seok": 65, "capacity": 84,
-     "avg_attendees": 60.43, "prev_avg_attendees": 58.90},
+     "avg_attendees": 60.43, "prev_avg_attendees": 59.92},
     {"name": "천안점",     "hyeon_won": 68, "gyeol_seok": 10, "chul_seok": 58, "capacity": 82,
-     "avg_attendees": 46.70, "prev_avg_attendees": 49.20},
+     "avg_attendees": 46.70, "prev_avg_attendees": 45.27},
     {"name": "청주 오창점", "hyeon_won": 49, "gyeol_seok": 2,  "chul_seok": 47, "capacity": 62,
-     "avg_attendees": 43.83, "prev_avg_attendees": 41.50},
+     "avg_attendees": 43.83, "prev_avg_attendees": 43.54},
 ]
 
-COMMENT = ("🧪 *[테스트/미리보기]* 출석 현황 — '월평균 입소자' 열 확대 + *전월 평균 입소자* 표시안\n"
-           "⚠️ 전월 값(괄호 안)은 *예시(더미)* 입니다. 레이아웃만 확인해 주세요. "
-           "실제 전월값은 케어포 2-8 연결 후 반영됩니다.")
+COMMENT = ("🧪 *[테스트]* 출석 현황 — '월평균 입소자' 열 확대 + *전월 평균 입소자*(괄호, 회색) 표시안\n"
+           "전월값은 케어포 2-8 실제 최종 평균입니다(서구 6월 59.92 검증 완료). 레이아웃·수치 확인 부탁드립니다.")
 
 
 def main():

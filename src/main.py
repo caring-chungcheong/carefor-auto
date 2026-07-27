@@ -60,6 +60,7 @@ def run_slack_only(
                 "gyeol_seok": att.gyeol_seok,
                 "chul_seok": att.chul_seok,
                 "avg_attendees": att.avg_attendees,
+                "prev_avg_attendees": att.prev_avg_attendees,
                 "capacity": branch.capacity,
             }
             branches_data.append(row)
@@ -171,6 +172,7 @@ def run_daily_report(
                 "gyeol_seok": att.gyeol_seok,
                 "chul_seok": att.chul_seok,
                 "avg_attendees": att.avg_attendees,
+                "prev_avg_attendees": att.prev_avg_attendees,
                 "capacity": branch.capacity,
             }
             branches_data.append(row)
