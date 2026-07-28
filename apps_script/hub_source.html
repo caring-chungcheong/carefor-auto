@@ -130,7 +130,9 @@
     padding:8px 13px;border-radius:999px;font-size:13px;font-weight:700;cursor:pointer;
     font-family:inherit;transition:.15s;white-space:nowrap;box-shadow:0 2px 8px rgba(193,124,143,.28)}
   .installtop:hover{background:#b06a7e}
-  @media(max-width:560px){.installtop{top:10px;right:10px;padding:7px 10px;font-size:12px}}
+  /* 좁은 화면(지플립 등)에서는 절대배치를 풀어 제목 위 흐름에 둔다.
+     absolute 로 띄우면 가운데 정렬된 h1 과 서로를 몰라 폭이 좁거나 글꼴배율이 커질 때 겹친다. */
+  @media(max-width:560px){.installtop{position:static;margin:0 0 10px;padding:7px 12px;font-size:12px}}
   .iosguide{display:none;position:fixed;inset:0;z-index:120;background:rgba(10,18,35,.6);
     align-items:center;justify-content:center;padding:24px}
   .iosbox{background:#fff;border-radius:18px;padding:24px 22px;max-width:340px;text-align:center;
