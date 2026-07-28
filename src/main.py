@@ -102,8 +102,9 @@ def run_slack_only(
     send_channel = BRANCH_CHANNEL
     is_saturday = (target_date.weekday() == 5)
 
+    # 2026-08-03부터 둔산점 센터장 교체: 박경민(U08908V4Y64) → 용택수(U08GR1HA856)
     BRANCH_MENTIONS = {
-        "둔산점":      "U08908V4Y64",
+        "둔산점":      "U08908V4Y64" if target_date < date(2026, 8, 3) else "U08GR1HA856",
         "서구점":      "U07K74212MV",
         "청주 오창점": "U087FH5CKL0",
         "천안점":      "U03DFLVSQ91",
