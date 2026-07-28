@@ -27,19 +27,19 @@
     min-height:100vh;line-height:1.5}
   a{color:inherit}
 
-  header{position:relative;background:linear-gradient(120deg,#c17c8f 0%,#cd8a9c 62%,#d597a7 100%);
-    color:#fff;padding:22px 20px 20px;text-align:center;overflow:hidden}
-  header::after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;
-    background:linear-gradient(90deg,var(--teal),var(--violet),var(--amber),var(--blue))}
+  header{position:relative;background:#ffffff;
+    color:#19212e;padding:22px 20px 20px;text-align:center;overflow:hidden;border-bottom:1px solid #ecdde3}
+  header::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;
+    background:linear-gradient(90deg,#e6bcc7,#c17c8f,#e6bcc7)}
   header .badge{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;
     background:rgba(255,255,255,.15);padding:6px 16px;border-radius:999px;margin-bottom:6px;letter-spacing:.3px}
   header h1{font-size:clamp(23px,2.5vw,31px);margin:0;font-weight:800;letter-spacing:-.6px}
-  header .sub{font-size:14px;opacity:.88;margin-top:7px}
+  header .sub{font-size:14px;color:#5c6775;margin-top:7px}
   .pills{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:10px}
   .pills-upcoming{margin-top:8px}
   .pills-upcoming .pill{opacity:.8}
-  .pill{font-size:13px;font-weight:600;background:rgba(255,255,255,.13);
-    border:1px solid rgba(255,255,255,.18);padding:6px 15px;border-radius:999px}
+  .pill{font-size:13px;font-weight:600;background:#faf2f5;color:#6b4d55;
+    border:1px solid #ecdde3;padding:6px 15px;border-radius:999px}
 
   .wrap{padding:28px 34px 56px;max-width:1400px;margin:0 auto}
 
@@ -126,10 +126,10 @@
   /* 오른쪽 상단 바로가기 설치 버튼 */
   header{position:relative}
   .installtop{position:absolute;top:14px;right:16px;display:inline-flex;align-items:center;gap:6px;
-    background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.38);
+    background:#c17c8f;color:#fff;border:1px solid #c17c8f;
     padding:8px 13px;border-radius:999px;font-size:13px;font-weight:700;cursor:pointer;
-    font-family:inherit;backdrop-filter:blur(4px);transition:.15s;white-space:nowrap}
-  .installtop:hover{background:rgba(255,255,255,.30)}
+    font-family:inherit;transition:.15s;white-space:nowrap;box-shadow:0 2px 8px rgba(193,124,143,.28)}
+  .installtop:hover{background:#b06a7e}
   @media(max-width:560px){.installtop{top:10px;right:10px;padding:7px 10px;font-size:12px}}
   .iosguide{display:none;position:fixed;inset:0;z-index:120;background:rgba(10,18,35,.6);
     align-items:center;justify-content:center;padding:24px}
