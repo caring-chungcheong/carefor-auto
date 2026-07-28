@@ -517,6 +517,8 @@ def scrape_car_oil_change(page: Page, default_interval: int = 8000) -> dict:
     #  '차후·다음'은 다음주기라 제외(아래에서 별도 처리).
     km_m = (re.search(r'현재\s*([\d,]+)', row_text)
             or re.search(r'현\s*주행\s*거리\s*([\d,]+)', row_text)
+            # '엔진오일 66,500km 교환'처럼 오일과 교환 사이에 주행거리가 낀 형식(31머2741). 차후/다음 예고 제외.
+            or re.search(r'(?<!차후)(?<!차후\s)(?<!다음)(?<!다음\s)(?:엔진\s*)?오일\s*([\d,]{4,})\s*[kK][mM]\s*교[환체]', row_text)
             or re.search(r'(?<!차후)(?<!차후\s)(?<!다음)(?<!다음\s)(?:엔진\s*)?오일\s*교[환체]\s*(?:완료|시)?\s*[\(（]?\s*([\d,]+)', row_text)
             or re.search(r'교[환체]\s*(?:완료|시)?\s*([\d,]+)\s*[kK][mM]', row_text))
     oil_km = int(km_m.group(1).replace(',', '')) if km_m else None
@@ -524,7 +526,9 @@ def scrape_car_oil_change(page: Page, default_interval: int = 8000) -> dict:
     # 다음 교환/교체 주기 — '다음 교체주기 106,956' / '다음 주기 …' / '차후 (엔진)오일 교환·교체 88,829'
     next_km_m = (re.search(r'다음\s*교[환체]\s*주기\s*([\d,]+)', row_text)
                  or re.search(r'다음\s*주기\s*([\d,]+)', row_text)
-                 or re.search(r'차후\s*(?:엔진\s*)?오일\s*교[환체]\s*([\d,]+)', row_text))
+                 or re.search(r'차후\s*(?:엔진\s*)?오일\s*교[환체]\s*([\d,]+)', row_text)
+                 # '차후 74,500km 교환필요'처럼 차후 뒤에 주행거리가 바로 오는 형식(31머2741).
+                 or re.search(r'차후\s*(?:엔진\s*오일\s*)?([\d,]{4,})\s*[kK][mM]', row_text))
     if next_km_m:
         oil_next_km = int(next_km_m.group(1).replace(',', ''))
     elif oil_km is not None:
