@@ -310,17 +310,25 @@ def main():
     heads = [short for short, _ in cr.CENTER_ORDER]  # 둔산/서구/천안/청주오창 (전체명 유지)
     smap = {s["center"]: s for s in summaries}
     cols = [smap[full] for _, full in cr.CENTER_ORDER]
+    ROWS = [("신규상담", "total"), ("미입력수", "miss"), ("미입력률", "rate"), ("대기건수", "wait")]
     LABEL_W = 8   # 행라벨(신규상담 등)이 4글자=폭8 → 왼쪽 여백 최소화(둔산 앞당김)
-    col_ws = [max(cr._w(h), 4) + 2 for h in heads]  # 열마다 머리글 폭 (청주오창=10, 나머지=6)
+    # 열폭은 '값' 최대폭 기준(머리글 무시) → 청주오창(4글자) 머리글만 오른쪽으로 살짝 넘치고,
+    # 숫자는 다른 지점과 같은 간격으로 앞에 붙는다. 셀은 가운데 정렬(머리글·값이 열 중앙에).
+    col_ws = [max(4, *[cr._w(str(c[k])) for _, k in ROWS]) + 2 for c in cols]
+
+    def _cen(v, w):
+        v = str(v)
+        pad = max(0, w - cr._w(v))
+        return " " * (pad // 2) + v + " " * (pad - pad // 2)
+
     table_lines = [
-        cr._rpad("", LABEL_W) + "".join(cr._lpad(h, w) for h, w in zip(heads, col_ws)),
-        "─" * (LABEL_W + sum(col_ws)),
+        cr._rpad("", LABEL_W) + "".join(_cen(h, w) for h, w in zip(heads, col_ws)),
+        "─" * (LABEL_W + sum(col_ws) + 2),
     ]
-    for label, key in [("신규상담", "total"), ("미입력수", "miss"),
-                       ("미입력률", "rate"), ("대기건수", "wait")]:
+    for label, key in ROWS:
         table_lines.append(cr._rpad(label, LABEL_W) + "".join(
-            cr._lpad(str(s[key]), w) for s, w in zip(cols, col_ws)))
-    table = "\n".join(table_lines)
+            _cen(s[key], w) for s, w in zip(cols, col_ws)))
+    table = "\n".join(l.rstrip() for l in table_lines)
 
     # 지점별 엑셀 링크 한 줄
     link_parts = [f"<{link_map.get(full, '')}|{short}>" for short, full in cr.CENTER_ORDER]
