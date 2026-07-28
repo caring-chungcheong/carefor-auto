@@ -116,32 +116,33 @@ def generate() -> Path:
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>지점 점검 요약</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
-body{font-family:'맑은 고딕',sans-serif;margin:0;background:#f4f6fa;color:#222}
-header{background:#2f5496;color:#fff;padding:14px 20px}
-header h1{font-size:18px;margin:0}
+body{font-family:'Pretendard Variable',Pretendard,'맑은 고딕',sans-serif;margin:0;background:linear-gradient(180deg, #fbf1f4 0%, #f8f5f7 220px, #f7f9fb 560px) no-repeat, #f7f9fb;color:#1e293b}
+header{background:#fff8fa;color:#1e293b;padding:14px 20px;border-bottom:1px solid #f5e1e7}
+header h1{font-size:18px;margin:0;color:#3a6f78}
 .sub{font-size:12px;opacity:.85;margin-top:3px}
 .wrap{padding:16px;max-width:1100px;margin:0 auto}
 .cards{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
 .bcard{background:#fff;border-radius:10px;padding:12px 16px;box-shadow:0 2px 6px rgba(0,0,0,.08);min-width:150px;flex:1}
-.bcard h3{margin:0 0 6px;font-size:15px;color:#2f5496}
+.bcard h3{margin:0 0 6px;font-size:15px;color:#3a6f78}
 .bcard .meta{font-size:11px;color:#888}
 .bcard .nums{font-size:12px;margin-top:6px;line-height:1.7}
 table{border-collapse:collapse;width:100%;background:#fff;font-size:12px;box-shadow:0 2px 6px rgba(0,0,0,.08)}
-th,td{border:1px solid #dde3ee;padding:6px 8px;text-align:center}
-th{background:#eef2f9}
+th,td{border:1px solid #b3d8df;padding:6px 8px;text-align:center}
+th{background:#eef5f7}
 td.name{text-align:left;white-space:nowrap}
 .det{font-size:10.5px;color:#555;margin-top:3px;text-align:left;white-space:normal;line-height:1.4}
 .ok{color:#2c8a41;font-weight:bold}.bad{color:#c02020;font-weight:bold}
 .warn{color:#b57a00;font-weight:bold}
-.na{color:#999}.man{color:#4a69b0}
+.na{color:#999}.man{color:#3a6f78}
 .dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:4px;vertical-align:-1px}
-.d-ok{background:#35a94e}.d-bad{background:#d93a3a}.d-na{background:#c2c2c2}.d-man{background:#6f8fd6}
+.d-ok{background:#35a94e}.d-bad{background:#d93a3a}.d-na{background:#c2c2c2}.d-man{background:#52909c}
 .d-warn{background:#e8a01f}
-#gate{position:fixed;inset:0;background:#2f5496;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#fff}
+#gate{position:fixed;inset:0;background:#3a6f78;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#fff}
 #gate input{font-size:22px;padding:8px 14px;border-radius:8px;border:0;width:130px;text-align:center;letter-spacing:6px}
 .note{font-size:11px;color:#777;margin-top:10px;line-height:1.6}
-.back{display:inline-block;margin-bottom:12px;background:#eef2f9;color:#2f5496;padding:6px 14px;border-radius:16px;text-decoration:none;font-size:13px;font-weight:bold}
+.back{display:inline-block;margin-bottom:12px;background:#fff0f3;color:#c17080;padding:6px 14px;border-radius:16px;text-decoration:none;font-size:13px;font-weight:bold}
 </style></head><body>
 <div id="gate"><h2>🔒 지점 점검 요약</h2><div>접속 번호를 입력하세요</div>
 <input id="pin" type="password" maxlength="12" inputmode="numeric" autofocus></div>

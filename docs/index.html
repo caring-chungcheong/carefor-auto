@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-<meta name="theme-color" content="#06b6d4">
+<meta name="theme-color" content="#52909c">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="차량관리">
@@ -16,7 +16,7 @@
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   body {
     font-family: 'Pretendard Variable', Pretendard, 'Malgun Gothic', -apple-system, BlinkMacSystemFont, sans-serif;
-    background: linear-gradient(180deg, #ffeef2 0%, #fbf3f6 220px, #f7f9fb 560px) no-repeat, #f7f9fb;
+    background: linear-gradient(180deg, #fbf1f4 0%, #f8f5f7 220px, #f7f9fb 560px) no-repeat, #f7f9fb;
     color: #1e293b;
     min-height: 100vh;
     -webkit-text-size-adjust: 100%;
@@ -39,7 +39,7 @@
     margin-bottom: 8px;
     position: relative;
   }
-  .header h1 { font-size: 22px; text-align: center; color: #0891b2; letter-spacing: -0.3px; }
+  .header h1 { font-size: 22px; text-align: center; color: #3a6f78; letter-spacing: -0.3px; }
   .header .sub {
     font-size: 12px;
     color: #64748b;
@@ -76,9 +76,9 @@
     .header h1 { font-size: 18px; }
   }
   .header-btns button {
-    background: #ecfeff;
-    border: 1px solid #a5f3fc;
-    color: #0891b2;
+    background: #eef5f7;
+    border: 1px solid #b3d8df;
+    color: #3a6f78;
     padding: 6px 12px;
     border-radius: 6px;
     cursor: pointer;
@@ -91,8 +91,8 @@
     gap: 4px;
     font-size: 11px;
     padding: 2px 8px;
-    background: #ecfeff;
-    color: #0891b2;
+    background: #eef5f7;
+    color: #3a6f78;
     border-radius: 10px;
   }
   .sync-dot {
@@ -136,7 +136,7 @@
     border-radius: 10px;
     padding: 18px 14px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-    border-left: 4px solid #06b6d4;
+    border-left: 4px solid #52909c;
     text-align: center;
   }
   .stat-card.warn { border-left-color: #f59e0b; }
@@ -168,9 +168,9 @@
     color: #64748b;
     white-space: nowrap;
   }
-  .tab.active { background: #0891b2; color: white; }
-  .tab.dashboard-tab { color: #f43f5e; font-weight: 700; }
-  .tab.dashboard-tab.active { background: #f43f5e; color: white; }
+  .tab.active { background: #3a6f78; color: white; }
+  .tab.dashboard-tab { color: #d98a95; font-weight: 700; }
+  .tab.dashboard-tab.active { background: #d98a95; color: white; }
 
   .toolbar {
     display: flex;
@@ -193,7 +193,7 @@
     font-size: 14px;
     font-weight: 500;
   }
-  .btn-primary { background: #0891b2; color: white; }
+  .btn-primary { background: #3a6f78; color: white; }
   .btn-secondary { background: #e2e8f0; color: #475569; }
 
   .cars-grid {
@@ -206,7 +206,7 @@
     border-radius: 12px;
     padding: 16px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-    border-top: 4px solid #06b6d4;
+    border-top: 4px solid #52909c;
   }
   .car-card.warn { border-top-color: #f59e0b; }
   .car-card.danger { border-top-color: #ef4444; }
@@ -277,11 +277,11 @@
   /* 첨부(정비 내역서) — 드라이브 링크. caring.co.kr 계정으로 로그인돼 있어야 열린다. */
   .hist-atts { display: flex; flex-direction: column; gap: 5px; margin-top: 7px; }
   .hist-att {
-    display: inline-block; font-size: 12px; color: #0891b2; text-decoration: none;
-    background: #ecfeff; border: 1px solid #a5f3fc; border-radius: 6px; padding: 6px 9px;
+    display: inline-block; font-size: 12px; color: #3a6f78; text-decoration: none;
+    background: #eef5f7; border: 1px solid #b3d8df; border-radius: 6px; padding: 6px 9px;
     word-break: break-all;
   }
-  .hist-att:active { background: #cffafe; }
+  .hist-att:active { background: #d8e9ed; }
   .modal-overlay {
     display: none;
     position: fixed;
@@ -350,8 +350,8 @@
   }
   .alert-item:last-child { border-bottom: none; }
   .alert-branch {
-    background: #ecfeff;
-    color: #0891b2;
+    background: #eef5f7;
+    color: #3a6f78;
     padding: 2px 6px;
     border-radius: 4px;
     font-size: 11px;
@@ -388,7 +388,7 @@
     bottom: 20px;
     left: 16px;
     right: 16px;
-    background: linear-gradient(120deg, #06b6d4 0%, #0891b2 100%);
+    background: linear-gradient(120deg, #52909c 0%, #3a6f78 100%);
     color: white;
     padding: 14px 16px;
     border-radius: 12px;
@@ -407,7 +407,7 @@
     font-weight: 600;
     font-size: 13px;
   }
-  .install-banner .install-btn { background: white; color: #0891b2; }
+  .install-banner .install-btn { background: white; color: #3a6f78; }
   .install-banner .close-btn { background: rgba(255,255,255,0.2); color: white; }
 
   @media (max-width: 700px) {
@@ -436,7 +436,7 @@
     width: 20px;
     height: 20px;
     border: 2px solid #e2e8f0;
-    border-top-color: #06b6d4;
+    border-top-color: #52909c;
     border-radius: 50%;
     animation: spin 1s linear infinite;
   }
@@ -1157,9 +1157,9 @@ function showInstallHelp(html) {
   d.innerHTML = '<div style="background:#fff;border-radius:16px;padding:22px 20px;max-width:350px;'
     + 'text-align:center;box-shadow:0 14px 40px rgba(0,0,0,.3);font-size:13.5px;line-height:1.75;color:#1f2937">'
     + '<div style="font-size:32px">📲</div>'
-    + '<h3 style="margin:8px 0 10px;font-size:17px;color:#0891b2">앱 설치</h3>'
+    + '<h3 style="margin:8px 0 10px;font-size:17px;color:#3a6f78">앱 설치</h3>'
     + '<div>' + html + '</div>'
-    + '<button type="button" style="margin-top:16px;background:#0891b2;color:#fff;border:0;'
+    + '<button type="button" style="margin-top:16px;background:#3a6f78;color:#fff;border:0;'
     + 'padding:10px 22px;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer">확인</button></div>';
   d.querySelector('button').onclick = () => d.remove();
   d.onclick = e => { if (e.target === d) d.remove(); };
@@ -1209,8 +1209,8 @@ window.addEventListener('appinstalled', () => {
 });
 </script>
 <style>
-.hubback{position:fixed;left:12px;top:12px;z-index:500;display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.96);color:#e11d48;border:1px solid #fbc9d4;padding:8px 15px;border-radius:999px;text-decoration:none;font-size:12.5px;font-weight:700;box-shadow:0 3px 12px rgba(244,63,94,.16);backdrop-filter:blur(4px);transition:transform .14s,box-shadow .14s,background .14s,color .14s}
-.hubback:hover{background:#f43f5e;color:#fff;transform:translateY(-1px);box-shadow:0 7px 18px rgba(244,63,94,.30)}
+.hubback{position:fixed;left:12px;top:12px;z-index:500;display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.96);color:#c17080;border:1px solid #f2d2d8;padding:8px 15px;border-radius:999px;text-decoration:none;font-size:12.5px;font-weight:700;box-shadow:0 3px 12px rgba(244,63,94,.16);backdrop-filter:blur(4px);transition:transform .14s,box-shadow .14s,background .14s,color .14s}
+.hubback:hover{background:#d98a95;color:#fff;transform:translateY(-1px);box-shadow:0 7px 18px rgba(244,63,94,.30)}
 .hubback .ar{font-weight:800;transition:transform .14s}
 .hubback:hover .ar{transform:translateX(-3px)}
 </style>

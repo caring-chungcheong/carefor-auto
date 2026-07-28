@@ -32,10 +32,10 @@ PIN = "15771389"
 
 _GATE_HEAD = """<meta name="robots" content="noindex, nofollow">
 <style>
-#hqgate{position:fixed;inset:0;background:#2f5496;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#fff}
+#hqgate{position:fixed;inset:0;background:#3a6f78;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#fff}
 #hqgate input{font-size:22px;padding:8px 14px;border-radius:8px;border:0;width:130px;text-align:center;letter-spacing:6px}
 button[onclick^="uploadScores"]{display:none!important}
-.hqback{background:#fff;color:#2f5496;padding:6px 14px;border-radius:16px;text-decoration:none;font-size:13px;font-weight:bold;white-space:nowrap;align-self:center;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.hqback{background:#fff0f3;color:#c17080;padding:6px 14px;border-radius:16px;text-decoration:none;font-size:13px;font-weight:bold;white-space:nowrap;align-self:center;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.2)}
 </style>
 """
 _GATE_BODY = """<div id="hqgate"><h2 style="color:#fff">🔒 지점 점검 대시보드 (본부 공유)</h2>

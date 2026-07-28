@@ -3,20 +3,21 @@
 <head>
 <meta charset="utf-8">
 <title>지점관리 점검 대시보드</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <script>/* 캐시 무력화: 매번 최신 데이터를 읽어 로컬↔허브 불일치 방지 */
 document.write('<sc'+'ript src="audit_results/dashboard_data.js?_='+Date.now()+'" onerror="window.AUDIT_DATA={};window.AUDIT_ITEMS=null;"><\/sc'+'ript>');</script>
 <script src="vendor/xlsx.full.min.js"></script>
 <style>
   * { box-sizing: border-box; }
-  body { font-family: '맑은 고딕', 'Malgun Gothic', sans-serif; margin: 0; background: #f4f6fa; color: #222; }
-  header { background: #2f5496; color: #fff; padding: 14px 24px; display: flex; align-items: center; gap: 16px; }
-  header h1 { font-size: 19px; margin: 0; }
+  body { font-family: 'Pretendard Variable', Pretendard, '맑은 고딕', 'Malgun Gothic', sans-serif; margin: 0; background: linear-gradient(180deg, #fbf1f4 0%, #f8f5f7 220px, #f7f9fb 560px) no-repeat, #f7f9fb; color: #1e293b; }
+  header { background: #fff8fa; color: #1e293b; padding: 14px 24px; display: flex; align-items: center; gap: 16px; border-bottom: 1px solid #f5e1e7; }
+  header h1 { font-size: 19px; margin: 0; color: #3a6f78; }
   header .sub { font-size: 12px; opacity: .85; }
-  .tabs { display: flex; gap: 6px; padding: 12px 24px 0; position: sticky; top: 0; z-index: 31; background: #f4f6fa; }
-  .tab { padding: 9px 22px; border-radius: 8px 8px 0 0; background: #d7dfee; cursor: pointer; font-weight: bold; font-size: 14px; }
-  .tab.on { background: #fff; color: #2f5496; box-shadow: 0 -2px 6px rgba(0,0,0,.06); }
-  .hqtab { display: inline-flex; align-items: center; background: #2f5496; color: #fff; padding: 9px 14px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 13px; white-space: nowrap; margin-right: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
-  .hqtab:hover { background: #24406f; }
+  .tabs { display: flex; gap: 6px; padding: 12px 24px 0; position: sticky; top: 0; z-index: 31; background: #f7f9fb; }
+  .tab { padding: 9px 22px; border-radius: 8px 8px 0 0; background: #d8e9ed; cursor: pointer; font-weight: bold; font-size: 14px; }
+  .tab.on { background: #fff; color: #3a6f78; box-shadow: 0 -2px 6px rgba(0,0,0,.06); }
+  .hqtab { display: inline-flex; align-items: center; background: #3a6f78; color: #fff; padding: 9px 14px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 13px; white-space: nowrap; margin-right: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
+  .hqtab:hover { background: #2f5c64; }
   .wrap { background: #fff; margin: 0 24px 24px; padding: 18px; border-radius: 0 8px 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,.07); }
   .meta { font-size: 13px; color: #666; margin-bottom: 12px; display:flex; gap:18px; flex-wrap:wrap; }
   .summary { display: flex; gap: 12px; flex-wrap: wrap; position: sticky; top: 50px; z-index: 30; background: #fff; margin: 0 -18px 14px; padding: 12px 18px; box-shadow: 0 3px 8px rgba(0,0,0,.10); }
@@ -27,24 +28,24 @@ document.write('<sc'+'ript src="audit_results/dashboard_data.js?_='+Date.now()+'
   .flag-item .st-warn { color: #b57a00; font-weight: bold; }
   .flag-item .st-ok { color: #2c8a41; font-weight: bold; }
   .flag-item .fdet { font-size: 12px; color: #555; margin: 3px 0 5px; line-height: 1.5; }
-  .card { background: #f6f8fc; border: 1px solid #e0e6f0; border-radius: 8px; padding: 10px 18px; text-align: center; min-width: 90px; }
+  .card { background: #eef5f7; border: 1px solid #b3d8df; border-radius: 8px; padding: 10px 18px; text-align: center; min-width: 90px; }
   .card b { display: block; font-size: 22px; }
   table { border-collapse: collapse; width: 100%; font-size: 13px; }
-  th, td { border: 1px solid #dbe2ec; padding: 7px 9px; vertical-align: top; }
-  th { background: #eef2f9; }
+  th, td { border: 1px solid #b3d8df; padding: 7px 9px; vertical-align: top; }
+  th { background: #eef5f7; }
   td.center { text-align: center; white-space: nowrap; }
   .light { display: inline-block; width: 14px; height: 14px; border-radius: 50%; vertical-align: -2px; margin-right: 5px; }
   .g-ok   { background: #35a94e; } .t-ok   { color: #2c8a41; font-weight: bold; }
   .g-bad  { background: #d93a3a; } .t-bad  { color: #c02020; font-weight: bold; }
   .g-na   { background: #b9b9b9; } .t-na   { color: #888; }
   .g-warn { background: #e8a01f; } .t-warn { color: #b57a00; font-weight: bold; }
-  .g-man  { background: #6f8fd6; } .t-man  { color: #4a69b0; font-weight: bold; }
+  .g-man  { background: #52909c; } .t-man  { color: #3a6f78; font-weight: bold; }
   select.mstat { padding: 3px 6px; border: 1px solid #ccc; border-radius: 4px; }
   input.memo { width: 100%; border: 1px solid #ddd; border-radius: 4px; padding: 4px 6px; font-size: 12px; }
   .criteria { color: #555; font-size: 12px; line-height: 1.45; }
-  .subrow { display: flex; gap: 8px; align-items: flex-start; padding: 5px 0; border-top: 1px dashed #e4e9f2; }
+  .subrow { display: flex; gap: 8px; align-items: flex-start; padding: 5px 0; border-top: 1px dashed #b3d8df; }
   .subrow:first-child { border-top: 0; }
-  .sublabel { font-weight: bold; color: #2f5496; min-width: 28px; }
+  .sublabel { font-weight: bold; color: #3a6f78; min-width: 28px; }
   .subtext { flex: 1; color: #555; font-size: 12px; line-height: 1.4; }
   .subscore { min-width: 108px; }
   select.sc { padding: 2px 5px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; }
@@ -54,12 +55,12 @@ document.write('<sc'+'ript src="audit_results/dashboard_data.js?_='+Date.now()+'
   .scorecard b { font-size: 26px !important; }
   .loc { color: #888; font-size: 11px; }
   .btnrow { margin: 12px 0; display: flex; gap: 8px; }
-  button { background: #2f5496; color: #fff; border: 0; border-radius: 6px; padding: 8px 16px; cursor: pointer; font-weight: bold; }
+  button { background: #3a6f78; color: #fff; border: 0; border-radius: 6px; padding: 8px 16px; cursor: pointer; font-weight: bold; }
   button.gray { background: #7a869a; }
   .detail-detail { font-size: 12px; color:#444; }
   .nodata { padding: 40px; text-align: center; color: #999; }
   details { margin-top: 16px; }
-  details summary { cursor: pointer; font-weight: bold; color: #2f5496; padding: 6px 0; }
+  details summary { cursor: pointer; font-weight: bold; color: #3a6f78; padding: 6px 0; }
   .small-table th, .small-table td { font-size: 12px; padding: 4px 7px; }
   .checks { margin-top: 8px; background: #fff8e6; border: 1px solid #f0d98c; border-radius: 6px; padding: 8px 10px; }
   .checks-h { font-weight: bold; color: #b57a00; font-size: 12px; margin-bottom: 5px; }
@@ -73,7 +74,7 @@ document.write('<sc'+'ript src="audit_results/dashboard_data.js?_='+Date.now()+'
   <h1>📋 지점관리 점검 대시보드</h1>
   <div class="sub">평가 매뉴얼 36개 항목 — 자동수집(run_audit.py) + 수기입력 / 데이터: audit_results/</div>
   <a href="https://caring-chungcheong.github.io/carefor-auto/audit_summary.html" target="_blank"
-     style="margin-left:auto;background:#fff;color:#2f5496;font-weight:bold;font-size:13px;
+     style="margin-left:auto;background:#3a6f78;color:#fff;font-weight:bold;font-size:13px;
             padding:8px 14px;border-radius:8px;text-decoration:none;white-space:nowrap">🌐 본부 공유 페이지</a>
 </header>
 <div class="tabs" id="tabs"></div>
@@ -467,19 +468,19 @@ function exportPDF(){
     body{font-family:'맑은 고딕','Malgun Gothic',sans-serif;margin:0;color:#1e2733;background:#fff}
     .page{padding:15mm 13mm}
     .brk{page-break-before:always}
-    .phead{display:flex;align-items:baseline;justify-content:space-between;border-bottom:3px solid #2f5496;padding-bottom:7px}
+    .phead{display:flex;align-items:baseline;justify-content:space-between;border-bottom:3px solid #3a6f78;padding-bottom:7px}
     .phead.amber{border-color:#c07d10}
-    .phead .ttl{font-size:18px;font-weight:800;color:#2f5496;letter-spacing:-.3px}
+    .phead .ttl{font-size:18px;font-weight:800;color:#3a6f78;letter-spacing:-.3px}
     .phead.amber .ttl{color:#b57a00}
     .phead .br{font-size:15px;font-weight:700;color:#33445c}
     .meta{font-size:10.5px;color:#6a7686;margin:7px 0 11px}
     .meta .dim{color:#9aa6b5}
     table.grid{border-collapse:collapse;width:100%;font-size:10.5px}
-    .grid th,.grid td{border:1px solid #d5dce8;padding:4px 7px;text-align:center;vertical-align:top}
-    .grid thead th{background:#2f5496;color:#fff;font-weight:700;border-color:#294a86}
+    .grid th,.grid td{border:1px solid #b3d8df;padding:4px 7px;text-align:center;vertical-align:top}
+    .grid thead th{background:#3a6f78;color:#fff;font-weight:700;border-color:#2f5c64}
     .grid.amber thead th{background:#b57a00;border-color:#9c690a}
     .grid td.l{text-align:left}
-    .grid tbody tr:nth-child(even){background:#f6f8fc}
+    .grid tbody tr:nth-child(even){background:#eef5f7}
     .grid.amber tbody tr:nth-child(even){background:#fbf4e7}
     .grid td.auto{color:#7a8698;font-size:9.5px}
     .grid td.cbox{font-size:14px}
