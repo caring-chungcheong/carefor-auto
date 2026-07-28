@@ -3,9 +3,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <title>충청본부 공유 허브</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <!-- 홈 화면 설치(PWA) — 아이폰·안드로이드 공용 -->
 <link rel="manifest" href="hq-manifest.json">
-<meta name="theme-color" content="#152647">
+<meta name="theme-color" content="#3a6f78">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -14,19 +15,19 @@
 <link rel="icon" type="image/png" href="icons/hub-192.png">
 <style>
   :root{
-    --navy:#152647; --navy2:#294c8a; --ink:#19212e; --muted:#5c6775; --faint:#93a0b0;
-    --line:#e5e9f0; --bg:#eef2f8; --card:#fff;
-    --teal:#0d7268; --tealbg:#e1f1ee; --violet:#5b46ac; --violetbg:#ebe6f8;
-    --amber:#a45f11; --amberbg:#f8ecd9; --blue:#1f5697; --bluebg:#e3edf7;
+    --navy:#2f5c64; --navy2:#3a6f78; --ink:#19212e; --muted:#5c6775; --faint:#93a0b0;
+    --line:#e6eef0; --bg:#eef5f7; --card:#fff;
+    --teal:#3a6f78; --tealbg:#eef5f7; --violet:#7a6f9c; --violetbg:#f0edf6;
+    --amber:#c17080; --amberbg:#fbeef1; --blue:#52909c; --bluebg:#eaf3f5;
   }
   *{box-sizing:border-box}
-  body{font-family:'Malgun Gothic','맑은 고딕',-apple-system,BlinkMacSystemFont,sans-serif;
+  body{font-family:'Pretendard Variable',Pretendard,'Malgun Gothic','맑은 고딕',-apple-system,BlinkMacSystemFont,sans-serif;
     margin:0;color:var(--ink);
-    background:radial-gradient(1200px 480px at 50% -160px,#dbe4f4 0%,rgba(219,228,244,0) 72%),var(--bg);
+    background:radial-gradient(1200px 480px at 50% -160px,#dde9ea 0%,rgba(221,233,234,0) 72%),var(--bg);
     min-height:100vh;line-height:1.5}
   a{color:inherit}
 
-  header{position:relative;background:linear-gradient(120deg,var(--navy) 0%,var(--navy2) 62%,#3159a0 100%);
+  header{position:relative;background:linear-gradient(120deg,var(--navy) 0%,var(--navy2) 62%,#52909c 100%);
     color:#fff;padding:22px 20px 20px;text-align:center;overflow:hidden}
   header::after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;
     background:linear-gradient(90deg,var(--teal),var(--violet),var(--amber),var(--blue))}
@@ -64,7 +65,7 @@
   .item{display:flex;align-items:center;gap:12px;padding:12px 14px;margin-bottom:8px;border-radius:11px;
     background:#f7f9fb;border:1px solid var(--line);text-decoration:none;color:var(--ink);transition:.13s}
   .item:last-child{margin-bottom:0}
-  .item:hover{background:#eaf0f8;transform:translateX(2px)}
+  .item:hover{background:#eef5f7;transform:translateX(2px)}
   .item .ii{font-size:19px;width:26px;text-align:center;flex-shrink:0}
   .item .it{flex:1;min-width:0}
   .item .it b{display:block;font-weight:700;font-size:14.5px}
@@ -94,9 +95,9 @@
   .tag{font-size:12.5px;font-weight:700;padding:5px 10px;border-radius:8px;white-space:nowrap;
     background:var(--cbg);color:var(--c)}
   .sublink{display:inline-flex;align-items:center;gap:5px;margin:0 28px 22px;
-    padding:9px 15px;border-radius:10px;background:#f5f0fb;color:var(--violet);
+    padding:9px 15px;border-radius:10px;background:#f5f2f9;color:var(--violet);
     text-decoration:none;font-size:13px;font-weight:700}
-  .sublink:hover{background:#ede4f8}
+  .sublink:hover{background:#f0edf6}
 
   footer{max-width:1400px;margin:8px auto 0;padding:0 4px}
   .fbox{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;
@@ -104,7 +105,7 @@
   .fbox .brand{font-weight:800;color:var(--ink);display:flex;align-items:center;gap:7px;font-size:13px}
   .fbox .brand small{display:block;font-weight:500;color:var(--faint);font-size:11px;margin-top:3px}
   .fnote{font-size:11px;color:var(--muted);line-height:1.7;max-width:520px}
-  .fnote .k{color:#b4690e;font-weight:700}
+  .fnote .k{color:#c17080;font-weight:700}
 
   #gate{position:fixed;inset:0;z-index:99;display:flex;align-items:center;justify-content:center;
     flex-direction:column;gap:15px;color:#fff;background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%)}
@@ -137,7 +138,7 @@
   .iosbox .bi{font-size:34px}
   .iosbox h3{margin:8px 0 8px;color:var(--navy);font-size:18px}
   .iosbox p{font-size:13.5px;color:var(--muted);line-height:1.8;margin:0 0 18px}
-  .iosbox .sh{display:inline-block;background:#eef2f9;border-radius:7px;padding:1px 8px;font-weight:700;color:var(--navy2)}
+  .iosbox .sh{display:inline-block;background:#eef5f7;border-radius:7px;padding:1px 8px;font-weight:700;color:var(--navy2)}
   .iosbox button{background:var(--navy);color:#fff;border:0;padding:11px 22px;border-radius:10px;
     font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
   /* 계산기 — 평소엔 접혀 있고 필요할 때 펼친다(화면을 안 어지럽히려고) */
@@ -145,7 +146,7 @@
   .calcbtn{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--line);
     border-radius:11px;padding:9px 15px;font-size:13.5px;font-weight:700;color:var(--navy2);
     cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(31,45,71,.06)}
-  .calcbtn:hover{background:#eef3fb}
+  .calcbtn:hover{background:#eef5f7}
   .calcbox{display:none;background:var(--card);border:1px solid var(--line);border-radius:15px;
     padding:16px;margin:0 0 20px;box-shadow:0 3px 14px rgba(31,45,71,.08);max-width:330px;margin-left:auto}
   .calcbox.on{display:block}
@@ -157,10 +158,10 @@
   .calcgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
   .calcgrid button{border:1px solid var(--line);background:#fff;border-radius:9px;padding:11px 0;
     font-size:15px;font-family:inherit;cursor:pointer;color:var(--ink)}
-  .calcgrid button:hover{background:#eef3fb}
-  .calcgrid button.op{background:#f2f6fc;color:var(--navy2);font-weight:700}
+  .calcgrid button:hover{background:#eef5f7}
+  .calcgrid button.op{background:#eef5f7;color:var(--navy2);font-weight:700}
   .calcgrid button.eq{background:var(--navy2);color:#fff;font-weight:700}
-  .calcgrid button.fn{background:#fdf1ec;color:#b4451f;font-weight:700}
+  .calcgrid button.fn{background:#fbeef1;color:#c17080;font-weight:700}
   .calchint{font-size:11px;color:var(--faint);margin-top:8px;line-height:1.6}
 </style></head><body>
 
