@@ -482,22 +482,20 @@ def scrape_car_oil_change(page: Page, default_interval: int = 8000) -> dict:
         d = r.replace(' ', '')
         if '오일' not in d:
             return False
-        # (1) '오일 교환' 실제. ★같은 기록에 '엔진오일 점검'이 섞여도 교환 우선(둔산 153하3318 1년경과 오판 교정).
-        #     단 '차후/다음 …오일교환'(다음 교환 예고)은 제외 — 둔산 점검기록이 다음교환 km를 이렇게 적는다.
-        for m in re.finditer(r'오일교환', d):
+        # (1) '(엔진)오일 [주행거리] 교환/교체' — ★오일과 교환 사이에 km(66,500km)가 끼어도 인정
+        #     (31머2741 25.12.16 라이브 "엔진오일 66,500km 교환 …차후 74,500km 교환필요"를 놓치던 근본원인).
+        #     같은 기록에 '엔진오일 점검'이 섞여도 교환 우선(둔산 3318). '차후/다음 …오일…교환'(다음교환 예고) 제외.
+        #     '오일 교체 주기확인/필요'(예고)도 제외.
+        for m in re.finditer(r'(?:엔진)?오일[\d,\.km]*교([환체])', d):
             pre = d[max(0, m.start() - 8):m.start()]
-            if '차후' not in pre and '다음' not in pre:
-                return True
-        # (2) '오일 교체' 실제 — '차후/다음' 예고, '교체 주기 확인'·'교체 필요'는 제외.
-        for m in re.finditer(r'오일교체', d):
-            pre = d[max(0, m.start() - 8):m.start()]
-            if ('차후' not in pre and '다음' not in pre
-                    and not d[m.end():m.end() + 6].startswith(('주기확인', '필요'))):
-                return True
-        # (3) 슬래시/공백 나열에 '엔진오일' 항목 + '교환'(라이브선 '/'가 공백 렌더).
-        #     오일 점검·확인·보충·예고(주기·일때·필요)면 제외. '교환'은 '차후/다음 …교환'(다음교환 예고)만 제외 —
-        #     실제 교환 기록에 '차후교환 Nkm' 다음주기 메모가 붙어도 그 실제 교환은 살린다(31머2741 25.12.16).
-        if '엔진오일' in d and not re.search(r'오일(?:점검|확인|보충)|교체주기|일때|필요', d):
+            if '차후' in pre or '다음' in pre:
+                continue
+            if m.group(1) == '체' and d[m.end():m.end() + 6].startswith(('주기확인', '필요')):
+                continue
+            return True
+        # (2) 슬래시/공백 나열에 '엔진오일' 항목 + (오일과 안 붙은) '교환'. 오일 점검·확인·보충이면 제외,
+        #     '교환'은 '차후/다음 …교환'(다음교환 예고)이 아닌 것만.
+        if '엔진오일' in d and not re.search(r'오일(?:점검|확인|보충)', d):
             for m in re.finditer(r'교환', d):
                 pre = d[max(0, m.start() - 8):m.start()]
                 if '차후' not in pre and '다음' not in pre:
