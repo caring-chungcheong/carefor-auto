@@ -275,12 +275,29 @@ def compare(cf: dict, portal: list[dict], contract: list[tuple[str, str]]) -> li
     c_snack = {_num(v) for n, v in contract if _SNACK.search(n)}
     c_meal.discard(None); c_snack.discard(None)
 
+    # ★'못 읽음'을 '일치'로 흘려보내지 않는다. 아래 대조는 집합이 비면 건너뛰게 되어 있어,
+    #   첨부 파싱이 실패해도 조용히 통과한다 — 판정 결과만 보면 구분이 안 된다.
+    if not portal:
+        issues.append({"level": "확인불가", "what": "공단 게시 비급여를 못 읽음(API 무응답/미등록)"})
+    if not contract:
+        issues.append({"level": "확인불가", "what": "이용계약 첨부의 비급여 표를 못 읽음 — 계약서 대조 생략됨"})
+    else:
+        if not c_meal:
+            issues.append({"level": "확인불가", "what": f"계약서에서 식사 항목을 못 찾음(읽은 행: {[n for n, _ in contract]})"})
+        if cf.get("snack") and not c_snack:
+            issues.append({"level": "확인불가", "what": f"계약서에서 간식 항목을 못 찾음(읽은 행: {[n for n, _ in contract]})"})
+
+    # 소스를 못 읽었으면 그 쪽 대조는 아예 하지 않는다 — '못 읽음'을 '위반'으로 찍으면
+    # 무응답 한 번에 전 항목이 미흡으로 뒤집힌다(고치기 전 실제로 그랬다).
+    do_portal = bool(portal)
+    do_contract = bool(contract) and bool(c_meal or c_snack)
+
     for name, amt in sorted(meals.items(), key=lambda x: x[1]):
-        if amt not in p_meal:
+        if do_portal and amt not in p_meal:
             issues.append({"level": "미흡",
                            "what": f"식사({name}) {amt:,}원 — 공단 게시 식사항목에 없음",
                            "게시": sorted(f"{a:,}" for a in p_meal)})
-        if c_meal and amt not in c_meal:
+        if do_contract and c_meal and amt not in c_meal:
             issues.append({"level": "미흡",
                            "what": f"식사({name}) {amt:,}원 — 이용계약서 식사항목에 없음",
                            "계약서": sorted(f"{a:,}" for a in c_meal)})
@@ -288,12 +305,13 @@ def compare(cf: dict, portal: list[dict], contract: list[tuple[str, str]]) -> li
     sn = cf.get("snack")
     if sn:
         unit = cf.get("snack_unit") or ""
-        if p_snack and sn not in p_snack:
-            issues.append({"level": "미흡", "what": f"간식 {sn:,}원({unit}) — 공단 게시 간식과 다름",
-                           "게시": sorted(f"{a:,}" for a in p_snack)})
-        elif not p_snack:
-            issues.append({"level": "미흡", "what": f"간식 {sn:,}원({unit}) — 공단 게시에 간식 항목 없음"})
-        if c_snack and sn not in c_snack:
+        if do_portal:
+            if not p_snack:
+                issues.append({"level": "미흡", "what": f"간식 {sn:,}원({unit}) — 공단 게시에 간식 항목 없음"})
+            elif sn not in p_snack:
+                issues.append({"level": "미흡", "what": f"간식 {sn:,}원({unit}) — 공단 게시 간식과 다름",
+                               "게시": sorted(f"{a:,}" for a in p_snack)})
+        if do_contract and c_snack and sn not in c_snack:
             issues.append({"level": "미흡", "what": f"간식 {sn:,}원({unit}) — 이용계약서 간식과 다름",
                            "계약서": sorted(f"{a:,}" for a in c_snack)})
     return issues
