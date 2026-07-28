@@ -1,0 +1,218 @@
+<!doctype html><html lang="ko"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>청주 오창점 홍보 리포트 · 케어링 주간보호</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+:root{--navy:#152647;--navy2:#294c8a;--teal:#0d7268;--amber:#a45f11;--ink:#1f2733;--mut:#6b7480;--line:#e4e8ef;--bg:#eef2f8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Malgun Gothic',system-ui,sans-serif;line-height:1.65}
+.wrap{max-width:1000px;margin:0 auto;padding:0 18px}
+header{background:linear-gradient(125deg,#152647,#22406e 60%,#2f5aa0);color:#fff;padding:58px 0 30px}
+header .kick{font-size:12.5px;letter-spacing:.09em;font-weight:700;opacity:.85}
+header h1{margin:7px 0 5px;font-size:27px}
+header .sub{font-size:14px;opacity:.92}
+header .meta{margin-top:14px;font-size:13px;opacity:.9;line-height:1.9}
+nav{position:sticky;top:0;z-index:500;background:#fff;border-bottom:1px solid var(--line);overflow-x:auto;white-space:nowrap}
+nav .wrap{display:flex;gap:2px;padding:0 18px}
+nav a{padding:11px 11px;font-size:13px;color:var(--navy2);text-decoration:none;font-weight:600;flex:none}
+nav a:hover{color:var(--teal)}
+main{padding:22px 0 60px}
+section{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px;margin-top:16px}
+.sh{display:flex;align-items:center;gap:11px;margin:0 0 15px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.sh .n{background:var(--teal);color:#fff;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex:none}
+.sh h2{font-size:19px;margin:0;color:var(--navy)}
+.lead{color:var(--mut);font-size:13.5px;margin:0 0 14px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:11px}
+.kpi{border:1px solid var(--line);border-radius:12px;padding:13px 14px}
+.kpi .k{font-size:12px;color:var(--mut)}
+.kpi .v{font-size:22px;font-weight:800;color:var(--navy);margin:2px 0}
+.kpi .v small{font-size:12px;font-weight:600;color:var(--mut)}
+.kpi .dd{font-size:11.5px;color:var(--mut)}
+.callout{background:#f2f7f6;border:1px solid #cfe4e0;border-left:4px solid var(--teal);border-radius:10px;padding:14px 16px;margin-top:16px;font-size:13.5px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:13px}
+.card{border:1px solid var(--line);border-radius:12px;padding:14px 15px}
+.card.warn{background:#fffaf4;border-color:#f0e0c8}
+.card h3{font-size:14.5px;margin:0 0 9px;color:var(--navy)}
+.card ul{margin:0;padding-left:17px} .card li{margin:5px 0;font-size:13px}
+.tag{display:inline-block;border-radius:5px;padding:1px 8px;font-size:12px;font-weight:700}
+.t-str{background:#e3f2ee;color:#0d7268} .t-opp{background:#fdeee2;color:#a45f11}
+#map{height:420px;border-radius:12px;border:1px solid var(--line);margin-top:6px}
+.legend{font-size:12px;color:var(--mut);margin-top:8px}
+.legend b{display:inline-block;width:11px;height:11px;border-radius:50%;vertical-align:-1px;margin:0 3px 0 10px}
+.zones{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+.zone{border:1px solid var(--line);border-radius:10px;padding:11px 13px;font-size:13px}
+.zone .zt{font-weight:700;color:var(--navy);font-size:13px}
+.zone .zt span{float:right;font-weight:600;color:var(--mut);font-size:12px}
+.path{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px}
+.pbox{border:1px solid #cfe0f0;background:#f4f8fd;border-radius:11px;padding:13px 15px}
+.pbox .pt{font-weight:800;color:var(--navy2);font-size:13.5px;margin-bottom:4px}
+.pbox .pa{font-size:13px} .pbox .pn{font-size:13px;color:var(--teal);font-weight:700}
+.flow{font-size:12.5px;color:var(--mut);margin:2px 0 14px;background:#eef4fb;border-radius:8px;padding:8px 12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}
+th{background:#f6f8fc;color:var(--navy);font-size:12px;position:sticky;top:0}
+td.c,th.c{text-align:center}
+.twrap{max-height:480px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.rm{display:flex;gap:13px;padding:10px 0;border-bottom:1px dashed var(--line)}
+.rm .rt{flex:none;width:64px;font-weight:800;color:var(--teal);font-size:13px}
+.rm .rb{font-size:13px}
+ul.plain{margin:6px 0 0;padding-left:17px} ul.plain li{margin:5px 0;font-size:13px}
+.mut{color:var(--mut);font-size:12px}
+.bg{display:inline-block;border-radius:5px;padding:0 6px;font-size:11px;font-weight:700;vertical-align:1px}
+.bg.src{background:#e6eef8;color:#294c8a} .bg.est{background:#fff3d6;color:#8a6100} .bg.op{background:#efe9fb;color:#5b46ac}
+.note{font-size:12px;color:var(--mut);margin-top:10px}
+footer{text-align:center;color:var(--mut);font-size:11.5px;margin:26px 0 0;line-height:1.9}
+.hubback{position:fixed;top:12px;left:12px;z-index:2000;display:inline-flex;align-items:center;gap:7px;
+  background:rgba(255,255,255,.96);color:#1f3360;border:1px solid #d8e0ee;padding:8px 15px;border-radius:999px;
+  text-decoration:none;font-size:12.5px;font-weight:700;box-shadow:0 3px 12px rgba(31,51,96,.16);
+  backdrop-filter:blur(4px);transition:transform .14s,box-shadow .14s,background .14s,color .14s}
+.hubback:hover{background:#1f3360;color:#fff;transform:translateY(-1px);box-shadow:0 7px 18px rgba(31,51,96,.30)}
+.hubback .ar{font-weight:800;transition:transform .14s}
+.hubback:hover .ar{transform:translateX(-3px)}
+@media(max-width:720px){.kpis,.grid3,.grid2,.zones,.path{grid-template-columns:1fr}}
+</style></head><body>
+<a href="https://script.google.com/a/macros/caring.co.kr/s/AKfycby4fQaPyn3AthrSy3NAnbnTRqyXxt-HiB3AHv2uWutQEUWA-xQnMDcOD0f_3XGhTD3Z/exec" class="hubback"><span class="ar">←</span>🏢 본부 공유 허브</a>
+<header><div class="wrap">
+  <div class="kick">케어링 주간보호 · 기존 지점 홍보 리포트</div>
+  <h1>청주 오창점</h1><div class="sub">오창 독립 생활권 · 경쟁 5km+ 공백</div>
+  <div class="meta">🏢 (주)케어링 주간보호센터 청주 오창점<br>📍 충청북도 청주시 청원구 오창읍 모정4길 1-2 1,2층 (오창읍) · ☎️ 043-212-6578 · 2024년 개소</div>
+</div></header>
+<nav><div class="wrap">
+  <a href="#s1">한눈에</a><a href="#s2">입지분석</a><a href="#s3">송영권역·지도</a><a href="#s4">교통</a>
+  <a href="#s5">경쟁센터</a><a href="#s6">연계망·진입경로</a><a href="#s7">홍보대상</a><a href="#s8">전략</a><a href="#s9">출처</a>
+</div></nav>
+<main class="wrap">
+
+  <section id="s1"><div class="sh"><div class="n">01</div><h2>한눈에 보기</h2></div>
+    <div class="kpis"><div class="kpi"><div class="k">청원구 인구</div><div class="v">18.7만<small> 명</small></div><div class="dd">오창과학산업단지 배후 · 2025 <span class="bg src">출처</span></div></div><div class="kpi"><div class="k">청주 고령비율</div><div class="v">약 15%<small> </small></div><div class="dd">오창은 산단 배후 주거 <span class="bg est">확인필요</span></div></div><div class="kpi"><div class="k">청원구 주야간보호</div><div class="v">41<small> 곳</small></div><div class="dd">정원 1,075 · 충원 68% (오창 소재는 소수) <span class="bg src">출처</span></div></div><div class="kpi"><div class="k">지점 여석</div><div class="v">11<small> 명</small></div><div class="dd">정원 62 · 현원 51 <span class="bg src">출처</span></div></div></div>
+    <div class="callout"><b>핵심 판단.</b> 오창은 청주 시내(율량·내덕)와 지리적으로 분리된 <b>독립 생활권</b>입니다 — 지점 <b>최근접 경쟁이 5km+</b>로, 청원구 41곳 대부분이 시내 소재라 <b>오창읍 내 경쟁만 실질</b>입니다(경쟁 밀도 낮음). 정신·치매 진료 접근성은 양호합니다 — <b>도은병원(정신병원)이 지점 1.8km</b>, 정신과 의원도 오창읍 4.8km라 <b>치매 약물관리·인지 진료 연계가 쉽습니다.</b> 다만 <b>신경과 전문의원은 오창읍 내엔 없어</b>(최근접 8.9km) 신경과 전문진료·재활만 청주 시내 방면인데, <b>케어링이 진단·연계를 잡아주면 편의 강점</b>이 됩니다. 여석 11 밀착 홍보로 채우기 좋습니다.</div>
+  </section>
+
+  <section id="s2"><div class="sh"><div class="n">02</div><h2>입지 분석</h2></div>
+    <p class="lead">주간보호 관점(고령 수요·송영 동선·경쟁·접근성)에서 본 청주 오창점 입지의 강점·약점·기회입니다.</p>
+    <div class="grid3">
+      <div class="card"><h3><span class="tag t-str">강점</span></h3><ul><li><b>경쟁 공백</b> — 최근접 경쟁센터 5km+ — 오창은 청주 시내와 분리된 독립 생활권이라 경쟁 밀도가 낮음 <span class="bg src">출처</span></li><li><b>산단 배후 주거</b> — 오창과학산업단지 근로 세대의 부모 돌봄 수요 — 자녀(보호자) 접근성 좋음 <span class="bg op">의견</span></li><li><b>치매안심센터 오창 소재</b> — 청원구 치매안심센터가 <b>오창읍</b>에 위치 — 등급·검진 연계 최단거리 <span class="bg src">출처</span></li></ul></div>
+      <div class="card warn"><h3><span class="tag t-opp">약점·주의</span></h3><ul><li><b>신경과 전문의원은 오창읍 내 없음</b> — 최근접 8.9km(청원구) — 신경과 전문진료·재활은 청주 시내 방면 (정신과·정신병원은 오창 근거리라 치매 약물관리는 양호) <span class="bg src">출처</span></li><li><b>오창 외 원거리</b> — 청원구지만 오창 밖(율량·내덕 등)은 5~9km로 송영 부담 <span class="bg src">출처</span></li><li><b>배후 인구 규모</b> — 청원구 18.7만으로 3지점 중 배후 인구는 가장 작음 <span class="bg src">출처</span></li></ul></div>
+      <div class="card"><h3><span class="tag t-str">기회</span></h3><ul><li><b>경쟁 약한 시장</b> — 오창 생활권 내 경쟁 소수 → 지역 밀착 선점 유리 <span class="bg op">의견</span></li><li><b>정신·치매 진료 근거리</b> — 도은병원(정신병원 1.8km)·정신과 의원(4.8km) 인접으로 치매 약물관리·인지 연계 용이. 신경과는 케어링이 시내 연계 대행 <span class="bg op">의견</span></li><li><b>케어링 브랜드</b> — 보건복지부 장관상 수상 — 지역 소형 센터 대비 프로그램·인력 차별화 <span class="bg op">의견</span></li></ul></div>
+    </div>
+  </section>
+
+  <section id="s3"><div class="sh"><div class="n">03</div><h2>송영 가능 권역 · 실제 지도</h2></div>
+    <p class="lead">확대·이동되는 실제 지도입니다. 원은 송영 반경(직선 근사 3·5·7km ≒ 편도 10·15·20분),
+      <b style="color:#c0392b">빨간 핀=경쟁 주야간보호</b>, <b style="color:#2563eb">파란 핀=방문요양(재가 연계)</b>, 초록=우리 지점. 핀 클릭 시 정보.</p>
+    <div id="map"></div>
+    <div class="legend"><span>범례</span><b style="background:#0d7268"></b>우리 지점<b style="background:#c0392b"></b>경쟁 주야간보호<b style="background:#2563eb"></b>방문요양<b style="background:#0d7268;opacity:.35"></b>송영 반경(3·5·7km)</div>
+    <div class="zones">
+      <div class="zone"><div class="zt">핵심권 <span>편도 ~10분</span></div>오창읍 등 근거리 — 송영 효율 최상</div>
+      <div class="zone"><div class="zt">확장권 <span>편도 10~15분</span></div>수요 확인 시 배차 조정으로 편입</div>
+      <div class="zone"><div class="zt">경계권 <span>편도 15~20분</span></div>등급·동선 맞는 개별 케이스 선별</div>
+    </div>
+    <div class="note">※ 원은 직선거리 근사로 실제 도로시간과 다릅니다. 등·하원 피크 실차 측정으로 권역 확정 권장. <span class="bg op">의견</span></div>
+  </section>
+
+  <section id="s4"><div class="sh"><div class="n">04</div><h2>송영 교통 여건</h2></div>
+    <p class="lead">오창은 청주 시내와 분리된 독립 생활권입니다. 오창IC·오창읍 순환도로로 오창 내 이동은 빠르나, 청주 시내(율량·내덕)까지는 20분 안팎이 걸립니다. 송영은 오창읍 내로 집중하는 것이 효율적입니다.</p><div class="grid2"><div class="card"><h3>오창 내 송영 효율 <span class="bg src">출처</span></h3><ul><li>오창읍 내 평지·격자 도로 — 근거리 송영 회차 빠름</li><li>오창과학산업단지·아파트 단지 밀집 배후</li><li>치매안심센터(오창)·오창보건소 근거리 연계</li></ul></div><div class="card"><h3>시내 방면 부담 <span class="bg op">의견</span></h3><ul><li>율량·내덕 등 청주 시내는 편도 20분 안팎 — 상시 배차보다 선별</li><li>오창 밖 원거리 어르신은 탑승부담 커 개별 케이스로 제한</li><li>신경과·재활은 시내 방면(정신·치매 진료는 오창 근거리) — 연계 동행 검토</li></ul></div></div>
+  </section>
+
+  <section id="s5"><div class="sh"><div class="n">05</div><h2>인근 경쟁센터 <span style="font-weight:400;font-size:13px;color:var(--mut)">· 청주 청원구 주야간보호</span></h2></div>
+    <p class="lead">관내 주야간보호 <b>41곳</b> · 정원 <b>1075</b> · 현원 <b>731</b> · 여석 <b>344</b>(충원율 <b>68%</b>).
+      등급: A(최우수) 4 · B(우수) 5 · C(양호) 8 · D(보통) 4 · E(미흡) 1 <span class="bg src">출처</span> 공단 정기평가. 정원 대비 현원이 꽉 찬 곳의 <b>대기수요</b>가 우리 지점으로 넘어올 신호입니다.</p>
+    <div class="twrap"><table>
+      <thead><tr><th>센터명</th><th class=c>동</th><th class=c>거리</th><th class=c>등급</th><th class=c>정원/현원</th><th class=c>충원</th><th class=c>전화</th><th>시사점</th></tr></thead>
+      <tbody><tr><td>굿데이주간보호센터</td><td class=c>오창읍</td><td class=c>5.21km</td><td class=c>신설·미공시</td><td class=c>44/20</td><td class=c>45%</td><td class=c>043-218-7080</td><td>여력 있음</td></tr>
+<tr><td>사계절주간보호센터</td><td class=c>오창읍</td><td class=c>5.21km</td><td class=c>신설·미공시</td><td class=c>38/0</td><td class=c>0%</td><td class=c>043-216-4120</td><td>여력 있음</td></tr>
+<tr><td>행복오창주간보호센터</td><td class=c>오창읍</td><td class=c>5.77km</td><td class=c>신설·미공시</td><td class=c>37/36</td><td class=c>97%</td><td class=c>043-213-2916</td><td>포화 → 대기수요</td></tr>
+<tr><td>BC오창주야간보호센터</td><td class=c>오창읍</td><td class=c>5.83km</td><td class=c>D·보통</td><td class=c>—</td><td class=c></td><td class=c>043-241-1004</td><td></td></tr>
+<tr><td>부모사랑노인복지센터</td><td class=c>오창읍</td><td class=c>—</td><td class=c>A·최우수</td><td class=c>—</td><td class=c></td><td class=c>043-217-6009</td><td></td></tr>
+<tr><td>우리동네주간보호센터</td><td class=c>오창읍</td><td class=c>—</td><td class=c>신설·미공시</td><td class=c>44/13</td><td class=c>30%</td><td class=c>043-214-6578</td><td>여력 있음</td></tr>
+<tr><td>다정한주간보호센터</td><td class=c>내수읍</td><td class=c>7.58km</td><td class=c>C·양호</td><td class=c>—</td><td class=c></td><td class=c>043-217-1230</td><td></td></tr>
+<tr><td>효사랑주간보호센터</td><td class=c>내수읍</td><td class=c>7.68km</td><td class=c>신설·미공시</td><td class=c>9/0</td><td class=c>0%</td><td class=c>043-213-5004</td><td>여력 있음</td></tr>
+<tr><td>다온 실버케어센터</td><td class=c>율량동</td><td class=c>8.55km</td><td class=c>D·보통</td><td class=c>—</td><td class=c></td><td class=c>043-260-2346</td><td></td></tr>
+<tr><td>금빛노인주간보호센터</td><td class=c>율량동</td><td class=c>8.9km</td><td class=c>신설·미공시</td><td class=c>43/24</td><td class=c>56%</td><td class=c>043-213-1200</td><td>여력 있음</td></tr>
+<tr><td>우리함께주간보호센터</td><td class=c>율량동</td><td class=c>8.96km</td><td class=c>C·양호</td><td class=c>58/25</td><td class=c>43%</td><td class=c>043-213-5028</td><td>여력 있음</td></tr>
+<tr><td>백세노인주간보호센터</td><td class=c>율량동</td><td class=c>8.96km</td><td class=c>신설·미공시</td><td class=c>40/20</td><td class=c>50%</td><td class=c>043-213-9987</td><td>여력 있음</td></tr>
+<tr><td>제일노인주야간보호센터</td><td class=c>율량동</td><td class=c>8.98km</td><td class=c>A·최우수</td><td class=c>—</td><td class=c></td><td class=c>043-215-6788</td><td></td></tr>
+<tr><td>행복나눔노인주야간보호센터</td><td class=c>사천동</td><td class=c>9.22km</td><td class=c>신설·미공시</td><td class=c>42/12</td><td class=c>29%</td><td class=c>043-213-7377</td><td>여력 있음</td></tr>
+<tr><td>내덕노인복지센터</td><td class=c>내덕동</td><td class=c>10.0km</td><td class=c>B·우수</td><td class=c>21/19</td><td class=c>90%</td><td class=c>043-216-9811</td><td>포화 → 대기수요</td></tr>
+<tr><td>초정노인복지센터</td><td class=c>내수읍</td><td class=c>12.01km</td><td class=c>B·우수</td><td class=c>24/21</td><td class=c>88%</td><td class=c>043-213-6800</td><td></td></tr></tbody></table></div>
+    <div class="note">거리=지점 직선거리(카카오 좌표). 현원 당일 변동 ±. 생활권(오창읍) 인접순 상위 16곳.</div>
+  </section>
+
+  <section id="s6"><div class="sh"><div class="n">06</div><h2>연계망 · 치매→등급→이용 진입경로</h2></div>
+    <p class="lead">주간보호 이용은 <b>치매 진단 → 장기요양 등급신청 → 등급판정 → 이용</b>으로 이어집니다.
+      이 진입경로의 <b>치매안심센터·공단·신경과·정신과</b>가 어르신이 우리 지점으로 들어오는 <b>핵심 의뢰 채널</b>입니다.</p>
+    <div class="flow">🧭 진입경로 &nbsp;①&nbsp;<b>치매안심센터·신경과·정신과</b>(진단·검진) &nbsp;→&nbsp; ②&nbsp;<b>공단 지사</b>(등급신청·판정) &nbsp;→&nbsp; ③&nbsp;<b>케어링 주간보호</b>(이용)</div>
+    <div class="path">
+      <div class="pbox"><div class="pt">🧠 치매안심센터 (진단·검진·상담)</div><div class="pa">청주시 청원구 치매안심센터<br>청원구 오창읍 과학산업3로 238 (청원보건소)</div><div class="pn">☎ 043-201-4361</div></div>
+      <div class="pbox"><div class="pt">🏛 공단 지사 (등급신청 접수)</div><div class="pa">국민건강보험공단 청주서부지사<br>청주 흥덕구 직지대로 757</div><div class="pn">흥덕·청원구 관할 · 장기요양 등급신청 접수</div></div>
+    </div>
+    <h3 style="font-size:14.5px;color:var(--navy);margin:14px 0 8px">🏥 실제 이용 병원 <span style="font-weight:400;font-size:12.5px;color:var(--mut)">· 케어포 진료내역(2024~) 이용자수순 · 심평원 대조검수 · 12곳</span></h3>
+    <div class="twrap" style="max-height:none"><table>
+      <thead><tr><th>병원(케어포 표기)</th><th class=c>이용 어르신</th><th class=c>진료건수</th><th class=c>전화</th><th>심평원 대조</th></tr></thead>
+      <tbody><tr><td>한일정형외과의원</td><td class=c>54명</td><td class=c>185건</td><td class=c>043-217-5775</td><td style='font-size:11.5px'><span style="color:#0d7268">✓ 한일정형외과의원</span></td></tr><tr><td>사랑의원</td><td class=c>46명</td><td class=c>127건</td><td class=c></td><td style='font-size:11.5px'><span style="color:#8a6100">≈ 명칭 확인</span></td></tr><tr><td>현대의원</td><td class=c>43명</td><td class=c>232건</td><td class=c></td><td style='font-size:11.5px'><span style="color:#8a6100">≈ 명칭 확인</span></td></tr><tr><td>이정헌피부과</td><td class=c>30명</td><td class=c>50건</td><td class=c>043-213-9982</td><td style='font-size:11.5px'><span style="color:#0d7268">✓ 이정헌피부과의원</span></td></tr><tr><td>굿모닝비뇨기과</td><td class=c>17명</td><td class=c>55건</td><td class=c>043-216-8009</td><td style='font-size:11.5px'><span style="color:#0d7268">✓ 굿모닝비뇨기과의원</span></td></tr><tr><td>드림이비인후과</td><td class=c>17명</td><td class=c>41건</td><td class=c>043-214-3993</td><td style='font-size:11.5px'><span style="color:#0d7268">✓ 드림이비인후과의원</span></td></tr><tr><td>태화당한의원</td><td class=c>16명</td><td class=c>91건</td><td class=c>043-211-1120</td><td style='font-size:11.5px'><span style="color:#0d7268">✓ 태화당한의원</span></td></tr><tr><td>성모병원</td><td class=c>16명</td><td class=c>29건</td><td class=c>043-219-8000</td><td style='font-size:11.5px'><span style="color:#0d7268">✓ 청주성모병원</span></td></tr><tr><td>오창사랑의원</td><td class=c>16명</td><td class=c>29건</td><td class=c>043-217-0165</td><td style='font-size:11.5px'><span style="color:#0d7268">✓ 오창사랑의원</span></td></tr><tr><td>천리안안과</td><td class=c>13명</td><td class=c>55건</td><td class=c>043-253-3302</td><td style='font-size:11.5px'><span style="color:#0d7268">✓ 천리안안과의원</span></td></tr><tr><td>참편한내과</td><td class=c>13명</td><td class=c>38건</td><td class=c>043-217-7277</td><td style='font-size:11.5px'><span style="color:#0d7268">✓ 참편한내과통증재활의학의원</span></td></tr><tr><td>성치과</td><td class=c>12명</td><td class=c>48건</td><td class=c></td><td style='font-size:11.5px'><span style="color:#8a6100">≈ 명칭 확인</span></td></tr></tbody></table></div>
+    <div class="note"><b>지점 어르신이 실제 진료받은 병원</b>(케어포 4-4 집계). 이미 연계관계가 있는 <b>1순위 협력·홍보 병원</b>.
+      병원명은 담당자 수기입력이라, <b>심평원 대조</b>로 실재·정식명·전화를 검수: <span style="color:#0d7268">✓ 정식명 확인</span> · <span style="color:#8a6100">≈ 명칭 확인 필요</span>(동명 다른지역·약칭) · <span style="color:#a11d1d">미확인</span>(약국·폐업 등).</div>
+    <h3 style="font-size:14.5px;color:var(--navy);margin:16px 0 8px">🧠 인근 신경과·재활 <span style="font-weight:400;font-size:12.5px;color:var(--mut)">· 신규 연계 후보(심평원 · 차량 1시간 이내) · 10곳</span></h3>
+    <div class="twrap" style="max-height:none"><table>
+      <thead><tr><th>병원·의원</th><th class=c>구분</th><th class=c>거리</th><th>주소</th><th class=c>전화</th></tr></thead>
+      <tbody><tr><td>청주성모병원</td><td class=c>종합병원</td><td class=c>8.4km</td><td>충청북도 청주시 청원구 주성로 173-19, 청주성모병원</td><td class=c>043-219-8000</td></tr><tr><td>서울아산신경과의원</td><td class=c>신경과</td><td class=c>8.9km</td><td>충청북도 청주시 청원구 공항로 126, 우양메디타워 501호 </td><td class=c>043-257-7575</td></tr><tr><td>율량팔팔재활의학과의원</td><td class=c>재활</td><td class=c>9.0km</td><td>충청북도 청주시 청원구 율봉로 97, 베리돈타워 2층 (율량동</td><td class=c>043-715-8575</td></tr><tr><td>서울튼튼재활의학과의원</td><td class=c>재활</td><td class=c>11.3km</td><td>충청북도 증평군 증평읍 중앙로 184-1, 2,3층</td><td class=c>043-838-2600</td></tr><tr><td>박찬희신경과의원</td><td class=c>신경과</td><td class=c>11.4km</td><td>충청북도 증평군 증평읍 역전로 53, (증평읍)</td><td class=c>043-836-9771</td></tr><tr><td>충청북도 청주의료원</td><td class=c>종합병원</td><td class=c>11.9km</td><td>충청북도 청주시 서원구 흥덕로 48-0, 청주의료원</td><td class=c>043-279-2300</td></tr><tr><td>삼성재활의학과의원</td><td class=c>재활</td><td class=c>12.0km</td><td>충청북도 청주시 흥덕구 대농로 49, 4층 404호 (복대동)</td><td class=c>043-234-3433</td></tr><tr><td>브레인신경과의원</td><td class=c>신경과</td><td class=c>12.0km</td><td>충청북도 청주시 흥덕구 대농로 56, 3층 4층 (복대동)</td><td class=c>043-238-7588</td></tr><tr><td>스마일재활의학과의원</td><td class=c>재활</td><td class=c>12.0km</td><td>충청북도 청주시 흥덕구 대농로 50, 302호303호 (복대동</td><td class=c>043-284-7533</td></tr><tr><td>원신경과의원</td><td class=c>신경과</td><td class=c>12.4km</td><td>충청북도 청주시 서원구 사직대로 128, 해인빌딩 3층층 (사</td><td class=c>043-224-9933</td></tr></tbody></table></div>
+    <div class="note">심평원 병원정보(직선 25km ≒ 차량 1시간 이내) 중 신경과·재활·종합병원(치매 진단·재활). <b>아직 연계 없는 신규 개척 후보</b>. 거리순.</div>
+    <h3 style="font-size:14.5px;color:var(--navy);margin:16px 0 8px">🏥 인근 요양병원 <span style="font-weight:400;font-size:12.5px;color:var(--mut)">· 퇴원 연계 후보(심평원 · 거리순) · 9곳</span></h3>
+    <div class="twrap" style="max-height:none"><table><thead><tr><th>병원·의원</th><th class=c>구분</th><th class=c>거리</th><th>주소</th><th class=c>전화</th></tr></thead><tbody><tr><td>예미담요양병원</td><td class=c>요양병원(정신 특화)</td><td class=c>9.5km</td><td>충청북도 청주시 청원구 충청대로 100-0,  (율량동)</td><td class=c>043-215-7075</td></tr><tr><td>청주원광효도요양병원</td><td class=c>요양병원</td><td class=c>12.3km</td><td>충청북도 청주시 흥덕구 월명로 15-0, 원광효도요양병원</td><td class=c>043-267-0301</td></tr><tr><td>남궁요양병원</td><td class=c>요양병원</td><td class=c>12.9km</td><td>충청북도 청주시 상당구 상당로 47-0,  (남문로2가)</td><td class=c>043-252-3000</td></tr><tr><td>하나노인전문병원</td><td class=c>요양병원</td><td class=c>15.3km</td><td>충청북도 청주시 서원구 대림로 431-0, 하나노인전문병원</td><td class=c>043-270-8114</td></tr><tr><td>충북도립노인전문병원</td><td class=c>요양병원</td><td class=c>16.0km</td><td>충청북도 청주시 서원구 청남로 1910-0, 충북도립노인전문병원</td><td class=c>043-287-7715</td></tr><tr><td>참사랑요양병원</td><td class=c>요양병원</td><td class=c>16.0km</td><td>충청북도 청주시 서원구 청남로 1912-0, 참사랑요양병원</td><td class=c>043-298-9100</td></tr><tr><td>청주탑요양병원</td><td class=c>요양병원</td><td class=c>16.3km</td><td>충청북도 청주시 서원구 궁뜰로 16-0,  (미평동)</td><td class=c>043-296-5000</td></tr><tr><td>청주시립요양병원</td><td class=c>요양병원</td><td class=c>16.8km</td><td>충청북도 청주시 서원구 궁뜰로62번길 29, (장성동)</td><td class=c>043-220-8000</td></tr><tr><td>서원요양병원</td><td class=c>요양병원</td><td class=c>18.5km</td><td>충청북도 청주시 서원구 남이면 남석로 316-26, 서원요양병원</td><td class=c>043-233-6000</td></tr></tbody></table></div>
+    <div class="note">심평원 요양병원(직선 25km 이내) · 거리순. <b>요양병원 퇴원 후 재가·주간보호로 이어지는 유입 채널</b> — 율량동 예미담 등 청원구·인근 요양병원.</div>
+    <h3 style="font-size:14.5px;color:var(--navy);margin:16px 0 8px">🧠 인근 정신건강의학과 <span style="font-weight:400;font-size:12.5px;color:var(--mut)">· 치매 약물관리·인지저하 연계(심평원 · 거리순) · 근접 18곳(총 33곳)</span></h3>
+    <div class="twrap" style="max-height:none"><table><thead><tr><th>병원·의원</th><th class=c>구분</th><th class=c>거리</th><th>주소</th><th class=c>전화</th></tr></thead><tbody><tr><td>의료법인 노은의료재단 도은병원</td><td class=c>정신병원</td><td class=c>1.8km</td><td>충청북도 진천군 문백면 문진로 88-56, 도은병원</td><td class=c>043-930-2000</td></tr><tr><td>휴먼정신건강의학과의원</td><td class=c>정신과의원</td><td class=c>4.8km</td><td>충청북도 청주시 청원구 오창읍 중심상업로 7, 오창프라자Ⅰ 302호</td><td class=c>043-211-3005</td></tr><tr><td>공감정신건강의학과의원</td><td class=c>정신과의원</td><td class=c>8.9km</td><td>충청북도 청주시 청원구 율봉로 141, 6층 (율량동)</td><td class=c>043-288-8886</td></tr><tr><td>예미담요양병원</td><td class=c>요양병원·정신과 외래</td><td class=c>9.5km</td><td>충청북도 청주시 청원구 충청대로 100-0,  (율량동)</td><td class=c>043-215-7075</td></tr><tr><td>열린정신건강의학과의원</td><td class=c>정신과의원</td><td class=c>10.3km</td><td>충청북도 청주시 청원구 상당로 307, 301호 (내덕동, 농협중앙회)</td><td class=c>043-221-5527</td></tr><tr><td>우리들정신건강의학과의원</td><td class=c>정신과의원</td><td class=c>10.8km</td><td>충청북도 청주시 흥덕구 사운로 246, 2층,3층4층 (운천동)</td><td class=c>043-278-2255</td></tr><tr><td>잘자는정신건강의학과의원</td><td class=c>정신과의원</td><td class=c>11.0km</td><td>충청북도 청주시 청원구 향군로 43, 1층 (우암동)</td><td class=c>043-253-8275</td></tr><tr><td>원구연정신건강의학과의원</td><td class=c>정신과의원</td><td class=c>11.1km</td><td>충청북도 청주시 흥덕구 사운로 204, 6층(운천동)</td><td class=c>043-263-0011</td></tr><tr><td>홍종문정신건강의학과의원</td><td class=c>정신과의원</td><td class=c>11.6km</td><td>충청북도 청주시 상당구 중앙로 80, 2층 209호 (북문로3가, 청주행정타운코아루휴티스)</td><td class=c>043-253-3200</td></tr><tr><td>이지브레인 정신건강의학과의원</td><td class=c>정신과의원</td><td class=c>12.0km</td><td>충청북도 청주시 흥덕구 대농로 39, A동 409호 (복대동)</td><td class=c>043-715-7520</td></tr><tr><td>아이나래정신건강의학과의원</td><td class=c>정신과의원</td><td class=c>12.0km</td><td>충청북도 청주시 흥덕구 대농로 66, 3층 301호 (복대동)</td><td class=c>043-278-1122</td></tr><tr><td>봄온정신건강의학과의원</td><td class=c>정신과의원</td><td class=c>12.0km</td><td>충청북도 청주시 흥덕구 대농로 50, 301호 (복대동)</td><td class=c>043-231-9909</td></tr><tr><td>예일정신건강의학과의원</td><td class=c>정신과의원</td><td class=c>12.4km</td><td>충청북도 청주시 서원구 사직대로 296, 3층 (사직동)</td><td class=c>043-222-1326</td></tr><tr><td>박정신건강의학과의원</td><td class=c>정신과의원</td><td class=c>12.4km</td><td>충청북도 청주시 서원구 사직대로 276, (사직동, 박정신과의원)</td><td class=c>043-274-5946</td></tr><tr><td>청주정신건강의학과의원</td><td class=c>정신과의원</td><td class=c>12.4km</td><td>충청북도 청주시 서원구 사직대로 112, 3층 (사창동)</td><td class=c>043-266-0014</td></tr><tr><td>라임정신건강의학과의원</td><td class=c>정신과의원</td><td class=c>12.4km</td><td>충청북도 청주시 서원구 사직대로 110, 3층 (사창동)</td><td class=c>043-900-8775</td></tr><tr><td>정다운정신건강의학과의원</td><td class=c>정신과의원</td><td class=c>12.4km</td><td>충청북도 청주시 흥덕구 사직대로 45-1, (복대동)</td><td class=c>043-263-0456</td></tr><tr><td>늘편한 정신건강의학과의원</td><td class=c>정신과의원</td><td class=c>12.6km</td><td>충청북도 진천군 진천읍 중앙북로 57, 은성빌딩</td><td class=c>043-534-7400</td></tr></tbody></table></div>
+    <div class="note"><b>도은병원(정신병원, 오창 1.8km)</b>이 지점 코앞이고, <b>예미담요양병원(율량동 9.5km)도 정신건강의학과 외래</b>를 운영합니다. 치매 약물관리·인지저하는 정신과도 등급연계·의뢰 창구 — 신경과와 함께 핵심 채널. 거리순 근접 18곳 표기(외 15곳).</div>
+    <div class="note" style="background:#fdf9ee;border-left-color:#d4a017"><b>※ 의사소견서(장기요양 등급신청용) 발급 여부는 기관마다 다릅니다.</b> 위 신경과·정신과·요양병원 명단은 <b>진단·의뢰가 가능한 &ldquo;후보 풀&rdquo;</b>이며, 실제 소견서 발급은 개별 확인이 필요합니다(입원 위주 기관은 외래 소견서를 안 써주기도 함). 정식 소견서·검진 안내는 <b>치매안심센터·공단 지사</b>가 1순위 창구입니다.</div>
+    <div class="grid2" style="margin-top:14px">
+      <div class="card"><h3>🤝 복지 연계</h3><ul class="plain"><li><b>청주시 청원보건소</b> — 오창읍 과학산업3로 238 · 건강·치매검진 <span class=mut>043-201-3421</span></li><li><b>청원구청</b> — 오창 행정 창구 <span class=mut>-</span></li><li><b>청주시청원정신건강복지센터</b> — 정신건강·치매 연계 <span class=mut>-</span></li></ul></div>
+      <div class="card"><h3>🏛 행정 연계 (맞춤돌봄·의뢰)</h3><ul class="plain"><li>오창읍 행정복지센터(맞춤돌봄) 등 청원구 읍면동</li></ul></div>
+    </div>
+  </section>
+
+  <section id="s7"><div class="sh"><div class="n">07</div><h2>홍보 대상 — 상호의뢰 방문요양센터 <span style="font-weight:400;font-size:13px;color:var(--mut)">· 생활권 18곳</span></h2></div>
+    <p class="lead">재가(방문요양) 어르신 중 주간보호가 필요한 케이스를 상호 연계하는 <b>1순위 B2B 채널</b>. 지점 인접순.</p>
+    <div class="twrap"><table>
+      <thead><tr><th>방문요양센터</th><th class=c>동</th><th class=c>거리</th><th class=c>전화</th></tr></thead>
+      <tbody><tr><td>수안노인재가방문요양센터</td><td class=c>오창읍</td><td class=c>5.82km</td><td class=c>010-8430-5588</td></tr><tr><td>부모사랑노인복지센터</td><td class=c>오창읍</td><td class=c>—</td><td class=c>043-217-6009</td></tr><tr><td>러브러브홈케어</td><td class=c>오창읍</td><td class=c>—</td><td class=c>043-276-1377</td></tr><tr><td>청주오창재가방문요양센터</td><td class=c>오창읍</td><td class=c>—</td><td class=c>043-212-6301</td></tr><tr><td>올바른방문요양센터</td><td class=c></td><td class=c>8.49km</td><td class=c>043-213-3356</td></tr><tr><td>다온 실버케어센터 비대상</td><td class=c>율량동</td><td class=c>8.55km</td><td class=c>043-260-2346</td></tr><tr><td>금빛노인주간보호센터</td><td class=c>율량동</td><td class=c>8.9km</td><td class=c>043-213-1200</td></tr><tr><td>백세노인주간보호센터</td><td class=c>율량동</td><td class=c>8.96km</td><td class=c>043-213-9987</td></tr><tr><td>청주재가노인복지센터</td><td class=c>율량동</td><td class=c>9.06km</td><td class=c>043-258-5004</td></tr><tr><td>무지개방문요양센터</td><td class=c>내덕동</td><td class=c>9.9km</td><td class=c>043-254-1515</td></tr><tr><td>초정노인복지센터</td><td class=c>내수읍</td><td class=c>12.01km</td><td class=c>043-213-6800</td></tr><tr><td>휴먼케어노인통합재가센터</td><td class=c>율량동</td><td class=c>—</td><td class=c>043-212-9194</td></tr><tr><td>하늘정원 재가장기요양기관</td><td class=c>내덕동</td><td class=c>—</td><td class=c>043-250-1288</td></tr><tr><td>THE명품노인복지센터 A G</td><td class=c>내덕동</td><td class=c>—</td><td class=c>043-252-0550</td></tr><tr><td>해피콜재가장기요양기관</td><td class=c></td><td class=c>—</td><td class=c>043-216-8886</td></tr><tr><td>미소랑노인복지센터</td><td class=c>율량동</td><td class=c>—</td><td class=c>043-211-2295</td></tr><tr><td>&#x27;(A)비지팅엔젤스 청주청원방문요양지점</td><td class=c>율량동</td><td class=c>—</td><td class=c>043-211-3656</td></tr><tr><td>내수재가센터</td><td class=c>내수읍</td><td class=c>—</td><td class=c>043-214-0301</td></tr></tbody></table></div>
+  </section>
+
+  <section id="s8"><div class="sh"><div class="n">08</div><h2>홍보 전략 · 90일 로드맵 <span class="bg op">의견</span></h2></div>
+    <div class="rm"><div class="rt">상시</div><div class="rb"><b>오창 밀착 홍보</b><br>여석 11 — 오창읍 아파트·경로당·산단 배후 밀착 홍보</div></div><div class="rm"><div class="rt">1개월</div><div class="rb"><b>치매안심센터·공단 채널</b><br>오창 소재 청원구 치매안심센터·청주서부지사 연계 — 등급 어르신 유입</div></div><div class="rm"><div class="rt">2개월</div><div class="rb"><b>의료 연계 차별화</b><br>오창 신경과 + 청주 시내 병원 진단·재활 연계 동행을 강점으로 소구</div></div><div class="rm"><div class="rt">3개월</div><div class="rb"><b>지역 선점</b><br>경쟁 약한 오창 생활권에서 케어링 브랜드·프로그램으로 지역 대표 포지셔닝</div></div>
+  </section>
+
+  <section id="s9"><div class="sh"><div class="n">09</div><h2>출처 · 주의</h2></div>
+    <ul class="plain">
+      <li><b>정원/현원·등급</b> — 국민건강보험공단 장기요양기관 검색·오픈API, 2026-07 실조회. 현원은 조회 시점 값으로 변동.</li>
+      <li><b>구 인구</b> — 각 구청·행안부 주민등록(2025~2026). 고령비율은 시 단위 공식값 인용(구 65+ 정밀치는 <span class="bg est">확인필요</span>).</li>
+      <li><b>의료(신경과 등)</b> — 건강보험심사평가원 병원정보 오픈API(반경 3.5km). <b>치매안심센터·공단지사</b>는 각 기관 공식.</li>
+      <li><b>좌표·거리</b> — 카카오 지오코딩(직선 근사). 일부 기관 좌표 미확보(거리 '—').</li>
+      <li>배지 — <span class="bg src">출처</span> 공적 데이터 · <span class="bg est">확인필요</span> 미검증 · <span class="bg op">의견</span> 판단·권고.</li>
+    </ul>
+  </section>
+
+  <footer>충청본부 공유 허브 · 케어링 주간보호 기존 지점 홍보 리포트 · 수집 2026-07 · 검색 비노출(noindex)</footer>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+var lat=36.7464, lon=127.46137, PTS=[{"t": "comp", "name": "굿데이주간보호센터", "lat": 36.70705219, "lon": 127.42970043, "g": "", "cap": 44, "now": 20, "tel": "043-218-7080"}, {"t": "comp", "name": "사계절주간보호센터", "lat": 36.70710589, "lon": 127.42955502, "g": "", "cap": 38, "now": 0, "tel": "043-216-4120"}, {"t": "comp", "name": "행복오창주간보호센터", "lat": 36.70937482, "lon": 127.4160564, "g": "", "cap": 37, "now": 36, "tel": "043-213-2916"}, {"t": "comp", "name": "BC오창주야간보호센터", "lat": 36.70895865, "lon": 127.4155757, "g": "D", "cap": null, "now": null, "tel": "043-241-1004"}, {"t": "comp", "name": "다정한주간보호센터", "lat": 36.72512968, "lon": 127.54220421, "g": "C", "cap": null, "now": null, "tel": "043-217-1230"}, {"t": "comp", "name": "효사랑주간보호센터", "lat": 36.71420996, "lon": 127.53764114, "g": "", "cap": 9, "now": 0, "tel": "043-213-5004"}, {"t": "comp", "name": "다온 실버케어센터", "lat": 36.67203073, "lon": 127.48557624, "g": "D", "cap": null, "now": null, "tel": "043-260-2346"}, {"t": "comp", "name": "금빛노인주간보호센터", "lat": 36.66874522, "lon": 127.4856905, "g": "", "cap": 43, "now": 24, "tel": "043-213-1200"}, {"t": "comp", "name": "우리함께주간보호센터", "lat": 36.66685381, "lon": 127.47720899, "g": "C", "cap": 58, "now": 25, "tel": "043-213-5028"}, {"t": "comp", "name": "백세노인주간보호센터", "lat": 36.66819856, "lon": 127.48567812, "g": "", "cap": 40, "now": 20, "tel": "043-213-9987"}, {"t": "comp", "name": "제일노인주야간보호센터", "lat": 36.66841387, "lon": 127.48761174, "g": "A", "cap": null, "now": null, "tel": "043-215-6788"}, {"t": "comp", "name": "행복나눔노인주야간보호센터", "lat": 36.66427053, "lon": 127.47561411, "g": "", "cap": 42, "now": 12, "tel": "043-213-7377"}, {"t": "comp", "name": "내덕노인복지센터", "lat": 36.65965849, "lon": 127.49117902, "g": "B", "cap": 21, "now": 19, "tel": "043-216-9811"}, {"t": "comp", "name": "초정노인복지센터", "lat": 36.72278864, "lon": 127.59286172, "g": "B", "cap": 24, "now": 21, "tel": "043-213-6800"}, {"t": "ref", "name": "수안노인재가방문요양센터", "lat": 36.70461778, "lon": 127.42200319, "tel": "010-8430-5588"}, {"t": "ref", "name": "올바른방문요양센터", "lat": 36.6739422, "lon": 127.49144028, "tel": "043-213-3356"}, {"t": "ref", "name": "다온 실버케어센터 비대상", "lat": 36.67203073, "lon": 127.48557624, "tel": "043-260-2346"}, {"t": "ref", "name": "금빛노인주간보호센터", "lat": 36.66874522, "lon": 127.4856905, "tel": "043-213-1200"}, {"t": "ref", "name": "백세노인주간보호센터", "lat": 36.66819856, "lon": 127.48567812, "tel": "043-213-9987"}, {"t": "ref", "name": "청주재가노인복지센터", "lat": 36.66869998, "lon": 127.49207889, "tel": "043-258-5004"}, {"t": "ref", "name": "무지개방문요양센터", "lat": 36.65837403, "lon": 127.47831379, "tel": "043-254-1515"}, {"t": "ref", "name": "초정노인복지센터", "lat": 36.72278864, "lon": 127.59286172, "tel": "043-213-6800"}];
+var map=L.map('map',{scrollWheelZoom:false}).setView([lat,lon],13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OpenStreetMap'}).addTo(map);
+[[7000,'#0d7268'],[5000,'#2563eb'],[3000,'#0d7268']].forEach(function(r){
+  L.circle([lat,lon],{radius:r[0],color:r[1],weight:1.2,fill:true,fillColor:r[1],fillOpacity:0.045}).addTo(map);});
+function dot(c){return L.divIcon({className:'',html:'<div style="width:12px;height:12px;border-radius:50%;background:'+c+';border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4)"></div>',iconSize:[12,12]});}
+PTS.forEach(function(p){
+  var c=p.t==='comp'?'#c0392b':'#2563eb';
+  var info=p.t==='comp' ? '<b>'+p.name+'</b><br>'+(p.g?('등급 '+p.g+' · '):'')+(p.cap?('정원 '+p.cap+'/현원 '+p.now):'정원 미공시')+'<br>'+(p.tel||'')
+    : '<b>'+p.name+'</b><br>방문요양 · '+(p.tel||'');
+  L.marker([p.lat,p.lon],{icon:dot(c)}).addTo(map).bindPopup(info);
+});
+L.marker([lat,lon],{icon:dot('#0d7268'),zIndexOffset:1000}).addTo(map).bindPopup('<b>청주 오창점</b><br>충청북도 청주시 청원구 오창읍 모정4길 1-2 1,2층 (오창읍)').openPopup();
+// 헤더를 벗어나 스크롤하면 '허브' 버튼을 숨겨 상단 메뉴바(nav)와 겹치지 않게 한다
+(function(){var hb=document.querySelector('.hubback');var hd=document.querySelector('header');
+  function upd(){var on=window.scrollY < (hd.offsetHeight-24);hb.style.opacity=on?'1':'0';hb.style.pointerEvents=on?'auto':'none';}
+  addEventListener('scroll',upd,{passive:true});upd();})();
+</script>
+</body></html>

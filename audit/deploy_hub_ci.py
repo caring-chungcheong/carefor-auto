@@ -116,6 +116,19 @@ def main():
         _updated.add("workreport")
     if want_carcost and "carcost" in keep:
         _updated.add("carcost")
+
+    # 지점 홍보 리포트 — 2026-07-28 원본이 docs/ 로 들어와 CI 도 직접 만들 수 있게 됐다.
+    #   (전에는 저장소 밖이라 보존만 했고, 보존 목록에서 빠졌을 때 4개가 통째로 지워진 사고가 있었다.)
+    #   PRESERVE 에는 그대로 남겨 둔다 — 빌드가 실패해도 지난 페이지가 살아남게 하는 안전판이다.
+    for _slug in ("dunsan", "cheonan", "cheongju", "djhome"):
+        try:
+            from audit.deploy_hub import page_html as _page_html
+            keep[_slug] = {"name": _slug, "type": "HTML", "source": _page_html(_slug)}
+            _updated.add(_slug)
+            print(f"  갱신: {_slug} ← docs/{_slug}.html ({len(keep[_slug]['source'])}자)")
+        except Exception as ex:
+            print(f"  ⚠️ {_slug} 원본을 못 읽어 보존합니다: {ex}")
+
     for n in PRESERVE:
         if n in keep and n not in _updated:
             print(f"  보존: {n} ({len(keep[n].get('source',''))}자)")
