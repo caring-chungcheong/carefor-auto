@@ -1,18 +1,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>장기요양 수가·급여 계산기 (2026)</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <link rel="manifest" href="rate_calc_manifest.json">
-<meta name="theme-color" content="#1e3a8a">
+<meta name="theme-color" content="#06b6d4">
 <link rel="apple-touch-icon" href="icon-180.png">
 <style>
   :root{
     --bg:#f6f7f9; --card:#fff; --line:#e3e6ea; --ink:#1c2024; --mut:#6b7280;
-    --accent:#1d5fd6; --accent-soft:#e8f0fe; --warn:#b45309; --warn-bg:#fef6e7;
+    --accent:#0891b2; --accent-soft:#ecfeff; --warn:#b45309; --warn-bg:#fef6e7;
     --over:#c0392b; --over-bg:#fdeceb; --ok:#166534; --ok-bg:#e9f6ec;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);
-    font:15px/1.6 -apple-system,"Segoe UI","Malgun Gothic",sans-serif}
+  body{margin:0;background:linear-gradient(180deg, #ffeef2 0%, #fbf3f6 220px, #f7f9fb 560px) no-repeat, #f6f7f9;color:var(--ink);
+    font:15px/1.6 'Pretendard Variable',Pretendard,-apple-system,"Segoe UI","Malgun Gothic",sans-serif}
   .wrap{max-width:1080px;margin:0 auto;padding:24px 16px 80px}
   h1{font-size:22px;margin:0 0 4px}
   .sub{color:var(--mut);font-size:13px;margin-bottom:20px}
@@ -82,18 +83,18 @@
 
   /* 케어링 본사 브랜드 */
   .brand{display:flex;align-items:center;gap:12px;
-    background:linear-gradient(100deg,#1e3a8a,#3b82f6);color:#fff;
-    border-radius:12px;padding:16px 20px;margin-bottom:18px}
+    background:#fff8fa;color:#020617;
+    border-bottom:1px solid #f5e1e7;box-shadow:0 2px 12px rgba(244,63,94,0.05);padding:16px 20px;margin-bottom:18px}
   .brand .logo{display:flex;align-items:center;gap:9px;font-weight:800;
-    font-size:22px;letter-spacing:-.5px}
+    font-size:22px;letter-spacing:-.5px;color:#0891b2}
   .brand .logo .heart{width:26px;height:26px;flex:none}
-  .brand .txt{border-left:1px solid rgba(255,255,255,.35);padding-left:12px;line-height:1.35}
+  .brand .txt{border-left:1px solid #e6eef0;padding-left:12px;line-height:1.35}
   .brand .txt .t{font-size:14.5px;font-weight:600}
-  .brand .txt .s{font-size:12px;opacity:.85}
-  .brand .prov{margin-left:auto;text-align:right;font-size:11.5px;opacity:.9;line-height:1.4}
+  .brand .txt .s{font-size:12px;color:#64748b}
+  .brand .prov{margin-left:auto;text-align:right;font-size:11.5px;color:#64748b;line-height:1.4}
   .foot{text-align:center;color:var(--mut);font-size:12px;margin-top:24px;
     padding-top:14px;border-top:1px solid var(--line)}
-  .foot b{color:#3b82f6}
+  .foot b{color:#0891b2}
   .limtag{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;
     border-radius:10px;vertical-align:middle;margin-left:4px;
     background:#eef1f5;color:var(--mut)}
@@ -160,7 +161,7 @@
 <div class="wrap">
 <div class="brand">
   <div class="logo">
-    <svg class="heart" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
+    <svg class="heart" viewBox="0 0 24 24" fill="#0891b2" aria-hidden="true">
       <path d="M12 21s-7.5-4.9-10-9.2C.4 8.9 1.6 5.3 5 4.4c2.1-.6 4 .4 5 2 1-1.6 2.9-2.6 5-2
         3.4.9 4.6 4.5 3 7.4C19.5 16.1 12 21 12 21z"/>
     </svg>
@@ -525,7 +526,7 @@ function calc(){
         `→ 8시간 이용을 <b>${cap}회</b> 더 할 수 있는 금액입니다`;
   }
   document.getElementById('capBox').innerHTML = capTxt
-    ? `<div class="warn" style="background:var(--accent-soft);border-color:#c5d9f7;color:var(--accent)">
+    ? `<div class="warn" style="background:var(--accent-soft);border-color:#a5f3fc;color:var(--accent)">
         📐 ${capTxt}</div>` : '';
 
   /* ③ 요일별 단가 */

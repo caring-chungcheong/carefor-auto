@@ -1,8 +1,9 @@
 <title>욕구사정 작성 교육 · 4지점 누락 데이터 기반</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <style>
   :root{
-    --bg:#f4f2ec; --panel:#fffdf8; --ink:#26221b; --sub:#5c554a; --faint:#938a7b;
-    --line:#e4ded1; --line2:#efeae0; --accent:#2f7d6b; --accent2:#c96a3f;
+    --bg:#f7f9fb; --panel:#ffffff; --ink:#26221b; --sub:#5c554a; --faint:#938a7b;
+    --line:#e4ded1; --line2:#efeae0; --accent:#0891b2; --accent2:#f43f5e;
     --good:#3f7d55; --good-bg:#e8f1e9; --good-ln:#c3ddc8;
     --warn:#a5711b; --warn-bg:#f6eed9; --warn-ln:#e4cf9c;
     --crit:#b0402f; --crit-bg:#f7e6e1; --crit-ln:#e7bcb1;
@@ -12,7 +13,7 @@
   @media (prefers-color-scheme:dark){
     :root{
       --bg:#1a1712; --panel:#221e18; --ink:#ece7dd; --sub:#b0a798; --faint:#7d7466;
-      --line:#332e26; --line2:#2a251e; --accent:#4faa95; --accent2:#e08a5f;
+      --line:#332e26; --line2:#2a251e; --accent:#22d3ee; --accent2:#fb7185;
       --good:#6fbf8a; --good-bg:#19251d; --good-ln:#2f4a38;
       --warn:#d8a851; --warn-bg:#2a2413; --warn-ln:#4d4020;
       --crit:#e2745f; --crit-bg:#2b1813; --crit-ln:#4d2b22;
@@ -21,8 +22,8 @@
     }
   }
   :root[data-theme="light"]{
-    --bg:#f4f2ec; --panel:#fffdf8; --ink:#26221b; --sub:#5c554a; --faint:#938a7b;
-    --line:#e4ded1; --line2:#efeae0; --accent:#2f7d6b; --accent2:#c96a3f;
+    --bg:#f7f9fb; --panel:#ffffff; --ink:#26221b; --sub:#5c554a; --faint:#938a7b;
+    --line:#e4ded1; --line2:#efeae0; --accent:#0891b2; --accent2:#f43f5e;
     --good:#3f7d55; --good-bg:#e8f1e9; --good-ln:#c3ddc8;
     --warn:#a5711b; --warn-bg:#f6eed9; --warn-ln:#e4cf9c;
     --crit:#b0402f; --crit-bg:#f7e6e1; --crit-ln:#e7bcb1;
@@ -31,7 +32,7 @@
   }
   :root[data-theme="dark"]{
     --bg:#1a1712; --panel:#221e18; --ink:#ece7dd; --sub:#b0a798; --faint:#7d7466;
-    --line:#332e26; --line2:#2a251e; --accent:#4faa95; --accent2:#e08a5f;
+    --line:#332e26; --line2:#2a251e; --accent:#22d3ee; --accent2:#fb7185;
     --good:#6fbf8a; --good-bg:#19251d; --good-ln:#2f4a38;
     --warn:#d8a851; --warn-bg:#2a2413; --warn-ln:#4d4020;
     --crit:#e2745f; --crit-bg:#2b1813; --crit-ln:#4d2b22;
@@ -39,9 +40,12 @@
     --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);line-height:1.65;
-    font-family:"Malgun Gothic","맑은 고딕",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  body{margin:0;background:linear-gradient(180deg,#ffeef2 0%,#fbf3f6 220px,var(--bg) 560px) no-repeat,var(--bg);color:var(--ink);line-height:1.65;
+    font-family:'Pretendard Variable', Pretendard,"Malgun Gothic","맑은 고딕",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     -webkit-font-smoothing:antialiased}
+  @media (prefers-color-scheme:dark){body{background:var(--bg)}}
+  :root[data-theme="dark"] body{background:var(--bg)}
+  :root[data-theme="light"] body{background:linear-gradient(180deg,#ffeef2 0%,#fbf3f6 220px,var(--bg) 560px) no-repeat,var(--bg)}
   .wrap{max-width:940px;margin:0 auto;padding:40px 24px 80px}
   .tnum{font-variant-numeric:tabular-nums}
   .eyebrow{font-size:12px;font-weight:700;letter-spacing:.14em;color:var(--accent);margin:0 0 10px}
