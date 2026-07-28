@@ -307,16 +307,17 @@ def main():
     # 일반 공백으로만 패딩한다 → 청주오창 열은 넓고 둔산·서구·천안은 좁게, 각 열 안에서 머리글·값이 정렬.
     # ★기존엔 전각공백(U+3000)으로 모든 머리글을 4글자로 통일했는데, Slack 폰트에서 전각공백이
     #   일반공백 2칸과 폭이 달라 '청주오창' 열만 어긋났다(2026-07-28 정렬 깨짐 사고).
-    heads = [short for short, _ in cr.CENTER_ORDER]  # 둔산/서구/천안/청주오창 (전체명 유지)
+    # 청주점 개소 예정이라 '청주오창'→'오창'(2글자)으로 표기 → 모든 머리글이 2글자로 통일되어
+    # 열폭이 균일해지고, 숫자를 오른쪽 정렬하면 일의 자리가 세로로 완벽히 맞는다.
+    # (4글자 '청주오창'은 1~2자리 숫자와 모노스페이스 표에서 완벽 정렬 불가 — 열 넓히면 숫자가 뒤로,
+    #  좁히면 머리글이 잘려 보인다. 그래서 2글자 '오창'으로 통일한다.)
+    heads = [{"청주오창": "오창"}.get(short, short) for short, _ in cr.CENTER_ORDER]  # 둔산/서구/천안/오창
     smap = {s["center"]: s for s in summaries}
     cols = [smap[full] for _, full in cr.CENTER_ORDER]
     ROWS = [("신규상담", "total"), ("미입력수", "miss"), ("미입력률", "rate"), ("대기건수", "wait")]
     LABEL_W = 8   # 행라벨(신규상담 등)이 4글자=폭8 → 왼쪽 여백 최소화(둔산 앞당김)
     GAP = "  "
-    # 열폭 = '값' 최대폭(최소4). 값은 오른쪽 정렬 → 일의 자리가 세로로 맞는다.
-    # 청주오창(4글자) 머리글은 이 폭을 넘치면 오른쪽으로 삐져나가지만 마지막 열이라 무방하고,
-    # 숫자는 다른 지점과 같은 간격으로 앞에 붙는다(청주오창만 뒤로 밀리지 않음).
-    col_ws = [max(4, *[cr._w(str(c[k])) for _, k in ROWS]) for c in cols]
+    col_ws = [max(cr._w(h), 4, *[cr._w(str(c[k])) for _, k in ROWS]) for h, c in zip(heads, cols)]
 
     def _row(label, vals):
         return cr._rpad(label, LABEL_W) + "".join(
