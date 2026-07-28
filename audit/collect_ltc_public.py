@@ -131,6 +131,37 @@ def _get(url: str) -> str:
     return r.text
 
 
+def fetch_notices(sym: str, pttn: str = PTTN_DAYCARE) -> list[dict]:
+    """기관 상세 '공지사항' 탭(aTab=20) → [{no, title, date}].
+
+    ★이 탭은 **POST 로만** 채워진다. 같은 URL 을 GET 하면 탭 버튼만 있고 패널이 통째로 비어
+      "로그인해야 보이는 자료"로 오해하기 쉽다(실제로 그렇게 오판했다). 로그인 불필요.
+    실제 평가는 이용계약 공지가 '게시되어 있는지'로 확인한다 — 날짜는 보지 않는다.
+    """
+    url = f"{BASE}/selectLtcoSrchDetail.web"
+    s = requests.Session()
+    s.headers.update({"User-Agent": UA})
+    s.get(f"{url}?ltcAdminSym={sym}&adminPttnCd={pttn}", timeout=30)
+    t = s.post(url, data={"ltcAdminSym": sym, "adminPttnCd": pttn, "aTab": "20"},
+               headers={"Referer": f"{url}?ltcAdminSym={sym}&adminPttnCd={pttn}"}, timeout=30).text
+
+    out = []
+    for row in re.findall(r"<tr[^>]*>(.*?)</tr>", t, re.S):
+        tds = [_text(c).strip() for c in re.findall(r"<td[^>]*>(.*?)</td>", row, re.S)]
+        if len(tds) < 5:
+            continue
+        date = next((x for x in tds if re.fullmatch(r"\d{4}-\d{2}-\d{2}", x)), "")
+        if not date:
+            continue
+        # 제목 칸은 같은 문구가 두 번 들어온다(스크린리더용 중복) → 앞뒤 반이 같으면 하나만
+        title = tds[1]
+        half = len(title) // 2
+        if half and title[:half].strip() == title[half:].strip():
+            title = title[:half].strip()
+        out.append({"no": tds[0], "title": title, "date": date})
+    return out
+
+
 def fetch_branch(sym: str, pttn: str = PTTN_DAYCARE) -> dict:
     """기관기호 → 게시율·게시항목. 네트워크 예외는 호출자가 처리."""
     detail_url = (f"{BASE}/selectLtcoSrchDetail.web?ltcAdminSym={sym}&adminPttnCd={pttn}"
@@ -145,6 +176,12 @@ def fetch_branch(sym: str, pttn: str = PTTN_DAYCARE) -> dict:
     time.sleep(REQ_DELAY)
     items = _parse_items(_get(f"{BASE}/selectOrgRatDetail?ltcAdminSym={sym}&adminPttnCd={pttn}"))
 
+    time.sleep(REQ_DELAY)
+    try:
+        notices = fetch_notices(sym, pttn)
+    except Exception:
+        notices = []        # 공지 수집 실패는 게시율 판정을 막지 않는다(판정에서 '확인불가'로 처리)
+
     return {
         "ltc_admin_sym": sym,
         "admin_pttn_cd": pttn,
@@ -155,6 +192,7 @@ def fetch_branch(sym: str, pttn: str = PTTN_DAYCARE) -> dict:
         "rate_label": m.group(1).strip() if m else None,
         "rate": int(m.group(2)) if m else None,
         "items": items,
+        "notices": notices,
         "collected_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
 
