@@ -303,16 +303,15 @@ def main():
 
     # 집계표 (센터별 요약 + 상담 대기 줄 포함) — 한 페이지 통합 공지
     import consult_report as cr
-    # 슬랙 코드블록 한글 정렬: 머리글은 전체명(청주오창) 유지하되, 짧은 지점명 앞에 전각공백(U+3000)을
-    # 넣어 모든 머리글을 같은 글자폭(청주오창=4)으로 맞춤 → 폰트와 무관하게 열 정렬 유지.
-    # 행라벨도 4글자 순수한글(신규상담/미입력수/미입력률/대기건수)로 통일.
-    shorts = [short for short, _ in cr.CENTER_ORDER]  # 둔산/서구/천안/청주오창
-    _tcjk = max(sum(1 for c in n if ord(c) > 0x1100) for n in shorts)  # 최장 머리글 글자수(=4)
-    heads = ["　" * max(0, _tcjk - sum(1 for c in n if ord(c) > 0x1100)) + n for n in shorts]
+    # 슬랙 코드블록 한글 정렬: 머리글은 전체명(청주오창) 유지. 열마다 '그 열 머리글 폭'으로 맞추고
+    # 일반 공백으로만 패딩한다 → 청주오창 열은 넓고 둔산·서구·천안은 좁게, 각 열 안에서 머리글·값이 정렬.
+    # ★기존엔 전각공백(U+3000)으로 모든 머리글을 4글자로 통일했는데, Slack 폰트에서 전각공백이
+    #   일반공백 2칸과 폭이 달라 '청주오창' 열만 어긋났다(2026-07-28 정렬 깨짐 사고).
+    heads = [short for short, _ in cr.CENTER_ORDER]  # 둔산/서구/천안/청주오창 (전체명 유지)
     smap = {s["center"]: s for s in summaries}
     cols = [smap[full] for _, full in cr.CENTER_ORDER]
-    LABEL_W = 10
-    col_ws = [max(cr._w(h), 4) + 2 for h in heads]  # 전각패딩으로 머리글 폭 통일 → 모든 열 동일폭
+    LABEL_W = 8   # 행라벨(신규상담 등)이 4글자=폭8 → 왼쪽 여백 최소화(둔산 앞당김)
+    col_ws = [max(cr._w(h), 4) + 2 for h in heads]  # 열마다 머리글 폭 (청주오창=10, 나머지=6)
     table_lines = [
         cr._rpad("", LABEL_W) + "".join(cr._lpad(h, w) for h, w in zip(heads, col_ws)),
         "─" * (LABEL_W + sum(col_ws)),
