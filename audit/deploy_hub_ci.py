@@ -34,8 +34,9 @@ from audit.deploy_hub import (CODE, MANIFEST, SCRIPT_ID, DEPLOY_ID, build_html, 
                               _mask_revenue_names, _inject_topbar)
 
 # 저장소 밖 원본이 필요해 CI 에서 못 만드는 페이지들 — 현재 배포본을 그대로 살린다.
-# ★지점 홍보 리포트(dunsan·cheonan·cheongju·djhome)도 원본이 저장소 밖(클로드코드/지점홍보리포트/)이라
-#   여기 없으면 CI 재배포마다 통째로 삭제된다 — 실제로 그렇게 리포트 4개가 지워진 사고가 있었다.
+# ★지점 홍보 리포트(dunsan·cheonan·cheongju·djhome)는 2026-07-28 원본이 docs/ 로 들어와 아래에서
+#   직접 만든다. 그래도 목록에 남겨 둔다 — 전에 원본이 저장소 밖이던 시절, 목록에서 빠뜨렸다가
+#   CI 재배포마다 리포트 4개가 통째로 지워진 사고가 있었다(빌드 실패 시 지난 페이지를 살리는 안전판).
 PRESERVE = ("revenue", "carcost", "runbook", "sysmap", "workreport",
             "dunsan", "cheonan", "cheongju", "djhome")
 
