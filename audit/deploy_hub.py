@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """충청본부 공유 허브 → Apps Script 웹앱 배포 (접속자 신원·항목별 현황).
 
 왜 옮기나: GitHub Pages 는 **접속 로그를 안 주고**, PIN 은 신원을 안 남긴다.
@@ -18,6 +18,7 @@ Apps Script 웹앱을 **caring.co.kr 도메인 한정**으로 띄우면 구글�
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import pathlib
 import re
@@ -55,10 +56,15 @@ function setup() {
 
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) || '';
+  // ⚠️ 여기에 없는 page 는 무시되고 허브 첫 화면이 뜬다 — 페이지를 새로 얹으면 반드시 추가할 것.
+  //    (2026-07-29: 송영 코스를 올려 놓고 이 목록에 안 넣어 '아예 안 열린다' 는 신고를 받았다)
   var map = { revenue: '매출 점검', carcost: '차량 월별 수리비', runbook: '케어포 운영 런북', sysmap: '시스템 점검 지도',
               workreport: '근무일지 점검',
               dunsan: '둔산점 홍보 리포트', cheonan: '천안점 홍보 리포트', cheongju: '청주 오창점 홍보 리포트',
-              djhome: '대전 방문요양 홍보 리포트' };  // 도메인(caring.co.kr) 로그인해야 열림
+              djhome: '대전 방문요양 홍보 리포트',
+              songyeong_dunsan: '송영 코스 · 둔산점', songyeong_seogu: '송영 코스 · 서구점',
+              songyeong_cheonan: '송영 코스 · 천안점', songyeong_cheongju: '송영 코스 · 청주 오창점',
+              songyeong_bongmyeong: '송영 코스 · 청주 봉명동점' };  // 도메인(caring.co.kr) 로그인해야 열림
   if (map[page]) { log_(map[page]); return out_(page, map[page]); }
   // ★허브 열기 로깅은 status() 로 옮겼다 — doGet 에서 시트를 만지면 그게 끝나야 화면이 뜬다.
   //   시트 열기·쓰기가 초 단위라 '멈춘 것처럼' 보였고, 다른 자동화와 쓰기가 겹치면 아예 지연됐다.
@@ -349,7 +355,19 @@ PAGE_SRC = {
     "cheonan": CC / "지점홍보리포트" / "천안.html",
     "cheongju": CC / "지점홍보리포트" / "청주오창.html",
     "djhome": CC / "지점홍보리포트" / "대전방문요양.html",
+    # 송영 코스 자동편성 — 수급자 실명·집주소가 그대로 들어간다. 공개 Pages 절대 금지.
+    # 지점 전환 탭은 상대경로(../서구/…)라 허브에서는 안 먹는다 → page_html 이 #SELF?page= 로 바꾼다.
+    "songyeong_dunsan": CC / "송영코스" / "둔산" / "송영코스_둔산.html",
+    "songyeong_seogu": CC / "송영코스" / "서구" / "송영코스_서구.html",
+    "songyeong_cheonan": CC / "송영코스" / "천안" / "송영코스_천안.html",
+    "songyeong_cheongju": CC / "송영코스" / "청주" / "송영코스_청주.html",
+    "songyeong_bongmyeong": CC / "송영코스" / "봉명" / "송영코스_봉명.html",
 }
+
+# 송영코스 페이지끼리의 지점 전환 링크(파일 상대경로) → 허브 주소로 바꾸기 위한 대응표
+SONGYEONG_KEY = {"둔산": "songyeong_dunsan", "서구": "songyeong_seogu",
+                 "천안": "songyeong_cheonan", "청주": "songyeong_cheongju",
+                 "봉명": "songyeong_bongmyeong"}
 
 
 def _mask_name(nm: str) -> str:
@@ -446,6 +464,29 @@ def page_html(kind: str) -> str:
     s = pathlib.Path(p).read_text(encoding="utf-8")
     if kind == "revenue":
         s = _mask_revenue_names(s)
+    if kind.startswith("songyeong_"):
+        # 지점 전환 탭이 '../서구/송영코스_서구.html' 같은 파일 상대경로다.
+        # 허브(Apps Script)에서는 그런 경로가 없으므로 허브 주소로 바꿔 준다.
+        #
+        # ⚠️ 본문 스크립트는 Base64 로 감싸여 있다(허브의 재직렬화로 코드가 깨지는 걸 막으려고).
+        #    그래서 평문만 바꾸면 **Base64 안의 링크는 그대로 남아** 지점 탭이 로컬 파일 경로로
+        #    이동하려다 실패한다 — 실측: 둔산(직접 링크)만 열리고 나머지 4지점이 오류였다.
+        #    Base64 를 풀어 바꾼 뒤 다시 감싼다.
+        def _swap(text: str) -> str:
+            for key, page in SONGYEONG_KEY.items():
+                target = f"{HUB_URL}?page={page}"
+                plain = f"../{key}/송영코스_{key}.html"
+                # 주입된 DATA 는 ASCII 이스케이프라 한글이 \uXXXX 로 들어 있다.
+                # 평문만 바꾸면 그 형태가 그대로 남아 지점 탭이 로컬 경로로 이동한다.
+                esc = json.dumps(plain, ensure_ascii=True)[1:-1]
+                text = text.replace(plain, target).replace(esc, target)
+            return text
+
+        m = re.search(r'(<script id="appsrc" type="text/plain">)([A-Za-z0-9+/=\s]+?)(</script>)', s)
+        if m:
+            src = _swap(base64.b64decode(m.group(2)).decode("utf-8"))
+            s = s[:m.start(2)] + base64.b64encode(src.encode("utf-8")).decode("ascii") + s[m.end(2):]
+        s = _swap(s)                      # Base64 밖에 남은 링크도 처리
     if kind in ("revenue", "carcost"):   # 이 둘만 너무 흰 배경 → 틴트. 홍보 리포트는 자체 디자인 유지
         s = _inject_bg(s)
     s = _inject_topbar(s)
@@ -497,10 +538,21 @@ MANIFEST = {
 }
 
 
+def check_routes() -> None:
+    """PAGE_SRC 에 올린 페이지가 doGet 의 허용 목록(map)에 다 있는지 확인.
+    빠지면 그 페이지는 '아예 안 열리고' 허브 첫 화면이 뜬다 — 조용히 실패해서 알아채기 어렵다."""
+    allowed = set(re.findall(r"(\w+):\s*'[^']+'", CODE.split("var map = {", 1)[1].split("};", 1)[0]))
+    missing = sorted(set(PAGE_SRC) - allowed)
+    if missing:
+        raise SystemExit(f"doGet map 에 빠진 페이지: {missing}\n"
+                         f"  → deploy_hub.py 의 CODE 안 'var map' 에 추가할 것")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--create", action="store_true", help="스크립트 프로젝트 새로 만들기(최초 1회)")
     args = ap.parse_args()
+    check_routes()
     at = token()
     st = {"scriptId": SCRIPT_ID, "deploymentId": DEPLOY_ID}
 
@@ -526,6 +578,9 @@ def main():
                 {"name": "cheonan", "type": "HTML", "source": page_html("cheonan")},
                 {"name": "cheongju", "type": "HTML", "source": page_html("cheongju")},
                 {"name": "djhome", "type": "HTML", "source": page_html("djhome")},
+                # 송영 코스 — 수급자 실명·집주소 포함. 도메인 제한(caring.co.kr)으로만 나간다.
+                *[{"name": k, "type": "HTML", "source": page_html(k)}
+                  for k in SONGYEONG_KEY.values()],
             ]}, method="PUT")
     print("코드 업로드:", "OK" if r.get("files") else r.get("ERR"))
     if r.get("ERR"):

@@ -31,13 +31,15 @@ import urllib.request
 sys.stdout.reconfigure(encoding="utf-8")
 
 from audit.deploy_hub import (CODE, MANIFEST, SCRIPT_ID, DEPLOY_ID, build_html, api,
-                              _mask_revenue_names, _inject_topbar)
+                              _mask_revenue_names, _inject_topbar, SONGYEONG_KEY)
 
 # 저장소 밖 원본이 필요해 CI 에서 못 만드는 페이지들 — 현재 배포본을 그대로 살린다.
 # ★지점 홍보 리포트(dunsan·cheonan·cheongju·djhome)도 원본이 저장소 밖(클로드코드/지점홍보리포트/)이라
 #   여기 없으면 CI 재배포마다 통째로 삭제된다 — 실제로 그렇게 리포트 4개가 지워진 사고가 있었다.
+# ★송영 코스(songyeong_*)도 마찬가지다 — 원본이 클로드코드/송영코스/ 라 CI 러너에는 없다.
+#   SONGYEONG_KEY 에서 끌어와 지점이 늘어도 자동으로 보존된다.
 PRESERVE = ("revenue", "carcost", "runbook", "sysmap", "workreport",
-            "dunsan", "cheonan", "cheongju", "djhome")
+            "dunsan", "cheonan", "cheongju", "djhome") + tuple(SONGYEONG_KEY.values())
 
 
 def workreport_page_from(path: str) -> str:
