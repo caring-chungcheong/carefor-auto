@@ -368,9 +368,17 @@ def _inject_topbar(s: str) -> str:
     그냥 위에 얹으면 그것들이 덮어 잘렸다 → 복귀 바를 top:0 sticky(z 최상단)로 두고,
     페이지의 sticky 요소는 그 높이만큼 아래로 내려(top:BARH) 겹치지 않게 한다.
     target=_top: Apps Script iframe 밖(최상위 창)으로 이동해야 허브가 정상 로드됨."""
-    # ★리포트가 자체 갖고 있는 .hubback(고정 버튼)은 제거한다 — deploy_hub 바와 좌상단에서 겹치고,
-    #   게다가 target=_top 이 없어 iframe 안에서 허브가 깨진다. 여기 바(target=_top)로 일원화.
-    s = re.sub(r'<a\b[^>]*class="hubback"[^>]*>.*?</a>', '', s, flags=re.S)
+    # ★페이지가 자체 복귀 버튼(.hubback)을 갖고 있으면 **그걸 그대로 쓴다**(홍보 리포트).
+    #   전에는 이걸 지우고 회색 바를 얹었는데, 리포트 디자인과 형식이 안 맞아 브라우저 도구막대처럼 보였다.
+    #   원래 버튼(둥근 흰 알약 · 스크롤하면 사라짐)이 리포트 디자인의 일부라 그대로 두고,
+    #   iframe 밖으로 나가도록 target=_top 만 붙인다(없으면 허브가 iframe 안에서 깨진다 — 이게 제거 이유였다).
+    m = re.search(r'<a\b[^>]*class="hubback"[^>]*>', s)
+    if m:
+        tag = m.group(0)
+        new = re.sub(r'href="[^"]*"', lambda _: 'href="' + HUB_URL + '"', tag, count=1)
+        if "target=" not in new:
+            new = new.replace("<a ", '<a target="_top" ', 1)
+        return s.replace(tag, new, 1)
     # ★페이지에 헤더 슬롯(#hubslot)이 있으면 그 안에 복귀 버튼을 넣는다(매출 페이지).
     #   전에는 복귀 바를 body 맨 위에 얹었는데, 매출 페이지의 sticky 탭바와 top:0 에서 겹쳐
     #   노트북 화면에서 서로 덮었다(반복된 문제). 헤더 안에 넣으면 한 덩어리라 충돌이 없다.
