@@ -8,27 +8,27 @@
      ★ Apps Script 로딩이 느리면 이 화면이 그대로 떠 '멈춘 것처럼' 보인다 → 처음부터
         '여는 중' 로딩 화면 + 큰 '허브 열기' 버튼을 보여, 멈춰 보여도 한 번 눌러 바로 들어가게. -->
 <link rel="manifest" href="hq-manifest.json">
-<meta name="theme-color" content="#52909c">
+<meta name="theme-color" content="#c17c8f">
 <link rel="apple-touch-icon" href="icons/hub-180.png">
 <style>
   body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
     background:linear-gradient(180deg, #fbf1f4 0%, #f8f5f7 220px, #f7f9fb 560px) no-repeat, #f7f9fb;font-family:'Pretendard Variable',Pretendard,'Malgun Gothic',system-ui,sans-serif;color:#1e293b}
   .b{background:#fff;border-radius:18px;padding:32px 26px;max-width:390px;text-align:center;
-    box-shadow:0 10px 34px rgba(6,182,212,.12)}
+    box-shadow:0 10px 34px rgba(193,124,143,.12)}
   .ic{font-size:38px}
-  h1{font-size:19px;margin:12px 0 6px;color:#3a6f78}
+  h1{font-size:19px;margin:12px 0 6px;color:#c17c8f}
   p{font-size:13.5px;color:#64748b;line-height:1.7;margin:0 0 18px}
-  .btn{display:inline-block;width:100%;box-sizing:border-box;background:linear-gradient(120deg,#52909c,#3a6f78);
+  .btn{display:inline-block;width:100%;box-sizing:border-box;background:linear-gradient(120deg,#c17c8f,#c17c8f);
     color:#fff;border:0;text-decoration:none;padding:15px 20px;border-radius:12px;font-size:15.5px;font-weight:800;
-    cursor:pointer;font-family:inherit;box-shadow:0 6px 18px rgba(6,182,212,.28)}
+    cursor:pointer;font-family:inherit;box-shadow:0 6px 18px rgba(193,124,143,.28)}
   .btn:active{transform:translateY(1px)}
-  .btn.ghost{background:#eef5f7;color:#3a6f78;box-shadow:none;margin-top:10px;font-size:13.5px;padding:11px 18px}
-  .spin{display:inline-block;width:15px;height:15px;border:2px solid #d8e9ed;border-top-color:#3a6f78;
+  .btn.ghost{background:#faf2f5;color:#c17c8f;box-shadow:none;margin-top:10px;font-size:13.5px;padding:11px 18px}
+  .spin{display:inline-block;width:15px;height:15px;border:2px solid #f0dde3;border-top-color:#c17c8f;
     border-radius:50%;vertical-align:-2px;margin-right:7px;animation:sp .7s linear infinite}
   @keyframes sp{to{transform:rotate(360deg)}}
   .guide{display:none;font-size:12px;color:#64748b;line-height:1.7;margin:16px 0 0;
-    background:#eef5f7;border-radius:10px;padding:11px 13px}
-  .guide .sh{background:#d8e9ed;border-radius:6px;padding:1px 7px;font-weight:700;color:#3a6f78}
+    background:#faf2f5;border-radius:10px;padding:11px 13px}
+  .guide .sh{background:#f0dde3;border-radius:6px;padding:1px 7px;font-weight:700;color:#c17c8f}
 </style></head><body>
 <div class="b">
   <div class="ic">🏢</div>
