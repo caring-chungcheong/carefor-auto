@@ -83,8 +83,12 @@ def _draw_cell_text(
 
 
 def _fmt_avg(v) -> str | None:
-    """월평균 값 → 'XX.XX' 문자열. 없음/'-'/빈값이면 None."""
-    if v in (None, "-", ""):
+    """월평균 값 → 'XX.XX' 문자열. 없음/'-'/빈값/0 이면 None.
+
+    ★0 은 '수집 실패'다 — 케어포 화면에서 못 읽으면 0.0 으로 오는데, 그걸 '0.00'으로 찍으면
+      진짜 값처럼 보인다. 실제로 휴관이라 0명인 달은 없으므로 0 은 미표기('-')로 둔다.
+    """
+    if v in (None, "-", "") or v == 0:
         return None
     try:
         return f"{float(v):.2f}"

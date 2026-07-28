@@ -302,52 +302,43 @@ def scrape_monthly_attend(page: Page, target: date) -> tuple[int, float]:
     if today_total is None:
         raise RuntimeError(f"월간 입소자 표에서 {date_pattern} 행을 찾을 수 없습니다")
 
-    # img[param-info] 속성에서 "입소자 합계(N명) / 급여제공일(N일) = X.XX" 직접 파싱
+    # 월평균은 화면이 계산해 둔 값(param-info)을 그대로 쓴다 — 우리가 다시 더하지 않는다.
+    # ★일별 합을 평균 내는 폴백은 **틀린 값이 나온다**(실측 2026-07-29 둔산: 107.38, 정답 57.52).
+    #   화면에 월별 통계표가 같이 있어 그 숫자까지 섞여 들어가기 때문. 그래서 폴백은 쓰지 않고
+    #   0.0(=모름)으로 두어 잘못된 수치가 보고에 실리지 않게 한다.
     avg = 0.0
     try:
-        param_info = page.evaluate("""
-            (() => {
-                const imgs = document.querySelectorAll('img[param-info]');
-                for (const img of imgs) {
-                    const p = img.getAttribute('param-info') || '';
-                    if (p.includes('입소자 합계') || p.includes('입소자')) return p;
-                }
-                // data-param-info 도 시도
-                const els = document.querySelectorAll('[param-info],[data-param-info]');
-                for (const el of els) {
-                    const p = (el.getAttribute('param-info') || el.getAttribute('data-param-info') || '');
-                    if (p.includes('합계') || p.includes('56') || p.includes('60')) return p;
-                }
-                return null;
-            })()
-        """)
-        if param_info:
-            m = re.search(r"=\s*([\d]+\.[\d]+)\s*값의", param_info)
-            if m:
-                avg = float(m.group(1))
+        v = _read_avg_param_info(page)
+        if v:
+            avg = v
+        else:
+            print("  [WARN] 평균 입소자 param-info 를 못 읽었습니다 — 월평균 미표기로 넘어갑니다")
     except Exception as e:
         print(f"  [DEBUG] param_info 오류: {e}")
-
-    if avg == 0.0 and daily_totals:
-        avg = round(sum(daily_totals) / len(daily_totals), 2)
 
     return today_total, avg
 
 
 def _read_avg_param_info(page: Page) -> float | None:
-    """현재 2-8 화면 '평균 입소자 수 계산' param-info에서 '= X.XX 값의' 평균값을 읽는다."""
-    p = page.evaluate("""(() => {
-        const els = document.querySelectorAll('[param-info],[data-param-info]');
-        for (const el of els) {
-            const s = el.getAttribute('param-info') || el.getAttribute('data-param-info') || '';
-            if (s.includes('급여제공일') && s.includes('입소자 합계')) return s;
-        }
-        return null;
-    })()""")
-    if not p:
-        return None
-    m = re.search(r"=\s*([\d]+\.[\d]+)\s*값의", p)
-    return float(m.group(1)) if m else None
+    """현재 2-8 화면 '평균 입소자 수 계산' param-info 에서 평균 입소자 수를 읽는다.
+
+    ★2026-07-28 케어포 개편 이후 실측 문구:
+      '입소자 합계(1438명) ÷ 급여제공일(25일) = 57.52 값을 반올림하여 평균 입소자 수는 <b>58</b>명 입니다.'
+      (개편 전은 '= 59.92 값의' 였다 → '값의'만 찾던 정규식이 조용히 실패해 전월평균이 폴백값으로 나갔다.)
+
+    ★같은 화면에 **숫자 없는 일반 안내문**('입소자 합계 ÷ 급여제공일 값을 반올림하여 계산합니다.')이
+      먼저 나온다. 첫 매칭을 그대로 쓰면 늘 None 이 된다 → 후보를 모두 모아 숫자가 있는 것을 고른다.
+    """
+    infos = page.evaluate("""(() => {
+        return [...document.querySelectorAll('[param-info],[data-param-info]')]
+            .map(el => el.getAttribute('param-info') || el.getAttribute('data-param-info') || '')
+            .filter(s => s.includes('급여제공일') || s.includes('평균 입소자'));
+    })()""") or []
+    for s in infos:
+        m = re.search(r"=\s*([\d]+(?:\.[\d]+)?)\s*값", s)   # '값의'·'값을' 모두 허용
+        if m:
+            return float(m.group(1))
+    return None
 
 
 def scrape_prev_month_avg(page: Page, target: date) -> float | None:
