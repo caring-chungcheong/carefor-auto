@@ -312,22 +312,19 @@ def main():
     cols = [smap[full] for _, full in cr.CENTER_ORDER]
     ROWS = [("신규상담", "total"), ("미입력수", "miss"), ("미입력률", "rate"), ("대기건수", "wait")]
     LABEL_W = 8   # 행라벨(신규상담 등)이 4글자=폭8 → 왼쪽 여백 최소화(둔산 앞당김)
-    # 열폭은 '값' 최대폭 기준(머리글 무시) → 청주오창(4글자) 머리글만 오른쪽으로 살짝 넘치고,
-    # 숫자는 다른 지점과 같은 간격으로 앞에 붙는다. 셀은 가운데 정렬(머리글·값이 열 중앙에).
-    col_ws = [max(4, *[cr._w(str(c[k])) for _, k in ROWS]) + 2 for c in cols]
+    GAP = "  "
+    # 열폭 = '값' 최대폭(최소4). 값은 오른쪽 정렬 → 일의 자리가 세로로 맞는다.
+    # 청주오창(4글자) 머리글은 이 폭을 넘치면 오른쪽으로 삐져나가지만 마지막 열이라 무방하고,
+    # 숫자는 다른 지점과 같은 간격으로 앞에 붙는다(청주오창만 뒤로 밀리지 않음).
+    col_ws = [max(4, *[cr._w(str(c[k])) for _, k in ROWS]) for c in cols]
 
-    def _cen(v, w):
-        v = str(v)
-        pad = max(0, w - cr._w(v))
-        return " " * (pad // 2) + v + " " * (pad - pad // 2)
+    def _row(label, vals):
+        return cr._rpad(label, LABEL_W) + "".join(
+            GAP + cr._lpad(str(v), w) for v, w in zip(vals, col_ws))
 
-    table_lines = [
-        cr._rpad("", LABEL_W) + "".join(_cen(h, w) for h, w in zip(heads, col_ws)),
-        "─" * (LABEL_W + sum(col_ws) + 2),
-    ]
+    table_lines = [_row("", heads), "─" * (LABEL_W + sum(col_ws) + 2 * len(col_ws))]
     for label, key in ROWS:
-        table_lines.append(cr._rpad(label, LABEL_W) + "".join(
-            _cen(s[key], w) for s, w in zip(cols, col_ws)))
+        table_lines.append(_row(label, [c[key] for c in cols]))
     table = "\n".join(l.rstrip() for l in table_lines)
 
     # 지점별 엑셀 링크 한 줄
