@@ -495,10 +495,13 @@ def scrape_car_oil_change(page: Page, default_interval: int = 8000) -> dict:
                     and not d[m.end():m.end() + 6].startswith(('주기확인', '필요'))):
                 return True
         # (3) 슬래시/공백 나열에 '엔진오일' 항목 + '교환'(라이브선 '/'가 공백 렌더).
-        #     오일 점검·확인·보충이거나 예고(주기·일때·필요·차후·다음)면 타부품 교환 오탐 방지 위해 제외.
-        if ('엔진오일' in d and '교환' in d
-                and not re.search(r'오일(?:점검|확인|보충)|교체주기|일때|필요|차후|다음', d)):
-            return True
+        #     오일 점검·확인·보충·예고(주기·일때·필요)면 제외. '교환'은 '차후/다음 …교환'(다음교환 예고)만 제외 —
+        #     실제 교환 기록에 '차후교환 Nkm' 다음주기 메모가 붙어도 그 실제 교환은 살린다(31머2741 25.12.16).
+        if '엔진오일' in d and not re.search(r'오일(?:점검|확인|보충)|교체주기|일때|필요', d):
+            for m in re.finditer(r'교환', d):
+                pre = d[max(0, m.start() - 8):m.start()]
+                if '차후' not in pre and '다음' not in pre:
+                    return True
         return False
     oil_rows = [r for r in records if _is_real_change(r)]
     if not oil_rows:
