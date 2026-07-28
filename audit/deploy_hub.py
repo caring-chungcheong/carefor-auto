@@ -343,12 +343,12 @@ PAGE_SRC = {
     "runbook": CC / "케어포_운영런북.html",
     # 시스템 점검 지도 — 본부 이전·자동실행 전체 지도(개인정보 없음). 원본은 클로드코드/.
     "sysmap": CC / "본부_시스템_점검지도.html",
-    # 지점 홍보 리포트 — 2026-07-28 공개 Pages 로 전환(개소 리포트와 같은 기준. 수급자 정보 없음).
-    # 원본이 docs/ 로 옮겨졌으므로 허브도 같은 파일을 서빙한다 — ?page= 링크·북마크를 살려두려는 것.
-    "dunsan": ROOT / "docs" / "dunsan.html",
-    "cheonan": ROOT / "docs" / "cheonan.html",
-    "cheongju": ROOT / "docs" / "cheongju.html",
-    "djhome": ROOT / "docs" / "djhome.html",
+    # 지점 홍보 리포트 — B2B 영업전략(접촉명단·경쟁센터 연락처)이라 공개 Pages 금지.
+    # docs/ 밖(클로드코드/지점홍보리포트/)에 두고 도메인 제한으로만 서빙한다.
+    "dunsan": CC / "지점홍보리포트" / "둔산.html",
+    "cheonan": CC / "지점홍보리포트" / "천안.html",
+    "cheongju": CC / "지점홍보리포트" / "청주오창.html",
+    "djhome": CC / "지점홍보리포트" / "대전방문요양.html",
 }
 
 
