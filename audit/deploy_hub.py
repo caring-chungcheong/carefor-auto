@@ -65,7 +65,10 @@ function doGet(e) {
               songyeong_dunsan: '송영 코스 · 둔산점', songyeong_seogu: '송영 코스 · 서구점',
               songyeong_cheonan: '송영 코스 · 천안점', songyeong_cheongju: '송영 코스 · 청주 오창점',
               songyeong_bongmyeong: '송영 코스 · 청주 봉명동점' };  // 도메인(caring.co.kr) 로그인해야 열림
-  if (map[page]) { log_(map[page]); return out_(page, map[page]); }
+  // ★로깅을 여기서 하면 시트 열기·쓰기(0.5~1.5초)가 끝나야 화면이 뜬다.
+  //   실측 2026-07-29: 로깅 없는 허브 첫 화면 1.16초 vs 로깅 있는 개별 페이지 1.70초.
+  //   → 페이지가 뜬 뒤 google.script.run.logItem 으로 기록한다(_inject_topbar 가 넣는다).
+  if (map[page]) { return out_(page, map[page]); }
   // ★허브 열기 로깅은 status() 로 옮겼다 — doGet 에서 시트를 만지면 그게 끝나야 화면이 뜬다.
   //   시트 열기·쓰기가 초 단위라 '멈춘 것처럼' 보였고, 다른 자동화와 쓰기가 겹치면 아예 지연됐다.
   return out_('hub', '충청본부 공유 허브');
@@ -490,7 +493,38 @@ def page_html(kind: str) -> str:
     if kind in ("revenue", "carcost"):   # 이 둘만 너무 흰 배경 → 틴트. 홍보 리포트는 자체 디자인 유지
         s = _inject_bg(s)
     s = _inject_topbar(s)
+    s = _inject_logging(s, kind)
     return s
+
+
+# 접속 로그는 **화면이 뜬 뒤** 남긴다. doGet 에서 시트를 쓰면 그게 끝나야 화면이 나와
+# 페이지가 0.5초쯤 늦게 뜬다(실측: 로깅 없는 허브 첫 화면 1.16초 vs 있는 페이지 1.70초).
+_LOG_JS = """
+<script>
+(function () {
+  try {
+    if (window.google && google.script && google.script.run) {
+      setTimeout(function () { google.script.run.logItem(%s); }, 800);
+    }
+  } catch (e) {}
+})();
+</script>
+"""
+
+
+def _inject_logging(s: str, kind: str) -> str:
+    """페이지가 뜬 뒤 접속을 기록하도록 스크립트를 붙인다(허브 밖에서는 조용히 아무것도 안 한다)."""
+    label = {
+        "revenue": "매출 점검", "carcost": "차량 월별 수리비", "runbook": "케어포 운영 런북",
+        "sysmap": "시스템 점검 지도", "workreport": "근무일지 점검",
+        "dunsan": "둔산점 홍보 리포트", "cheonan": "천안점 홍보 리포트",
+        "cheongju": "청주 오창점 홍보 리포트", "djhome": "대전 방문요양 홍보 리포트",
+        "songyeong_dunsan": "송영 코스 · 둔산점", "songyeong_seogu": "송영 코스 · 서구점",
+        "songyeong_cheonan": "송영 코스 · 천안점", "songyeong_cheongju": "송영 코스 · 청주 오창점",
+        "songyeong_bongmyeong": "송영 코스 · 청주 봉명동점",
+    }.get(kind, kind)
+    tag = _LOG_JS % json.dumps(label, ensure_ascii=False)
+    return s.replace("</body>", tag + "</body>", 1) if "</body>" in s else s + tag
 
 
 # 첫 칸에 오지만 이름이 아닌 값(마스킹 제외)
