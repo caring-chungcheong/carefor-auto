@@ -79,18 +79,35 @@ def _spa(page, g_pammgno, type_, view, title):
     page.wait_for_timeout(3000)
 
 
-def scrape_staff_jobs(page, g_pammgno, progress=print) -> dict:
-    """8-1 직원 정보관리 → {직원명: 담당직종}. 열: 연번·현황·직원명(td2)·성별·담당직종(td4)·입사일."""
+def scrape_staff_jobs(page, g_pammgno, progress=print, include_exit: bool = True) -> dict:
+    """8-1 직원 정보관리 → {직원명: 담당직종}. 열: 연번·현황·직원명(td2)·성별·담당직종(td4)·입사일.
+
+    include_exit=True: '퇴사자,휴직 포함 검색'을 켜(reloadPage inc_exit=1) 퇴사자까지 수집.
+    상담일지·진료 작성자가 이미 퇴사한 경우가 많아(둔산 상담 244건이 퇴사자 작성) 기본 포함.
+    현황(재직/퇴사)도 함께 반환하려 값은 '직종' 문자열 유지하되, 재직 우선(동명이인 시 재직 덮어씀).
+    """
     try:
         _spa(page, g_pammgno, "left_sub8", STAFF_VIEW, "8-1.직원 정보관리")
+        if include_exit:
+            toggled = page.evaluate("""
+            ()=>{ const lab=[...document.querySelectorAll('label')].find(e=>/퇴사자.*포함/.test(e.textContent));
+              if(!lab) return false; let cb=lab.querySelector('input[type=checkbox]');
+              if(cb&&!cb.checked){cb.click(); return true;} return !!cb; }
+            """)
+            if toggled:
+                page.wait_for_timeout(2500)
         rows = page.evaluate(
             "()=>[...document.querySelectorAll('table.frame_list_tbl tr.cr')]"
             ".map(tr=>[...tr.querySelectorAll('td')].map(x=>x.innerText.trim()))")
         jobs = {}
         for r in rows:
+            # r = [연번, 현황(재직/퇴사), 이름, 성별, 직종, 입사일]
             if len(r) >= 5 and re.fullmatch(r"[가-힣]{2,5}", r[2] or ""):
-                jobs[r[2]] = r[4]
-        progress(f"  8-1 직원 {len(jobs)}명 직종 수집")
+                # 재직자를 우선(동명이인이면 재직 값으로 덮어씀)
+                if r[2] not in jobs or (r[1] == "재직"):
+                    jobs[r[2]] = r[4]
+        n_exit = sum(1 for r in rows if len(r) >= 2 and r[1] == "퇴사")
+        progress(f"  8-1 직원 {len(jobs)}명 직종 수집(퇴사 {n_exit} 포함)")
         return jobs
     except Exception as e:
         progress(f"  8-1 직원 직종 수집 실패: {e}")
