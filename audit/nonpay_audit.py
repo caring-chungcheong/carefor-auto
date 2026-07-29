@@ -269,8 +269,24 @@ def compare(cf: dict, portal: list[dict], contract: list[tuple[str, str]]) -> li
     if not meals:
         return [{"level": "확인불가", "what": "케어포 9-2 수가를 읽지 못함"}]
 
-    p_meal = {p["amt"] for p in portal if p["amt"] and p["kind"] == "1"}
-    p_snack = {p["amt"] for p in portal if p["amt"] and p["kind"] == "5"}
+    # ★게시 금액칸의 '단위'는 지점 자유다 — 둔산·서구·천안은 1식 단가, 청주는 하루치를 넣고
+    #   산출근거에 '일 3,300원X2식' 처럼 단가를 밝힌다(6,600 = 3,300×2). 금액칸만 비교하면
+    #   청주가 통째로 미흡으로 뒤집힌다(실제 오탐). 산출근거에 적힌 금액도 인정 후보에 넣는다.
+    def _amts(kind: str) -> set[int]:
+        out: set[int] = set()
+        for p in portal:
+            if p["kind"] != kind:
+                continue
+            if p["amt"]:
+                out.add(p["amt"])
+            for m in re.finditer(r"([\d,]{3,})\s*원?", p.get("base") or ""):
+                v = _num(m.group(1))
+                if v:
+                    out.add(v)
+        return out
+
+    p_meal = _amts("1")
+    p_snack = _amts("5")
     c_meal = {_num(v) for n, v in contract if _MEAL.search(n) and not _SNACK.search(n)}
     c_snack = {_num(v) for n, v in contract if _SNACK.search(n)}
     c_meal.discard(None); c_snack.discard(None)
