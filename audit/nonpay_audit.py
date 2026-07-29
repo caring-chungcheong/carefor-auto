@@ -317,14 +317,25 @@ def compare(cf: dict, portal: list[dict], contract: list[tuple[str, str]]) -> li
     return issues
 
 
-def run(branch_name: str, ctmnumb: str, sym: str, key: str) -> dict:
-    from .collect_ltc_public import _ltc_key  # noqa: F401  (키 경로 일원화 확인용)
+def read_carefor_page(page) -> dict:
+    """로그인된 page 를 9-2 로 옮겨 비급여 수가만 읽는다(네트워크 대조는 하지 않음).
 
-    cf = fetch_carefor(branch_name, ctmnumb)
-    time.sleep(DELAY)
+    ★collector 는 이걸 `with sync_playwright()` **안에서** 부른다. 항목 판정부는
+      browser.close() 뒤라 거기서 page 를 만지면 'Event loop is closed' 로 죽는다(실측).
+      그래서 '수집(page 필요)'과 '대조(네트워크만)'를 갈라 놓았다.
+    """
+    from src.carefor_client import _navigate_spa, build_spa_hash
+
+    _navigate_spa(page, "https://dn.carefor.co.kr/#" + build_spa_hash(
+        "left_sub9", "/basic/view.service_cost", "9-2.요양급여 수가설정", ""))
+    page.wait_for_timeout(5000)
+    return parse_carefor(page.evaluate("document.body.innerHTML"))
+
+
+def compare_collected(cf: dict, sym: str, key: str) -> dict:
     portal = fetch_portal(sym, key)
     s = requests.Session(); s.headers.update({"User-Agent": UA})
-    years = {}
+    years: dict[str, dict] = {}
     for n in notice_list(s, sym):
         y = contract_year(n["title"])
         if y and y not in years:
@@ -334,11 +345,49 @@ def run(branch_name: str, ctmnumb: str, sym: str, key: str) -> dict:
     if latest:
         time.sleep(DELAY)
         contract, kind = contract_nonpay(s, years[latest]["url"])
-
-    res = {"branch": branch_name, "carefor": cf, "portal": portal,
-           "contract_years": sorted(years), "contract_year": latest,
-           "contract_kind": kind, "contract": contract}
+    res = {"carefor": cf, "portal": portal, "contract_years": sorted(years),
+           "contract_year": latest, "contract_kind": kind, "contract": contract}
     res["issues"] = compare(cf, portal, contract)
+    return res
+
+
+def to_judgement(res: dict, cutoff: str | None = None) -> dict:
+    """3자 대조 결과 → 항목 18 판정 조각. 게시 '내용'이 실제와 다르면 미흡.
+
+    개소 연도부터의 이용계약 공지 게시도 함께 본다(개소 전 연도는 요구하지 않는다 —
+    서구점 2025-03-01 개소라 2024년 공지가 없는 게 정상인데 미흡으로 찍었던 오판이 있었다).
+    """
+    from datetime import date
+
+    bad = [i for i in res["issues"] if i["level"] == "미흡"]
+    unk = [i for i in res["issues"] if i["level"] == "확인불가"]
+
+    miss_years: list[str] = []
+    if cutoff:
+        start = int(str(cutoff)[:4])
+        need = [str(y) for y in range(start, date.today().year + 1)]
+        miss_years = [y for y in need if y not in res["contract_years"]]
+
+    if miss_years:
+        return {"status": "미흡", "sub_status": {"①": "미흡"},
+                "detail": f"[비급여 게시내용] 이용계약 공지 미게시: {', '.join(miss_years)}년"}
+    if bad:
+        return {"status": "미흡", "sub_status": {"①": "미흡"},
+                "detail": "[비급여 게시내용] 케어포 9-2 기준 불일치 — " + " · ".join(i["what"] for i in bad)}
+    if unk:
+        return {"status": "주의",
+                "detail": "[비급여 게시내용] " + " · ".join(i["what"] for i in unk)}
+    return {"status": "양호",
+            "detail": f"[비급여 게시내용] 케어포 9-2 ↔ 이용계약({res['contract_year']}) ↔ 공단 게시 3자 일치"}
+
+
+def run(branch_name: str, ctmnumb: str, sym: str, key: str) -> dict:
+    from .collect_ltc_public import _ltc_key  # noqa: F401  (키 경로 일원화 확인용)
+
+    cf = fetch_carefor(branch_name, ctmnumb)
+    time.sleep(DELAY)
+    res = compare_collected(cf, sym, key)   # collector 와 같은 경로를 쓴다(로직 갈라짐 방지)
+    res["branch"] = branch_name
     return res
 
 

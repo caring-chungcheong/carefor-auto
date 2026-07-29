@@ -176,6 +176,19 @@ def run_branch_audit(
             item33 = judge_item33(_collect33(page, g_pammgno), datetime.now())
         except Exception as e:
             progress_cb(f"[{branch_name}] 33번 수집 실패(계속): {e}")
+
+        # 항목 18 보강용: 케어포 9-2 요양급여 수가설정(비급여 실제 단가).
+        # ★반드시 이 with 블록 **안에서** 읽어야 한다 — 항목 판정부(아래)는 browser.close() 뒤라
+        #   거기서 page 를 만지면 'Event loop is closed' 로 죽는다(실측).
+        #   여기서는 '수집'만 하고, 대조·판정은 analysis 가 생긴 뒤에 한다.
+        nonpay_cf = None
+        try:
+            from .nonpay_audit import read_carefor_page
+            progress_cb(f"[{branch_name}] 9-2 비급여 수가설정 수집...")
+            nonpay_cf = read_carefor_page(page)
+        except Exception as e:
+            progress_cb(f"[{branch_name}] 9-2 수가 수집 실패(계속): {e}")
+
         browser.close()
 
     progress_cb(f"[{branch_name}] 분석 중... ({len(results)}명)")
@@ -265,6 +278,39 @@ def run_branch_audit(
                 progress_cb(f"[{branch_name}] 항목 18①: {r18['status']}")
         except Exception as e:
             progress_cb(f"[{branch_name}] 항목 18① 판정 건너뜀: {e}")
+
+        # 항목 18① 보강: 비급여 게시 '내용' 대조 (케어포 9-2 실제수가 ↔ 이용계약 공지 ↔ 공단 게시)
+        # 게시 '여부'만으로는 평가와 어긋난다 — 실제 평가는 공지된 내용을 확인한다(사용자 확정 2026-07-29).
+        # ★page 를 9-2 로 이동시킨다. 이 지점 이후 page 를 쓰는 단계가 없어 안전하다(확인함).
+        try:
+            from .collect_ltc_public import _ltc_key
+            from .nonpay_audit import compare_collected, to_judgement
+
+            key = _ltc_key()
+            sym = None
+            f = AUDIT_DIR / f"롱텀공개_{branch_name}.json"
+            if f.exists():
+                sym = json.loads(f.read_text(encoding="utf-8")).get("ltc_admin_sym")
+            if key and sym and nonpay_cf:
+                np = compare_collected(nonpay_cf, sym, key)   # 네트워크만 — page 안 씀
+                j = to_judgement(np, cutoff)
+                cur = analysis["item_results"].get("18")
+                if cur:
+                    cur["sub_status"] = {**(cur.get("sub_status") or {}), **(j.get("sub_status") or {})}
+                    # judge18 은 '비급여 금액은 공개조회 밖'이라 적어둔다 — 방금 그 금액을 대조했으니
+                    # 그대로 두면 한 줄 안에서 서로 모순된다(28③ 자동판정 때와 같은 처리).
+                    det = (cur.get("detail") or "").replace(
+                        "인력·시설 현황과 게시내용 텍스트값(비급여 금액 등)은 공개조회 밖",
+                        "인력·시설 현황은 공개조회 밖")
+                    cur["detail"] = det + " / " + j["detail"]
+                    rank = {"양호": 0, "주의": 1, "미흡": 2}
+                    if rank.get(j["status"], 0) > rank.get(cur.get("status", "양호"), 0):
+                        cur["status"] = j["status"]
+                else:
+                    analysis["item_results"]["18"] = j
+                progress_cb(f"[{branch_name}] 항목 18 비급여 내용대조: {j['status']}")
+        except Exception as e:
+            progress_cb(f"[{branch_name}] 항목 18 비급여 내용대조 건너뜀: {e}")
 
         # 항목 8③ 보강: 노션 생일쿠폰 대조 (토큰 있을 때만 — 클라우드 전용)
         try:
