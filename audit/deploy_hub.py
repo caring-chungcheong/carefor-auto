@@ -59,7 +59,7 @@ function doGet(e) {
   // ⚠️ 여기에 없는 page 는 무시되고 허브 첫 화면이 뜬다 — 페이지를 새로 얹으면 반드시 추가할 것.
   //    (2026-07-29: 송영 코스를 올려 놓고 이 목록에 안 넣어 '아예 안 열린다' 는 신고를 받았다)
   var map = { revenue: '매출 점검', carcost: '차량 월별 수리비', runbook: '케어포 운영 런북', sysmap: '시스템 점검 지도',
-              workreport: '근무일지 점검',
+              workreport: '근무일지 점검', nonpay: '본인부담금 미납 관리',
               dunsan: '둔산점 홍보 리포트', cheonan: '천안점 홍보 리포트', cheongju: '청주 오창점 홍보 리포트',
               djhome: '대전 방문요양 홍보 리포트',
               songyeong_dunsan: '송영 코스 · 둔산점', songyeong_seogu: '송영 코스 · 서구점',
@@ -309,6 +309,13 @@ def _embed_date(kind: str, src: str | None = None) -> str:
             import datetime
             mt = datetime.datetime.fromtimestamp(cands[-1].stat().st_mtime)
             return "🔄 " + mt.strftime("%m/%d") + " 기준"
+    if kind == "nonpay":
+        # 미납 허브본(마스킹) 파일 수정시각. CI 러너에는 원본이 없으니 없으면 캡션만 비운다.
+        p = CC / "미납관리" / "미납관리_합본_허브.html"
+        if p.exists():
+            import datetime
+            mt = datetime.datetime.fromtimestamp(p.stat().st_mtime)
+            return "🔄 " + mt.strftime("%m/%d") + " 기준"
     return ""
 
 
@@ -323,6 +330,7 @@ def build_html(carcost_src: str | None = None) -> str:
                    m.group(1), ("🔄 " + _git_md(m.group(1)) + " 갱신") if _git_md(m.group(1)) else ""),
                s)
     s = s.replace("{{UPD_REVENUE}}", _embed_date("revenue"))
+    s = s.replace("{{UPD_NONPAY}}", _embed_date("nonpay"))
     s = s.replace("{{UPD_CARCOST}}", _embed_date("carcost", carcost_src))
     # 1) PIN 게이트 제거 — 도메인 인증이 대신한다(PIN 은 소스에 노출돼 있어 보호 효과도 없었다)
     s = re.sub(r'<div id="gate">.*?</div>\s*(?=<header>)', "", s, flags=re.S)
@@ -347,6 +355,9 @@ PAGE_SRC = {
     # 근무일지 점검(8-4) — 직원 실명이 들어 있어 공개 Pages 금지. 합본 최신본을 자동 선택.
     #   CI(월 1회)는 러너에서 만든 합본을 deploy_hub_ci --workreport-from 으로 올린다.
     "workreport": None,
+    # 본인부담금 미납 관리(케어포 7-3) — 수급자 이름은 **생성 단계에서 이미 마스킹**된 허브본을 쓴다
+    # (nonpay_check.py 가 로컬본=실명 / 허브본=마스킹 두 벌을 만든다). 로컬 실명본은 절대 올리지 않는다.
+    "nonpay": CC / "미납관리" / "미납관리_합본_허브.html",
     # 운영 런북 — 공개 저장소에서 뺀 SKILL.md 내용(케어포 로그인·시트/채널 ID·사고 이력)을
     # 본부에만 도메인 제한으로 서빙한다. 원본은 Pages 밖 클로드코드/ 폴더.
     "runbook": CC / "케어포_운영런북.html",
@@ -464,9 +475,18 @@ def page_html(kind: str) -> str:
         if not cands:
             raise SystemExit("근무일지점검 합본 HTML을 찾지 못함 (클로드코드/근무일지점검/)")
         p = cands[-1]
+    if kind == "nonpay" and not pathlib.Path(p).exists():
+        raise SystemExit("미납관리 허브본이 없다 — 먼저 클로드코드/미납관리 에서 "
+                         "`py -X utf8 nonpay_check.py report` 로 만들 것")
     s = pathlib.Path(p).read_text(encoding="utf-8")
     if kind == "revenue":
         s = _mask_revenue_names(s)
+    if kind == "nonpay":
+        # 허브본은 생성 단계에서 마스킹됐다. 그래도 올리기 전에 한 번 더 막는다 —
+        # 실명본(미납관리_합본_최신.html)을 실수로 지정하면 여기서 걸린다.
+        bad = [n for n in re.findall(r"<td class='nm'>([^<]+)</td>", s) if "○" not in n]
+        if bad:
+            raise SystemExit(f"미납 허브본에 마스킹 안 된 수급자 이름이 있다 — 업로드 중단: {bad}")
     if kind.startswith("songyeong_"):
         # 지점 전환 탭이 '../서구/송영코스_서구.html' 같은 파일 상대경로다.
         # 허브(Apps Script)에서는 그런 경로가 없으므로 허브 주소로 바꿔 준다.
@@ -517,6 +537,7 @@ def _inject_logging(s: str, kind: str) -> str:
     label = {
         "revenue": "매출 점검", "carcost": "차량 월별 수리비", "runbook": "케어포 운영 런북",
         "sysmap": "시스템 점검 지도", "workreport": "근무일지 점검",
+        "nonpay": "본인부담금 미납 관리",
         "dunsan": "둔산점 홍보 리포트", "cheonan": "천안점 홍보 리포트",
         "cheongju": "청주 오창점 홍보 리포트", "djhome": "대전 방문요양 홍보 리포트",
         "songyeong_dunsan": "송영 코스 · 둔산점", "songyeong_seogu": "송영 코스 · 서구점",
@@ -604,6 +625,7 @@ def main():
                 {"name": "Code", "type": "SERVER_JS", "source": CODE},
                 {"name": "hub", "type": "HTML", "source": build_html()},
                 {"name": "revenue", "type": "HTML", "source": page_html("revenue")},
+                {"name": "nonpay", "type": "HTML", "source": page_html("nonpay")},
                 {"name": "workreport", "type": "HTML", "source": page_html("workreport")},
                 {"name": "carcost", "type": "HTML", "source": page_html("carcost")},
                 {"name": "runbook", "type": "HTML", "source": page_html("runbook")},

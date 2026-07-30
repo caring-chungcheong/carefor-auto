@@ -38,7 +38,8 @@ from audit.deploy_hub import (CODE, MANIFEST, SCRIPT_ID, DEPLOY_ID, build_html, 
 #   여기 없으면 CI 재배포마다 통째로 삭제된다 — 실제로 그렇게 리포트 4개가 지워진 사고가 있었다.
 # ★송영 코스(songyeong_*)도 마찬가지다 — 원본이 클로드코드/송영코스/ 라 CI 러너에는 없다.
 #   SONGYEONG_KEY 에서 끌어와 지점이 늘어도 자동으로 보존된다.
-PRESERVE = ("revenue", "carcost", "runbook", "sysmap", "workreport",
+# ★본인부담금 미납(nonpay)도 원본이 저장소 밖(클로드코드/미납관리/)이다 — 여기 없으면 CI 재배포마다 사라진다.
+PRESERVE = ("revenue", "carcost", "runbook", "sysmap", "workreport", "nonpay",
             "dunsan", "cheonan", "cheongju", "djhome") + tuple(SONGYEONG_KEY.values())
 
 
@@ -86,6 +87,10 @@ def main():
     #   경로가 고정이라 인자를 받지 않고 deploy_hub.page_html 을 그대로 쓴다(중복 구현 금지).
     #   CI 에는 그 원본이 없으므로 CI 에서는 이 플래그를 쓰지 않는다 — 안 주면 종전대로 보존.
     want_carcost = "--carcost" in sys.argv
+    # --nonpay: 로컬 '미납관리_합본_허브.html'(이름 마스킹본)로 미납 페이지를 갱신(로컬 실행용).
+    #   경로가 고정이라 인자를 받지 않고 deploy_hub.page_html 을 쓴다 — 그쪽에 마스킹 검사 게이트가 있다.
+    #   CI 에는 원본이 없으니 CI 에서는 이 플래그를 쓰지 않는다(안 주면 종전대로 보존).
+    want_nonpay = "--nonpay" in sys.argv
 
     at = token_ci()
     base = f"https://script.googleapis.com/v1/projects/{SCRIPT_ID}"
@@ -113,11 +118,18 @@ def main():
         except Exception as ex:
             print(f"  ⚠️ carcost 원본을 못 읽어 보존합니다: {ex}")
 
+    if want_nonpay:   # 로컬 미납 허브본(마스킹)으로 교체 — 마스킹 안 됐으면 page_html 이 중단시킨다
+        from audit.deploy_hub import page_html as _page_html
+        keep["nonpay"] = {"name": "nonpay", "type": "HTML", "source": _page_html("nonpay")}
+        print(f"  갱신: nonpay ← 로컬 미납관리 허브본 ({len(keep['nonpay']['source'])}자, 이름 마스킹 확인)")
+
     _updated = {"revenue"} if src_revenue else set()
     if src_workreport:
         _updated.add("workreport")
     if want_carcost and "carcost" in keep:
         _updated.add("carcost")
+    if want_nonpay:
+        _updated.add("nonpay")
     for n in PRESERVE:
         if n in keep and n not in _updated:
             print(f"  보존: {n} ({len(keep[n].get('source',''))}자)")
