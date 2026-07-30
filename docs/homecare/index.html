@@ -1,0 +1,104 @@
+<!doctype html><html lang="ko"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>방문요양 공유허브</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<!-- 설치 껍데기 — 자료는 하나도 없다(허브로 넘기는 링크뿐).
+     Apps Script 는 샌드박스 iframe 이라 manifest·서비스워커가 안 걸려 '원클릭 설치'가 불가능하다.
+     그래서 진짜 HTTPS 도메인인 Pages 에 이 껍데기를 두고, 아이콘은 여기서 심는다.
+     ?install 로 열면 설치 화면에 머물고, 그 외(아이콘 실행·북마크)에는 허브로 직행한다. -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2f5c64">
+<link rel="apple-touch-icon" href="../icons/homecare-180.png">
+<style>
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(180deg,#eef4f5 0%,#f4f7f8 220px,#f7f9fb 560px) no-repeat,#f7f9fb;
+    font-family:'Pretendard Variable',Pretendard,'Malgun Gothic',system-ui,sans-serif;color:#1e293b}
+  .b{background:#fff;border-radius:18px;padding:32px 26px;max-width:390px;text-align:center;
+    box-shadow:0 10px 34px rgba(47,92,100,.13)}
+  .ic{font-size:38px}
+  h1{font-size:19px;margin:12px 0 6px;color:#2f5c64}
+  p{font-size:13.5px;color:#64748b;line-height:1.7;margin:0 0 18px}
+  .btn{display:inline-block;width:100%;box-sizing:border-box;background:#2f5c64;
+    color:#fff;border:0;text-decoration:none;padding:15px 20px;border-radius:12px;font-size:15.5px;
+    font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 6px 18px rgba(47,92,100,.28)}
+  .btn:active{transform:translateY(1px)}
+  .btn.ghost{background:#eef4f5;color:#2f5c64;box-shadow:none;margin-top:10px;font-size:13.5px;padding:11px 18px}
+  .spin{display:inline-block;width:15px;height:15px;border:2px solid #dde8ea;border-top-color:#2f5c64;
+    border-radius:50%;vertical-align:-2px;margin-right:7px;animation:sp .7s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .guide{display:none;font-size:12px;color:#64748b;line-height:1.7;margin:16px 0 0;
+    background:#eef4f5;border-radius:10px;padding:11px 13px}
+  .guide .sh{background:#dde8ea;border-radius:6px;padding:1px 7px;font-weight:700;color:#2f5c64}
+</style></head><body>
+<div class="b">
+  <div class="ic">🏡</div>
+  <h1>방문요양 공유허브</h1>
+  <p id="msg"><span class="spin"></span>허브를 여는 중입니다…<br>안 열리면 아래 버튼을 눌러주세요.</p>
+  <a id="go" class="btn" href="https://script.google.com/a/macros/caring.co.kr/s/AKfycbyYBYMgBqAQMmVyNb4cD-LxB_bHZQnDAuigcU6yYvpx5vVQN3sCLFOmRVFNeNvOgZ_hhA/exec">허브 열기 →</a>
+  <button id="installBtn" class="btn ghost" type="button" style="display:none">📲 앱으로 설치</button>
+  <div class="guide" id="guide"></div>
+</div>
+<script>
+var HUB="https://script.google.com/a/macros/caring.co.kr/s/AKfycbyYBYMgBqAQMmVyNb4cD-LxB_bHZQnDAuigcU6yYvpx5vVQN3sCLFOmRVFNeNvOgZ_hhA/exec";
+var wantInstall = new URLSearchParams(location.search).has('install');
+
+if(!wantInstall){
+  // 아이콘 실행·북마크 → 허브로 직행. #go 버튼이 이미 떠 있어 자동 이동이 느려도 눌러 들어갈 수 있다.
+  try { location.replace(HUB); } catch(e){ location.href = HUB; }
+} else {
+  if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
+  var dp=null,
+      btn=document.getElementById('installBtn'),
+      guide=document.getElementById('guide'),
+      msg=document.getElementById('msg'),
+      go=document.getElementById('go');
+  msg.innerHTML='앱으로 설치하면 <b>아이콘 한 번</b>으로 열립니다.<br>주소창 없이 전체화면으로 떠요.';
+  go.textContent='허브 바로 열기 →';
+  // ★standalone 은 '이 창이 앱 모드'라는 뜻일 뿐 '설치돼 있다'가 아니다.
+  //   이미 설치된 다른 앱(충청본부 허브) 창에서 열면 true 가 되어 '이미 설치돼 있습니다'로
+  //   오판했다(실측: 창 제목이 '충청본부 공유 허브 - 방문요양 공유허브'였다).
+  //   ★그리고 앱 창 안에서는 브라우저가 설치 프롬프트를 아예 주지 않는다 —
+  //     그래서 '왜 안 되는지'와 '어떻게 하면 되는지'를 바로 알려준다.
+  var isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  var inApp = window.matchMedia('(display-mode: standalone)').matches
+           || window.navigator.standalone === true;
+  if (inApp) {
+    msg.innerHTML = '⚠️ <b>지금 창에서는 설치할 수 없습니다.</b><br>'
+      + '다른 앱 창 안에서는 브라우저가 설치를 막습니다.<br>'
+      + '<b>크롬을 직접 열어</b> 아래 주소로 들어오세요.';
+    guide.style.display = 'block';
+    guide.innerHTML = '<div style="word-break:break-all;font-size:11px;color:#2f5c64;'
+      + 'background:#fff;border:1px solid #dde8ea;border-radius:8px;padding:8px 9px;margin-bottom:8px">'
+      + location.origin + location.pathname + '?install</div>'
+      + '<button id="cp" style="width:100%;background:#2f5c64;color:#fff;border:0;'
+      + 'padding:9px;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;'
+      + 'font-family:inherit">📋 주소 복사</button>';
+    document.getElementById('cp').addEventListener('click', function () {
+      var u = location.origin + location.pathname + '?install';
+      (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject())
+        .then(function () { document.getElementById('cp').textContent = '✅ 복사됨 — 크롬 주소창에 붙여넣기'; })
+        .catch(function () { prompt('아래 주소를 복사해 크롬에서 여세요', u); });
+    });
+  }
+
+  window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); dp=e; btn.style.display='inline-block'; guide.style.display='none'; });
+  btn.addEventListener('click', function(){
+    if(!dp) return;
+    dp.prompt();
+    dp.userChoice.then(function(r){
+      if(r && r.outcome==='accepted'){ msg.innerHTML='✅ 설치 완료! <b>앱 아이콘</b>으로 여세요.'; }
+      dp=null; btn.style.display='none';
+    });
+  });
+  window.addEventListener('appinstalled', function(){ msg.innerHTML='✅ 설치 완료! <b>앱 아이콘</b>으로 여세요.'; btn.style.display='none'; guide.style.display='none'; });
+
+  setTimeout(function(){
+    if(dp || inApp) return;     // 프롬프트가 왔거나 앱 창이면 위 안내를 유지한다
+    guide.style.display='block';
+    if(isIOS){ guide.innerHTML='아이폰 — 사파리 아래 <span class="sh">공유 ⬆️</span> → <b>"홈 화면에 추가"</b>'; }
+    else { guide.innerHTML='설치 버튼이 안 뜨면 — 크롬 주소창 오른쪽 <b>설치 아이콘</b>, 또는 <span class="sh">⋮ 메뉴</span> → <b>"앱 설치"</b> / <b>"홈 화면에 추가"</b><br><span style="color:#94a3b8">앱 창(설치된 다른 허브) 안에서 열면 설치가 안 됩니다 — 크롬을 직접 열어 이 주소로 들어오세요.</span>'; }
+  }, 1600);
+}
+</script>
+</body></html>
