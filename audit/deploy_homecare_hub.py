@@ -8,11 +8,12 @@
 담는 것
   schedule : 근무일정표   ← work-schedule/index.html 을 그대로 넣는다
   ratecalc : 수가계산기   ← carefor-auto/docs/rate_calculator.html
+  drivelog : 운행기록     ← carefor-auto/docs/daejeon.html (시트 연동 입력 페이지)
 
 ★함정
-- 충청본부 허브와 달리 **접속 로깅을 넣지 않았다**. 시트 권한이 붙으면 최초 승인이
-  까다로워지고(setup() 을 따로 실행해야 함) 이 허브는 항목이 적어 로그 가치가 낮다.
-  나중에 필요하면 deploy_hub.py 의 CODE/log_ 패턴을 가져오면 된다.
+- 접속 로깅은 충청본부 차량관리 시트의 _방문요양허브접속 탭에 쌓는다(시트를 늘리지 않는다).
+  ★spreadsheets 권한은 doGet 승인으로 빠질 수 있다 — 화면에 '기록 없음'이 계속 뜨면
+    편집기에서 setup() 을 한 번 실행해 승인해야 한다(log_/status 가 예외를 삼켜 조용히 실패).
 - doGet 의 map 에 없는 page 는 조용히 무시되고 첫 화면이 뜬다 — 페이지를 얹으면 반드시 추가.
 - 근무일정표는 localStorage 에 월별 편성을 저장한다. Apps Script 는 사용자 HTML 을
   googleusercontent 샌드박스 iframe 에서 띄우므로, **구글이 그 origin 을 바꾸면
@@ -38,6 +39,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 CC = ROOT.parent                      # 클로드코드/
 SCHEDULE_SRC = pathlib.Path.home() / "work-schedule" / "index.html"
 RATECALC_SRC = ROOT / "docs" / "rate_calculator.html"
+DRIVELOG_SRC = ROOT / "docs" / "daejeon.html"        # 방문요양 대전점 운행기록
 
 # ★ID 를 코드에 박아둔다 — 잃으면 재배포가 새 주소를 만들어 안내를 다시 해야 하고 승인도 다시 받는다.
 #   비밀값 아님(주소는 어차피 직원에게 공유한다).
@@ -72,7 +74,7 @@ function setup() {
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) || '';
   // ⚠️ 여기에 없는 page 는 무시되고 첫 화면이 뜬다 — 페이지를 새로 얹으면 반드시 추가할 것.
-  var map = { schedule: '근무일정표', ratecalc: '수가계산기' };
+  var map = { schedule: '근무일정표', ratecalc: '수가계산기', drivelog: '방문요양 대전점 운행기록' };
   if (map[page]) { return out_(page, map[page]); }
   // ★허브 열기 로깅은 doGet 이 아니라 status() 에서 한다 — 여기서 시트를 만지면
   //   시트 열기·쓰기(0.5~1.5초)가 끝나야 화면이 떠서 '멈춘 것처럼' 보인다.
@@ -179,7 +181,7 @@ def main() -> int:
     ap.add_argument("--create", action="store_true", help="스크립트 프로젝트 새로 만들기(최초 1회)")
     args = ap.parse_args()
 
-    for p in (SCHEDULE_SRC, RATECALC_SRC):
+    for p in (SCHEDULE_SRC, RATECALC_SRC, DRIVELOG_SRC):
         if not p.exists():
             print(f"ERROR: 원본이 없습니다 — {p}"); return 1
 
@@ -201,6 +203,7 @@ def main() -> int:
         {"name": "hub", "type": "HTML", "source": hub_html(hub_url)},
         {"name": "schedule", "type": "HTML", "source": page_html(SCHEDULE_SRC, hub_url)},
         {"name": "ratecalc", "type": "HTML", "source": page_html(RATECALC_SRC, hub_url)},
+        {"name": "drivelog", "type": "HTML", "source": page_html(DRIVELOG_SRC, hub_url)},
     ]}, method="PUT")
     print("코드 업로드:", "OK" if r.get("files") else r.get("ERR"))
     if r.get("ERR"):
