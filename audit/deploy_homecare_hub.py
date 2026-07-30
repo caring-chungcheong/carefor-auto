@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import re
 import sys
 import urllib.error
 import urllib.parse
@@ -108,9 +109,31 @@ function sheet_() {
   return sh;
 }
 
-function log_(item) {
-  try { sheet_().appendRow([new Date(), who_(), item]); }
-  catch (err) { /* 로깅 실패가 허브를 막으면 안 된다 */ }
+/** 로그 한 줄. dedupeMin 을 주면 같은 사람의 같은 항목이 그 시간 안에 있을 때
+ *  새 줄을 만들지 않고 마지막 줄의 시각만 갱신한다.
+ *  ★새로고침할 때마다 '허브 열기'가 쌓여 목록이 같은 이름으로 도배됐다(사용자 지적). */
+function log_(item, dedupeMin) {
+  try {
+    var sh = sheet_(), email = who_(), now = new Date(), last = sh.getLastRow();
+    if (dedupeMin && last >= 2) {
+      var prev = sh.getRange(last, 1, 1, 3).getValues()[0];
+      var pd = prev[0] instanceof Date ? prev[0] : new Date(prev[0]);
+      if (String(prev[1]) === email && String(prev[2]) === item &&
+          (now - pd) < dedupeMin * 60000) {
+        sh.getRange(last, 1).setValue(now);   // 줄을 늘리지 않고 시각만 최신으로
+        return;
+      }
+    }
+    sh.appendRow([now, email, item]);
+  } catch (err) { /* 로깅 실패가 허브를 막으면 안 된다 */ }
+}
+
+/** 접속기록 '탭' 주소. gid 를 안 붙이면 시트 첫 탭(차량관리)이 열린다(사용자 지적). */
+function logSheetUrl() {
+  try {
+    var sh = sheet_();
+    return sh.getParent().getUrl() + '#gid=' + sh.getSheetId();
+  } catch (err) { return ''; }
 }
 
 /** 카드 클릭 — 화면에서 google.script.run 으로 부른다 */
@@ -118,18 +141,22 @@ function logItem(item) { log_(String(item || '').slice(0, 60)); return true; }
 
 /** 상단 바에 뿌릴 현황: 나 · 최근 접속 20건 */
 function status() {
-  log_('허브 열기');
+  log_('허브 열기', 30);   // 30분 안의 재접속은 한 줄로
   var out = { me: who_(), recent: [] };
   try {
     var sh = sheet_(), last = sh.getLastRow();
     if (last < 2) return out;
-    var n = Math.min(20, last - 1);
+    var n = Math.min(200, last - 1);
     var rows = sh.getRange(last - n + 1, 1, n, 3).getValues();
-    out.recent = rows.reverse().map(function (r) {
+    var seen = {};
+    out.recent = rows.reverse().reduce(function (acc, r) {
+      var who = String(r[1]).split('@')[0];
+      if (seen[who]) { return acc; }          // 사람별 최신 1건만 — 같은 이름 도배 방지
+      seen[who] = true;
       var d = r[0] instanceof Date ? r[0] : new Date(r[0]);
-      return { t: Utilities.formatDate(d, 'Asia/Seoul', 'MM/dd HH:mm'),
-               who: String(r[1]).split('@')[0], item: String(r[2]) };
-    });
+      acc.push({ t: Utilities.formatDate(d, 'Asia/Seoul', 'MM/dd HH:mm'), who: who, item: String(r[2]) });
+      return acc;
+    }, []);
   } catch (err) {}
   return out;
 }
@@ -165,8 +192,25 @@ def api(at: str, url: str, data=None, method=None):
         return {"ERR": e.read().decode()[:400]}
 
 
+# 충청본부 허브 웹앱 주소 — 끌어온 페이지에 박혀 있는 '본부 공유 허브로' 링크를 걷어내는 데 쓴다.
+HQ_EXEC = "AKfycby4fQaPyn3AthrSy3NAnbnTRqyXxt-HiB3AHv2uWutQEUWA-xQnMDcOD0f_3XGhTD3Z"
+
+
+def strip_hq_back(s: str) -> str:
+    """원본에 박힌 '← 본부 공유 허브' 복귀 링크를 지운다.
+
+    ★그냥 끌어오면 방문요양 허브 안에서 충청본부 허브로 튕겨 나간다(사용자 지적).
+      우리 BACKBAR 가 이미 '← 방문요양 공유허브'를 붙이므로 원본 것은 중복이자 오작동이다.
+    """
+    # 충청본부 exec 주소를 가리키는 <a>…</a> 통째로 제거
+    s = re.sub(r"<a[^>]*" + HQ_EXEC + r"[^>]*>.*?</a>", "", s, flags=re.S)
+    # 주소 없이 클래스로만 걸린 복귀 바도 제거
+    s = re.sub(r"<a[^>]*class=[\"']hubback[\"'][^>]*>.*?</a>", "", s, flags=re.S)
+    return s
+
+
 def page_html(src: pathlib.Path, hub_url: str) -> str:
-    s = src.read_text(encoding="utf-8")
+    s = strip_hq_back(src.read_text(encoding="utf-8"))
     bar = BACKBAR % hub_url
     # <body> 바로 뒤에 넣는다. 못 찾으면 맨 앞에 붙여도 브라우저가 알아서 body 로 넣는다.
     i = s.lower().find("<body")

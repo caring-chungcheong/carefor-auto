@@ -132,6 +132,13 @@
           <span>방문요양 대전점 · 차량 운행 입력 (구글시트 연동)</span></span>
         <span class="ia">→</span>
       </a>
+      <a class="item" href="https://docs.google.com/spreadsheets/d/1NTuH71zIK2ej_D8eEKceHndCKzC69R9aE27vtLT6bpw/edit"
+         target="_blank" rel="noopener">
+        <span class="ii">📊</span>
+        <span class="it"><b>운행·정비 시트</b>
+          <span>운행일지가 쌓이는 구글시트 원본</span></span>
+        <span class="ia">→</span>
+      </a>
     </section>
 
     <section class="cat" style="--c:var(--amber)">
@@ -140,6 +147,13 @@
         <span class="ii">🧮</span>
         <span class="it"><b>수가계산기</b>
           <span>방문요양·목욕·간호 급여비용과 본인부담금 계산</span></span>
+        <span class="ia">→</span>
+      </a>
+      <a class="item" href="https://app.notion.com/p/caring1/216df1210a7480ab90a0d18d2d78069b?v=216df1210a7481d799b4000c9d79bd0f"
+         target="_blank" rel="noopener">
+        <span class="ii">🎂</span>
+        <span class="it"><b>생일쿠폰 발송내역</b>
+          <span>노션 · 방문요양도 적용 대상</span></span>
         <span class="ia">→</span>
       </a>
       <a class="item" href="__SELF__?page=promo" target="_top">
@@ -152,51 +166,25 @@
 
   </div>
 
-  <div class="sectlabel" style="margin-top:30px">개발 · 인프라 <span>· 관리자용</span></div>
+  <div class="sectlabel" style="margin-top:30px">설치 프로그램 <span>· PC 에 필요한 설치 자료 (노션 문서)</span></div>
   <div class="hubgrid">
-
     <section class="cat" style="--c:var(--violet)">
-      <div class="cathead">배포 · 설치 <span>· 다른 PC 에 깔 때</span></div>
-      <a class="item" href="https://caring-chungcheong.github.io/carefor-auto/install-homecare.ps1"
+      <div class="cathead">오피스 <span>· 설치 안내</span></div>
+      <a class="item" href="https://app.notion.com/p/caring1/MS-Office-22cdf1210a7480d79044cd66ff0e9835"
          target="_blank" rel="noopener">
-        <span class="ii">📲</span>
-        <span class="it"><b>바로가기 설치 스크립트</b>
-          <span>PowerShell 에 붙여넣기 — chrome --app 앱 창 바로가기 생성</span></span>
+        <span class="ii">🅾️</span>
+        <span class="it"><b>MS Office</b><span>노션 설치 안내 문서</span></span>
         <span class="ia">→</span>
       </a>
-      <a class="item" href="https://script.google.com/home/projects/1QRSMk6wl3ZVzG9BhqU7BzB2MCS8o62K-Bn2arQ3_wZOEG3J6Te3rW0dq/edit"
+      <a class="item" href="https://app.notion.com/p/caring1/2024-210df1210a748022b270f291afbd819f"
          target="_blank" rel="noopener">
-        <span class="ii">⚙️</span>
-        <span class="it"><b>Apps Script 편집기</b>
-          <span>이 허브의 코드 · 최초 1회 setup() 실행해 시트 권한 승인</span></span>
+        <span class="ii">📄</span>
+        <span class="it"><b>한컴오피스</b><span>노션 설치 안내 문서</span></span>
         <span class="ia">→</span>
       </a>
     </section>
-
-    <section class="cat" style="--c:var(--blue)">
-      <div class="cathead">저장소 · 기록 <span>· 소스·로그</span></div>
-      <a class="item" href="https://github.com/caring-chungcheong/carefor-auto" target="_blank" rel="noopener">
-        <span class="ii">🗄️</span>
-        <span class="it"><b>carefor-auto 저장소</b>
-          <span>허브·설치 스크립트 소스 (공개 저장소)</span></span>
-        <span class="ia">→</span>
-      </a>
-      <a class="item" href="https://github.com/min743/work-schedule" target="_blank" rel="noopener">
-        <span class="ii">🔒</span>
-        <span class="it"><b>work-schedule 저장소</b>
-          <span>근무일정표 소스 · 직원 실명 때문에 비공개 전환</span></span>
-        <span class="ia">→</span>
-      </a>
-      <a class="item" href="https://docs.google.com/spreadsheets/d/1ErsNQ7elSORuB6Z20cKUOWjdroxp-4-01N0WoW6PAOI/edit"
-         target="_blank" rel="noopener">
-        <span class="ii">📊</span>
-        <span class="it"><b>접속기록 시트</b>
-          <span>_방문요양허브접속 탭 — 누가 언제 무엇을 열었는지</span></span>
-        <span class="ia">→</span>
-      </a>
-    </section>
-
   </div>
+
 </div>
 
 <footer>
@@ -234,6 +222,13 @@
     list.textContent = '시트 권한이 없습니다 — 편집기에서 setup() 을 한 번 실행해 승인하세요.';
   }).status();
 })();
+
+// 접속기록 링크를 '그 탭'으로 바꿔 끼운다(gid 없이는 첫 탭인 차량관리가 열린다)
+if (window.google && google.script && google.script.run) {
+  google.script.run.withSuccessHandler(function (u) {
+    if (u) document.getElementById('logSheetLink').href = u;
+  }).logSheetUrl();
+}
 
 // 항목 클릭도 기록한다
 document.querySelectorAll('a.item').forEach(function (a) {
