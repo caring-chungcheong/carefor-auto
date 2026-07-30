@@ -1,0 +1,175 @@
+<!doctype html><html lang="ko"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>방문요양 사비 이용 계산기</title>
+<link rel="stylesheet" as="style" crossorigin
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<style>
+  :root{--primary:#2f5c64;--primary2:#3a6f78;--accent:#c17c8f;
+        --ink:#19212e;--muted:#5c6775;--faint:#93a0b0;--line:#e3e9ec;--bg:#f6f8f9;--card:#fff}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Pretendard Variable',Pretendard,'Malgun Gothic',system-ui,sans-serif;
+       background:var(--bg);color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased}
+  header{position:relative;background:linear-gradient(120deg,#2b555d,#37676f);color:#fff;
+         padding:22px 20px 20px;text-align:center}
+  header::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;
+    background:linear-gradient(90deg,#e6bcc7,var(--accent),#e6bcc7)}
+  header h1{font-size:24px;font-weight:800;letter-spacing:-.5px}
+  header p{font-size:14px;opacity:.85;margin-top:6px}
+
+  .wrap{max-width:900px;margin:0 auto;padding:24px 20px 60px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;
+        padding:22px;box-shadow:0 2px 12px rgba(16,32,38,.06);margin-bottom:18px}
+  .card h2{font-size:17.5px;font-weight:800;color:var(--primary)}
+  .card .sub{font-size:13px;color:var(--muted);margin:4px 0 18px}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}
+  label{display:block;font-size:12.5px;font-weight:700;color:var(--primary2);margin-bottom:6px}
+  input{width:100%;border:1px solid var(--line);border-radius:10px;padding:12px 13px;
+        font-size:17px;font-family:inherit;color:var(--ink);text-align:right;background:#fff}
+  input:focus{outline:none;border-color:var(--primary2);box-shadow:0 0 0 3px rgba(58,111,120,.13)}
+  .u{font-size:11.5px;color:var(--faint);margin-top:5px;text-align:right}
+
+  .out{background:#f2f7f8;border:1px solid #dbe6e8;border-radius:14px;padding:20px}
+  .res{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px}
+  .kv{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .kv .k{font-size:12px;color:var(--faint);font-weight:700}
+  .kv .v{font-size:26px;font-weight:800;color:var(--primary);margin-top:4px;letter-spacing:-.5px}
+  .kv .v small{font-size:13px;font-weight:700;color:var(--muted);margin-left:2px}
+  .kv.pay .v{color:var(--accent)}
+  .kv.margin .v{color:#2f7a4f}
+
+  table{width:100%;border-collapse:collapse;margin-top:16px;font-size:13.5px}
+  th,td{border-top:1px solid var(--line);padding:9px 8px;text-align:right}
+  th{color:var(--faint);font-size:12px;font-weight:700;text-align:right;border-top:0}
+  th:first-child,td:first-child{text-align:left}
+  tbody tr:hover{background:#fafcfc}
+
+  .note{font-size:12.5px;color:var(--muted);line-height:1.85;background:#fff;
+        border:1px solid var(--line);border-radius:13px;padding:16px 18px}
+  .note b{color:var(--ink)}
+  .warn{color:#b8384f;font-weight:700}
+</style></head><body>
+
+<header>
+  <h1>방문요양 사비 이용 계산기</h1>
+  <p>등급 없이 사비로 이용하실 때 · 금액 → 시간 · 근무일수 · 급여</p>
+</header>
+
+<div class="wrap">
+
+  <div class="card">
+    <h2>입력</h2>
+    <div class="sub">단가는 비워져 있습니다. 센터 기준값을 넣어주세요.</div>
+    <div class="grid">
+      <div>
+        <label>월 사비 예산</label>
+        <input id="budget" inputmode="numeric" placeholder="예: 4,000,000">
+        <div class="u">원 / 월</div>
+      </div>
+      <div>
+        <label>이용 단가 (받는 돈)</label>
+        <input id="rate" inputmode="numeric" placeholder="비워두면 계산 안 됨">
+        <div class="u">원 / 시간</div>
+      </div>
+      <div>
+        <label>요양보호사 시급 (나가는 돈)</label>
+        <input id="wage" inputmode="numeric" placeholder="13,000">
+        <div class="u">원 / 시간</div>
+      </div>
+      <div>
+        <label>하루 근무시간</label>
+        <input id="hpd" inputmode="decimal" placeholder="예: 3">
+        <div class="u">시간 / 일</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>결과</h2>
+    <div class="sub">월 예산으로 가능한 이용시간과 근무일수, 그에 따른 요양보호사 급여</div>
+    <div class="out">
+      <div class="res">
+        <div class="kv"><div class="k">월 이용시간</div>
+          <div class="v"><span id="mHours">–</span><small>시간</small></div></div>
+        <div class="kv"><div class="k">근무일수</div>
+          <div class="v"><span id="mDays">–</span><small>일</small></div></div>
+        <div class="kv pay"><div class="k">요양보호사 급여</div>
+          <div class="v"><span id="mPay">–</span><small>원</small></div></div>
+        <div class="kv margin"><div class="k">차액 (예산 − 급여)</div>
+          <div class="v"><span id="mGap">–</span><small>원</small></div></div>
+      </div>
+
+      <table>
+        <thead><tr><th>하루 근무시간</th><th>근무일수</th><th>주당 횟수</th><th>요양보호사 급여</th></tr></thead>
+        <tbody id="tbl"><tr><td colspan="4" style="text-align:center;color:var(--faint);padding:18px">
+          예산과 이용 단가를 넣으면 표가 나옵니다</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>계산 기준</b> — 월 이용시간 = 예산 ÷ 이용 단가. 근무일수 = 월 이용시간 ÷ 하루 근무시간.
+    주당 횟수는 한 달을 <b>4.345주</b>(365÷7÷12)로 봅니다.<br>
+    <b>요양보호사 시급</b>은 케어링 방문요양 기준 <b>13,000원</b>입니다(통상임금 산정은 최저시급 기준).
+    비워두면 13,000원으로 계산합니다.<br>
+    <span class="warn">상담용 개산입니다.</span> 실제 계약 금액과 급여는 이용계약서·근로계약을 따릅니다.
+  </div>
+
+</div>
+
+<script>
+var WEEKS = 365 / 7 / 12;          // 4.345 — 월 평균 주 수
+var WAGE_DEFAULT = 13000;
+
+function num(id) {
+  var v = (document.getElementById(id).value || '').replace(/[^\d.]/g, '');
+  return v === '' ? null : parseFloat(v);
+}
+function won(n) { return Math.round(n).toLocaleString('ko-KR'); }
+function hr(n)  { return (Math.round(n * 10) / 10).toLocaleString('ko-KR'); }
+
+function calc() {
+  var budget = num('budget'),
+      rate   = num('rate'),
+      wage   = num('wage') || WAGE_DEFAULT,
+      hpd    = num('hpd');
+
+  var mHours = (budget && rate) ? budget / rate : null;
+  var mDays  = (mHours && hpd)  ? mHours / hpd  : null;
+  var mPay   = mHours ? mHours * wage : null;
+
+  document.getElementById('mHours').textContent = mHours ? hr(mHours) : '–';
+  document.getElementById('mDays').textContent  = mDays  ? hr(mDays)  : '–';
+  document.getElementById('mPay').textContent   = mPay   ? won(mPay)  : '–';
+  document.getElementById('mGap').textContent   = (budget && mPay) ? won(budget - mPay) : '–';
+
+  // 하루 근무시간별 비교표 — 몇 시간씩 며칠 나가야 하는지 한눈에
+  var tb = document.getElementById('tbl');
+  if (!mHours) {
+    tb.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--faint);padding:18px">' +
+                   '예산과 이용 단가를 넣으면 표가 나옵니다</td></tr>';
+    return;
+  }
+  var rows = '';
+  [2, 3, 4, 5, 6, 8].forEach(function (h) {
+    var d = mHours / h;
+    rows += '<tr><td>' + h + '시간</td><td>' + hr(d) + '일</td><td>' +
+            hr(d / WEEKS) + '회</td><td>' + won(mHours * wage) + '원</td></tr>';
+  });
+  tb.innerHTML = rows;
+}
+
+['budget', 'rate', 'wage', 'hpd'].forEach(function (id) {
+  var el = document.getElementById(id);
+  el.addEventListener('input', function () {
+    if (id !== 'hpd') {                       // 금액 칸만 천 단위 콤마
+      var raw = el.value.replace(/[^\d]/g, '');
+      el.value = raw ? parseInt(raw, 10).toLocaleString('ko-KR') : '';
+    }
+    calc();
+  });
+});
+calc();
+</script>
+</body></html>

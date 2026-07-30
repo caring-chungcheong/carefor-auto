@@ -10,6 +10,7 @@
   ratecalc : 수가계산기   ← carefor-auto/docs/rate_calculator.html
   drivelog : 운행기록     ← carefor-auto/docs/daejeon.html (시트 연동 입력 페이지)
   promo    : 홍보 리포트  ← 클로드코드/지점홍보리포트/대전방문요양.html (저장소 밖·공개금지)
+  private  : 사비 계산기  ← carefor-auto/docs/private_calc.html
 
 ★함정
 - 접속 로깅은 충청본부 차량관리 시트의 _방문요양허브접속 탭에 쌓는다(시트를 늘리지 않는다).
@@ -44,6 +45,7 @@ RATECALC_SRC = ROOT / "docs" / "rate_calculator.html"
 DRIVELOG_SRC = ROOT / "docs" / "daejeon.html"        # 방문요양 대전점 운행기록
 # 홍보 리포트는 경쟁센터 연락처 103건이 들어 있어 공개 Pages 금지 — 저장소 밖에 둔다.
 PROMO_SRC    = CC / "지점홍보리포트" / "대전방문요양.html"
+PRIVATE_SRC  = ROOT / "docs" / "private_calc.html"   # 사비(비급여) 이용 계산기
 
 # ★ID 를 코드에 박아둔다 — 잃으면 재배포가 새 주소를 만들어 안내를 다시 해야 하고 승인도 다시 받는다.
 #   비밀값 아님(주소는 어차피 직원에게 공유한다).
@@ -79,7 +81,8 @@ function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) || '';
   // ⚠️ 여기에 없는 page 는 무시되고 첫 화면이 뜬다 — 페이지를 새로 얹으면 반드시 추가할 것.
   var map = { schedule: '근무일정표', ratecalc: '수가계산기',
-              drivelog: '방문요양 대전점 운행기록', promo: '대전 방문요양 홍보 리포트' };
+              drivelog: '방문요양 대전점 운행기록', promo: '대전 방문요양 홍보 리포트',
+              private: '방문요양 사비 이용 계산기' };
   if (map[page]) { return out_(page, map[page]); }
   // ★허브 열기 로깅은 doGet 이 아니라 status() 에서 한다 — 여기서 시트를 만지면
   //   시트 열기·쓰기(0.5~1.5초)가 끝나야 화면이 떠서 '멈춘 것처럼' 보인다.
@@ -229,7 +232,7 @@ def main() -> int:
     ap.add_argument("--create", action="store_true", help="스크립트 프로젝트 새로 만들기(최초 1회)")
     args = ap.parse_args()
 
-    for p in (SCHEDULE_SRC, RATECALC_SRC, DRIVELOG_SRC, PROMO_SRC):
+    for p in (SCHEDULE_SRC, RATECALC_SRC, DRIVELOG_SRC, PROMO_SRC, PRIVATE_SRC):
         if not p.exists():
             print(f"ERROR: 원본이 없습니다 — {p}"); return 1
 
@@ -253,6 +256,7 @@ def main() -> int:
         {"name": "ratecalc", "type": "HTML", "source": page_html(RATECALC_SRC, hub_url)},
         {"name": "drivelog", "type": "HTML", "source": page_html(DRIVELOG_SRC, hub_url)},
         {"name": "promo", "type": "HTML", "source": page_html(PROMO_SRC, hub_url)},
+        {"name": "private", "type": "HTML", "source": page_html(PRIVATE_SRC, hub_url)},
     ]}, method="PUT")
     print("코드 업로드:", "OK" if r.get("files") else r.get("ERR"))
     if r.get("ERR"):
