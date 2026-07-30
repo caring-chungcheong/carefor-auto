@@ -56,9 +56,31 @@ if(!wantInstall){
   msg.innerHTML='앱으로 설치하면 <b>아이콘 한 번</b>으로 열립니다.<br>주소창 없이 전체화면으로 떠요.';
   go.textContent='허브 바로 열기 →';
   // ★standalone 은 '이 창이 앱 모드'라는 뜻일 뿐 '설치돼 있다'가 아니다.
-  //   이미 설치된 다른 앱(충청본부 허브) 창에서 이 페이지를 열면 true 가 되어
-  //   '이미 설치돼 있습니다'로 오판했다(실측). 그래서 설치 경로를 절대 막지 않는다.
+  //   이미 설치된 다른 앱(충청본부 허브) 창에서 열면 true 가 되어 '이미 설치돼 있습니다'로
+  //   오판했다(실측: 창 제목이 '충청본부 공유 허브 - 방문요양 공유허브'였다).
+  //   ★그리고 앱 창 안에서는 브라우저가 설치 프롬프트를 아예 주지 않는다 —
+  //     그래서 '왜 안 되는지'와 '어떻게 하면 되는지'를 바로 알려준다.
   var isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  var inApp = window.matchMedia('(display-mode: standalone)').matches
+           || window.navigator.standalone === true;
+  if (inApp) {
+    msg.innerHTML = '⚠️ <b>지금 창에서는 설치할 수 없습니다.</b><br>'
+      + '다른 앱 창 안에서는 브라우저가 설치를 막습니다.<br>'
+      + '<b>크롬을 직접 열어</b> 아래 주소로 들어오세요.';
+    guide.style.display = 'block';
+    guide.innerHTML = '<div style="word-break:break-all;font-size:11px;color:#2f5c64;'
+      + 'background:#fff;border:1px solid #dde8ea;border-radius:8px;padding:8px 9px;margin-bottom:8px">'
+      + location.origin + location.pathname + '?install</div>'
+      + '<button id="cp" style="width:100%;background:#2f5c64;color:#fff;border:0;'
+      + 'padding:9px;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;'
+      + 'font-family:inherit">📋 주소 복사</button>';
+    document.getElementById('cp').addEventListener('click', function () {
+      var u = location.origin + location.pathname + '?install';
+      (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject())
+        .then(function () { document.getElementById('cp').textContent = '✅ 복사됨 — 크롬 주소창에 붙여넣기'; })
+        .catch(function () { prompt('아래 주소를 복사해 크롬에서 여세요', u); });
+    });
+  }
 
   window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); dp=e; btn.style.display='inline-block'; guide.style.display='none'; });
   btn.addEventListener('click', function(){
@@ -72,7 +94,7 @@ if(!wantInstall){
   window.addEventListener('appinstalled', function(){ msg.innerHTML='✅ 설치 완료! <b>앱 아이콘</b>으로 여세요.'; btn.style.display='none'; guide.style.display='none'; });
 
   setTimeout(function(){
-    if(dp) return;              // 프롬프트가 왔으면 버튼으로 끝난다
+    if(dp || inApp) return;     // 프롬프트가 왔거나 앱 창이면 위 안내를 유지한다
     guide.style.display='block';
     if(isIOS){ guide.innerHTML='아이폰 — 사파리 아래 <span class="sh">공유 ⬆️</span> → <b>"홈 화면에 추가"</b>'; }
     else { guide.innerHTML='설치 버튼이 안 뜨면 — 크롬 주소창 오른쪽 <b>설치 아이콘</b>, 또는 <span class="sh">⋮ 메뉴</span> → <b>"앱 설치"</b> / <b>"홈 화면에 추가"</b><br><span style="color:#94a3b8">앱 창(설치된 다른 허브) 안에서 열면 설치가 안 됩니다 — 크롬을 직접 열어 이 주소로 들어오세요.</span>'; }
