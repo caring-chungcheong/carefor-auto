@@ -55,9 +55,10 @@ if(!wantInstall){
       go=document.getElementById('go');
   msg.innerHTML='앱으로 설치하면 <b>아이콘 한 번</b>으로 열립니다.<br>주소창 없이 전체화면으로 떠요.';
   go.textContent='허브 바로 열기 →';
-  function standalone(){return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;}
+  // ★standalone 은 '이 창이 앱 모드'라는 뜻일 뿐 '설치돼 있다'가 아니다.
+  //   이미 설치된 다른 앱(충청본부 허브) 창에서 이 페이지를 열면 true 가 되어
+  //   '이미 설치돼 있습니다'로 오판했다(실측). 그래서 설치 경로를 절대 막지 않는다.
   var isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
-  if(standalone()){ msg.innerHTML='✅ 이미 앱으로 설치돼 있습니다.'; }
 
   window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); dp=e; btn.style.display='inline-block'; guide.style.display='none'; });
   btn.addEventListener('click', function(){
@@ -71,10 +72,10 @@ if(!wantInstall){
   window.addEventListener('appinstalled', function(){ msg.innerHTML='✅ 설치 완료! <b>앱 아이콘</b>으로 여세요.'; btn.style.display='none'; guide.style.display='none'; });
 
   setTimeout(function(){
-    if(dp || standalone()) return;
+    if(dp) return;              // 프롬프트가 왔으면 버튼으로 끝난다
     guide.style.display='block';
     if(isIOS){ guide.innerHTML='아이폰 — 사파리 아래 <span class="sh">공유 ⬆️</span> → <b>"홈 화면에 추가"</b>'; }
-    else { guide.innerHTML='설치 버튼이 안 뜨면 — 크롬 주소창 오른쪽 <b>설치 아이콘</b>, 또는 <span class="sh">⋮ 메뉴</span> → <b>"앱 설치"</b>'; }
+    else { guide.innerHTML='설치 버튼이 안 뜨면 — 크롬 주소창 오른쪽 <b>설치 아이콘</b>, 또는 <span class="sh">⋮ 메뉴</span> → <b>"앱 설치"</b> / <b>"홈 화면에 추가"</b><br><span style="color:#94a3b8">앱 창(설치된 다른 허브) 안에서 열면 설치가 안 됩니다 — 크롬을 직접 열어 이 주소로 들어오세요.</span>'; }
   }, 1600);
 }
 </script>

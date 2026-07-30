@@ -201,10 +201,8 @@ document.querySelectorAll('a.item').forEach(function (a) {
 (function () {
   var a = document.getElementById('installTop');
   if (!a) return;
-  // 이미 앱으로 실행 중이면 버튼을 숨긴다(설치할 게 없다)
-  var standalone = window.matchMedia('(display-mode: standalone)').matches
-                || window.navigator.standalone === true;
-  if (standalone) a.style.display = 'none';
+  // ★standalone 으로 버튼을 숨기지 않는다 — 그건 '앱 창에서 보는 중'이란 뜻일 뿐이고,
+  //   숨기면 '설치 버튼이 안 보인다'는 혼란만 생긴다(충청본부 허브도 같은 결론).
 })();
 </script>
 
