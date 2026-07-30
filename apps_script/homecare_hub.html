@@ -97,7 +97,8 @@
 </style></head><body>
 
 <header>
-  <button id="installTop" class="installtop" type="button">📲 바로가기 설치</button>
+  <a id="installTop" class="installtop" target="_blank" rel="noopener"
+   href="https://caring-chungcheong.github.io/carefor-auto/homecare.html?install">📲 바로가기 설치</a>
   <h1>방문요양 공유허브</h1>
   <div class="sub">케어링 방문요양 센터 대전점 · 운영 자료를 한자리에</div>
   <div class="pills">
@@ -159,15 +160,7 @@
   </div>
 </footer>
 
-<div class="iosguide" id="iosGuide">
-  <div class="iosbox">
-    <div style="font-size:30px">📲</div>
-    <h3>홈 화면에 추가</h3>
-    <p>사파리 하단의 <span class="sh">공유 ⤴</span> 를 누르고<br>
-       <span class="sh">홈 화면에 추가</span> 를 고르세요.</p>
-    <button onclick="document.getElementById('iosGuide').style.display='none'">닫기</button>
-  </div>
-</div>
+
 
 <script>
 // ── 접속 현황 ────────────────────────────────────────────────
@@ -201,17 +194,17 @@ document.querySelectorAll('a.item').forEach(function (a) {
 });
 
 // ── 바로가기 설치 ────────────────────────────────────────────
-// ★Apps Script 는 사용자 HTML 을 샌드박스 iframe 에 띄워 PWA 설치(manifest+SW)가 안 걸린다.
-//   안드로이드는 beforeinstallprompt 가 오면 그걸 쓰고, 없으면 브라우저 메뉴 안내로 떨어진다.
+// ★Apps Script 는 사용자 HTML 을 샌드박스 iframe 에 띄워 manifest·서비스워커가 등록되지 않는다.
+//   → 허브 안에서는 PWA 설치가 원천적으로 불가능하다(이전엔 '브라우저 메뉴를 누르세요' 안내만 떴다).
+//   그래서 버튼을 **Pages 의 설치 껍데기**(homecare.html?install)로 보낸다.
+//   껍데기는 진짜 도메인이라 설치 프롬프트가 정상으로 뜬다. 자료는 껍데기에 없다(링크뿐).
 (function () {
-  var btn = document.getElementById('installTop'), dp = null;
-  var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); dp = e; });
-  btn.addEventListener('click', function () {
-    if (dp) { dp.prompt(); dp = null; return; }
-    if (isIOS) { document.getElementById('iosGuide').style.display = 'flex'; return; }
-    alert('브라우저 메뉴(⋮) → "홈 화면에 추가" 또는 "앱 설치" 를 눌러주세요.\n\n주소를 북마크해도 됩니다.');
-  });
+  var a = document.getElementById('installTop');
+  if (!a) return;
+  // 이미 앱으로 실행 중이면 버튼을 숨긴다(설치할 게 없다)
+  var standalone = window.matchMedia('(display-mode: standalone)').matches
+                || window.navigator.standalone === true;
+  if (standalone) a.style.display = 'none';
 })();
 </script>
 
