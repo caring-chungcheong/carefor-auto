@@ -1,0 +1,15 @@
+{
+  "name": "방문요양 공유허브",
+  "short_name": "방문요양",
+  "description": "케어링 방문요양 센터 대전점 운영 자료 허브",
+  "start_url": "homecare.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#eef4f5",
+  "theme_color": "#2f5c64",
+  "icons": [
+    { "src": "icons/homecare-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/homecare-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
