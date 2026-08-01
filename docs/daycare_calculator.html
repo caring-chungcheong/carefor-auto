@@ -117,46 +117,62 @@
   .calsum b{color:#b3556c}
   .sheet.on{display:block;margin-top:18px}
   @media print{
-    /* ★A4 한 장에 한 문서. (크기는 인쇄 미디어에서 실제 높이를 재 자동보정한 값 — 계산서 0.647·일정표 0.944) 여백 0 → 브라우저가 머리글·바닥글(주소·쪽번호)을 안 찍는다.
-       종이 여백은 .paper 안쪽 패딩으로 준다.
-       ★크기는 감이 아니라 실측으로 정했다 — 인쇄 미디어에서 .paper 실제 높이를 재고
-         A4 한 장(726.6px @96dpi)에 맞게 역산했다(계산서 0.85배·일정표 1.0배).
-         zoom·transform 은 인쇄에 안 먹는다(실측). */
+    /* ★A4 한 장에 한 문서. 여백 0 → 브라우저가 머리글·바닥글(주소·쪽번호)을 안 찍는다.
+       ★글자 크기는 '읽을 수 있는 크기'를 먼저 정하고(본문 14.5px ≈ 11pt), 자리는 여백·간격으로 맞춘다.
+         전에는 반대로 해서(2쪽에 맞추려 0.65배로 축소) 돋보기가 필요한 인쇄물이 나왔다. */
     @page{size:A4;margin:0}
     body{background:#fff}
     .wrap{max-width:none;padding:0;margin:0}
     .card,.btnbar,.brand,.foot{display:none}
     .sheet.on{display:block;margin:0}
-    .paper{border:0;max-width:none;padding:9mm 10mm;break-inside:avoid;page-break-inside:avoid}
+    .paper{border:0;max-width:none;padding:10mm 11mm;break-inside:avoid;page-break-inside:avoid;
+      display:flex;flex-direction:column;min-height:277mm}
+    .paper .ttl,.paper .hello,.paper .org{flex:0 0 auto}
+    .sec{flex:1 1 auto}
+    .paper .memo{flex:0 0 auto;margin-top:auto;padding-top:3mm}
     .paper2{break-before:page;page-break-before:always;margin-top:0}
-    .paper .ttl{font-size:17.0px;padding:10.4px 12.1px 8.3px}
-    .paper .ttl .day{font-size:6.9px}
-    .paper .hello{font-size:10.4px;margin:12.1px 0 7.1px}
-    .paper .org{font-size:8.6px;line-height:1.95;margin-bottom:9.9px}
-    .paper .org b{width:51.7px}
-    .sec{margin-top:8.8px}
-    .sec .lab{width:85.8px;padding:8.8px 7.7px;font-size:9.3px}
-    .sec .lab i{font-size:8.6px}
-    .sec .body{padding:8.8px 3.9px 8.8px 10.4px}
-    .sec .grp{font-size:9.6px}
-    .line{font-size:9.3px;margin:2.0px 0}
-    .line .v{min-width:82.5px}
-    .line.big .v{font-size:11.2px}
-    .paper .memo{font-size:7.6px;margin-top:10.4px;line-height:1.8}
-    table.cal td{height:97.2px;font-size:14.2px}
-    table.cal th{font-size:14.7px;padding:9.4px 3.8px}
-    table.cal td .mk{font-size:13.6px;margin-top:4.7px}
-    table.cal td .mk i{font-size:11.8px}
-    table.cal td .hol{font-size:12.3px}
-    .calsum{font-size:15.3px;margin-top:16.0px}
-    .remain{margin-top:17.9px}
-    .remain .rrow{padding:12.3px 17.9px;font-size:15.9px}
-    .remain .rrow.left{padding:16.0px 17.9px}
-    .remain .rrow.left b{font-size:23.6px}
-    .remain .sub{font-size:12.3px}
+    .paper2 table.cal{flex:1 1 auto}
+    .paper2 table.cal td{height:auto}
+    .paper2 .calsum,.paper2 .remain{flex:0 0 auto}
+
+    .paper .ttl{font-size:25px;padding:10px 18px 8px}
+    .paper .ttl .day{font-size:11px}
+    .paper .hello{font-size:17px;margin:10px 0 7px}
+    .paper .org{font-size:13.5px;line-height:1.62;margin-bottom:8px}
+    .paper .org b{width:80px}
+    .sec{margin-top:6px}
+    .sec .lab{width:124px;padding:7px 10px;font-size:14.5px}
+    .sec .lab i{font-size:13px}
+    .sec .body{padding:7px 5px 7px 13px}
+    .sec .grp{font-size:14.5px;margin-bottom:3px}
+    .line{font-size:14.5px;margin:1.5px 0}
+    .line .v{min-width:130px}
+    .line.big .v{font-size:17px}
+    .paper .memo{font-size:11.5px;line-height:1.5;columns:2;column-gap:14px}
+    table.cal th{font-size:14px;padding:8px 4px}
+    table.cal td{font-size:13.5px;padding:5px 7px}
+    table.cal td .mk{font-size:13px;margin-top:4px}
+    table.cal td .mk i{font-size:11.5px}
+    table.cal td .hol{font-size:12px}
+    .calsum{font-size:14px;margin-top:11px}
+    .remain{margin-top:11px}
+    .remain .rrow{padding:10px 15px;font-size:14.5px}
+    .remain .rrow.left{padding:12px 15px}
+    .remain .rrow.left b{font-size:21px}
+    .remain .sub{font-size:11.5px}
+    /* 줄 수가 많은 명세서(조식·타급여 여러 개)만 한 단계 촘촘하게 — 글자는 13.5px 까지만 줄인다 */
+    .paper.dense .line{font-size:13.5px;margin:0.5px 0}
+    .paper.dense .sec .lab{padding:5px 9px;font-size:13.5px}
+    .paper.dense .sec .body{padding:5px 5px 5px 12px}
+    .paper.dense .sec{margin-top:4px}
+    .paper.dense .ttl{font-size:23px;padding:8px 16px 7px}
+    .paper.dense .hello{margin:8px 0 6px;font-size:16px}
+    .paper.dense .org{line-height:1.5;margin-bottom:6px;font-size:13px}
+    .paper.dense .memo{font-size:11px;line-height:1.45;padding-top:2mm}
     .paper .ttl,.sec .lab,.line.hl,table.cal th,table.cal td.use,table.cal td.hold,
     .remain .rrow.left,.remain .rrow.over{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  }</style></head><body>
+  }
+</style></head><body>
 
 <div class="brand">
   <div class="logo">caring</div>
@@ -489,6 +505,8 @@ function calc(){
   const bName = $('branch').value, bf = BRANCH_FEE[bName];
 
   /* ① 센터 단가 안내 */
+  $('sheetBtn').style.opacity = bf ? '' : '.55';
+  $('sheetBtn').title = bf ? '' : '센터를 먼저 선택해 주세요';
   $('feeBox').innerHTML = bf
     ? `<b>${bName}</b> · 적용 ${bf.적용}
        <div class="feegrid">
@@ -680,6 +698,10 @@ function buildSheet(){
     ...L.notes.map(t=>`* ${t}.`),
   ].filter(Boolean).join('<br>');
 
+  // 줄이 많으면 인쇄에서 한 장을 넘긴다 → 그때만 촘촘 모드(실측: 26줄 넘으면 넘침)
+  const lines = $('paper').querySelectorAll('.line').length;
+  $('paper').classList.toggle('dense', lines > 26);
+
   buildCal();
 }
 
@@ -785,6 +807,11 @@ $('otheruse').querySelectorAll('button').forEach(b=>b.onclick=()=>{
 });
 document.querySelectorAll('.otype').forEach(c=>c.onchange=()=>{ renderOtherInputs(); calc(); });
 $('sheetBtn').onclick = ()=>{
+  // ★센터를 안 고르면 기관명·주소·비급여가 빈 채로 인쇄된다 — 실제로 그렇게 출력된 적이 있다.
+  if(!$('branch').value){
+    alert('센터를 먼저 선택해 주세요 — 선택해야 기관 정보와 식사·간식 비급여가 명세서에 들어갑니다.');
+    $('branch').focus(); return;
+  }
   buildSheet(); $('sheet').classList.add('on');
   $('sheet').scrollIntoView({behavior:'smooth', block:'start'});
 };
