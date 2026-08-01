@@ -55,7 +55,35 @@
   pre{background:#1c2024;color:#e6e8ea;padding:14px;border-radius:8px;overflow-x:auto;
     font:12.5px/1.7 Consolas,monospace;white-space:pre-wrap}
   .foot{text-align:center;color:var(--mut);font-size:12px;margin-top:22px;padding-top:14px;border-top:1px solid var(--line)}
-  @media print{.brand{margin-bottom:10px}.card{break-inside:avoid}}
+  .btn{font:inherit;font-size:14px;padding:11px 20px;border:0;border-radius:9px;cursor:pointer;
+    background:var(--accent);color:#fff;font-weight:700}
+  .btn.ghost{background:#fff;color:var(--mut);border:1px solid var(--line);font-weight:600}
+  .btnbar{display:flex;gap:8px;justify-content:center;margin-top:14px}
+
+  /* 📄 명세서 — 아링의 '명세서 생성하기'와 같은 자리 */
+  .sheet{display:none;background:#fff;border:1px solid var(--line);border-radius:12px;padding:26px 28px}
+  .sheet h3{font-size:19px;margin:0 0 3px;text-align:center}
+  .sheet .who{text-align:center;color:var(--mut);font-size:12.5px;margin-bottom:18px}
+  .sheet table{margin:0 0 14px}
+  .sheet table th{background:#f7f9fb;text-align:left;width:38%;font-weight:600;color:#374151}
+  .sheet .sum{display:flex;justify-content:space-between;align-items:center;
+    background:var(--ok-bg);border:1px solid #bfe3c9;border-radius:10px;padding:14px 18px;margin-top:6px}
+  .sheet .sum .l{font-weight:700}
+  .sheet .sum .v{font-size:24px;font-weight:800;color:var(--ok)}
+  .sheet .memo{font-size:11.5px;color:var(--mut);margin-top:14px;line-height:1.7;
+    border-top:1px dashed var(--line);padding-top:10px}
+  body[data-view="sheet"] .card,body[data-view="sheet"] .foot{display:none}
+  body[data-view="sheet"] .sheet{display:block}
+  @media print{
+    @page{margin:12mm}
+    body{background:#fff}
+    .wrap{max-width:none;padding:0}
+    .brand{margin-bottom:10px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .card{break-inside:avoid}
+    .btnbar{display:none}
+    .sheet{border:0;padding:0}
+    .sheet .sum{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
 </style></head><body>
 
 <div class="brand">
@@ -135,9 +163,29 @@
   <table id="detail"></table>
 </div>
 
+<div class="btnbar">
+  <button class="btn ghost" id="resetBtn">↺ 초기화</button>
+  <button class="btn" id="sheetBtn">📄 명세서 생성하기</button>
+</div>
+
 <div class="card">
   <h2><span class="n">5</span>계산식</h2>
   <pre id="formula"></pre>
+</div>
+
+<!-- 명세서 화면 — 생성하기를 누르면 이 화면만 남고 나머지는 감춰진다 -->
+<div class="sheet" id="sheet">
+  <h3>주·야간보호 이용료 명세서</h3>
+  <div class="who" id="sheetWho"></div>
+  <table id="sheetInfo"></table>
+  <table id="sheetPay"></table>
+  <table id="sheetNon"></table>
+  <div class="sum"><span class="l">총 합계 (지급하셔야 하는 금액)</span><span class="v" id="sheetTot"></span></div>
+  <div class="memo" id="sheetMemo"></div>
+  <div class="btnbar">
+    <button class="btn ghost" id="sheetBack">← 계산 화면으로</button>
+    <button class="btn" id="sheetPrint">🖨 인쇄 / PDF 저장</button>
+  </div>
 </div>
 
 <div class="foot">케어링 충청본부 · 급여비용은 2026년 장기요양 급여비용 고시,
@@ -305,6 +353,47 @@ function calc(){
   f.push('');
   f.push(`■ 총 부담액       ${won(self+np)}`);
   $('formula').textContent = f.join('\n');
+
+  /* 명세서용 값 보관 — '명세서 생성하기'를 누르면 이 값으로 그린다 */
+  last = {bName, bf, grade, rate, Y, M, hour, days, hdays, limit, base, bonus,
+          unit, gross, inLim, over, self, np, rows, notes,
+          who: ($('who').value || '').trim()};
+}
+
+/* 📄 명세서 — 아링의 '명세서 생성하기'와 같은 출력물.
+   상담 자리에서 보호자에게 보여주고 그대로 인쇄·PDF 저장할 수 있게 한 장으로 정리한다. */
+let last = null;
+function buildSheet(){
+  if(!last) return;
+  const L = last, tr = (k,v)=>`<tr><th>${k}</th><td style="text-align:right">${v}</td></tr>`;
+  const now = new Date();
+  const stamp = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')}`;
+
+  $('sheetWho').textContent =
+    [L.bName || '센터 미선택', L.who ? `수급자 ${L.who}` : null, `산출일 ${stamp}`].filter(Boolean).join('  ·  ');
+
+  $('sheetInfo').innerHTML =
+    tr('등급 · 본인부담률', `${L.grade==='C'?'인지지원등급':L.grade+'등급'} · ${Math.round(L.rate*100)}%`) +
+    tr('기준 월', `${L.Y}년 ${L.M}월`) +
+    tr('이용 조건', `${HOURTXT[L.hour]} · 월 ${L.days}일 (공휴일 ${L.hdays}일)`);
+
+  $('sheetPay').innerHTML =
+    tr('월 이용 한도액', won(L.limit) + (L.bonus?` <span style="color:#6b7280">(기본 ${won(L.base)} + 추가 ${won(L.limit-L.base)})</span>`:'')) +
+    tr('월 급여비용', `${won(L.unit)} × ${L.days}일 = ${won(L.gross)}`) +
+    tr(`본인부담금 (한도 내 ${Math.round(L.rate*100)}%)`, won(L.inLim*L.rate)) +
+    tr('초과 이용 금액 (전액 본인부담)', won(L.over));
+
+  $('sheetNon').innerHTML = L.rows.length
+    ? L.rows.map(r=>tr(`비급여 — ${r[0]}`, `${r[1]} = ${r[2]}`)).join('') + tr('비급여 이용료 합계', won(L.np))
+    : tr('비급여 이용료', '센터 미선택 — 계산 제외');
+
+  $('sheetTot').textContent = won(L.self + L.np);
+  $('sheetMemo').innerHTML =
+    `· 급여비용은 2026년 장기요양 급여비용 고시, 비급여(식사·간식)는 ${L.bName||'센터'} 실제 등록 단가 기준입니다.<br>` +
+    (L.rows.some(r=>r[0].includes('공휴일 제외'))
+      ? '· 석식은 공휴일에 제공하지 않아 그만큼 빼고 계산했습니다.<br>' : '') +
+    L.notes.map(t=>`· ${t}<br>`).join('') +
+    '· 실제 청구액은 출결·일정 변동에 따라 달라질 수 있습니다.';
 }
 
 fillDays();
@@ -317,6 +406,19 @@ $('ym').onchange = ()=>{ const [Y,M]=$('ym').value.split('-').map(Number); fillH
 $('days').onchange = ()=>{ fillHolidays(); calc(); };
 ['branch','grade','rate','hours','hdays','useLunch','useDinner','useBreak','useSnack']
   .forEach(id=>$(id).onchange=calc);
+$('who').oninput = calc;
+$('sheetBtn').onclick = ()=>{ buildSheet(); document.body.dataset.view='sheet'; window.scrollTo(0,0); };
+$('sheetBack').onclick = ()=>{ document.body.dataset.view=''; window.scrollTo(0,0); };
+$('sheetPrint').onclick = ()=>window.print();
+$('resetBtn').onclick = ()=>{
+  $('branch').value=''; $('who').value=''; $('grade').value='4'; $('rate').value='0.15';
+  $('hours').value='8'; $('days').value='22';
+  dementia=false; $('dtype').querySelectorAll('button').forEach((x,i)=>x.classList.toggle('on', i===0));
+  ['useLunch','useDinner','useSnack'].forEach(id=>$(id).checked=true);
+  $('useBreak').checked=false;
+  const [Y,M]=$('ym').value.split('-').map(Number); fillHolidays(holidayCount(Y,M));
+  calc();
+};
 (()=>{ const [Y,M]=$('ym').value.split('-').map(Number); fillHolidays(holidayCount(Y,M)); })();
 calc();
 </script>
