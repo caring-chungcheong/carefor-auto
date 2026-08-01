@@ -125,6 +125,15 @@
       <option value="0.06">6% (감경 60%)</option>
       <option value="0">0% (기초수급자)</option>
     </select></div>
+    <div><label>타 급여 이용여부</label>
+      <div class="seg" id="otheruse">
+        <button data-v="no" class="on">미이용</button>
+        <button data-v="yes">이용</button>
+      </div></div>
+    <div id="otherBox" style="display:none"><label>타 급여 월 급여비용</label>
+      <input type="text" id="otherAmt" inputmode="numeric" placeholder="예: 300,000">
+      <div style="font-size:11.5px;color:var(--mut);margin-top:4px">
+        방문요양·목욕 등 같은 달에 쓴 급여비용 — 한도액을 함께 씁니다</div></div>
   </div>
 </div>
 
@@ -229,7 +238,7 @@ const BRANCH_FEE = {
 
 const won = n => Math.round(n).toLocaleString('ko-KR') + '원';
 const $ = id => document.getElementById(id);
-let dementia = false;
+let dementia = false, otherUse = false;
 
 function fillDays(){
   const d = $('days');
@@ -286,10 +295,14 @@ function calc(){
   }else if(eligible>0) bonusWhy=`8시간 이상 ${eligible}일 — 기준 15일 미달로 추가 산정 없음`;
   const limit = Math.round(base*(1+bonus));
 
-  /* ③ 급여비용 — 1일 수가 × 이용일수 */
+  /* ③ 급여비용 — 1일 수가 × 이용일수.
+     ★타 급여(방문요양·목욕 등)를 같은 달에 쓰면 **한도액을 함께 쓴다** — 그만큼 먼저 빼고
+       남은 한도로 주야간을 계산해야 초과금이 맞다(회원님 지적 2026-08-01). */
+  const otherAmt = otherUse ? (parseInt(($('otherAmt').value||'').replace(/[^\d]/g,''),10) || 0) : 0;
+  const room = Math.max(0, limit - otherAmt);
   const unit = DAY[hour][grade];
   const gross = unit*days;
-  const inLim = Math.min(gross, limit), over = gross-inLim;
+  const inLim = Math.min(gross, room), over = gross-inLim;
   const self = inLim*rate + over;               // 초과분은 전액 본인부담
 
   /* ④ 비급여 — 석식은 공휴일에 제공하지 않으므로 공휴일을 뺀 일수로 센다 */
@@ -310,6 +323,8 @@ function calc(){
     <div><span class="k">월 한도액</span><b>${won(limit)}</b>
       ${bonus?`<span class="k">기본 ${won(base)} + 증액 ${won(limit-base)}</span>`
              :'<span class="k">기본 한도</span>'}</div>
+    ${otherAmt?`<div><span class="k">타 급여 사용액</span><b>${won(otherAmt)}</b>
+      <span class="k">주야간 남은 한도 ${won(room)}</span></div>`:''}
     <div><span class="k">월 급여비용</span><b>${won(gross)}</b>
       <span class="k">${HOURTXT[hour]} ${won(unit)} × ${days}일</span></div>
     <div class="${over?'big':''}"><span class="k">한도 초과금 (전액 본인부담)</span><b>${won(over)}</b></div>
@@ -341,6 +356,10 @@ function calc(){
   f.push(`  1일 수가        ${won(unit)}`);
   f.push(`  월 급여비용     ${won(unit)} × ${days}일 = ${won(gross)}`);
   f.push(`  월 한도액       ${won(limit)}${bonus?`  (기본 ${won(base)} × ${1+bonus})`:''}`);
+  if(otherAmt){
+    f.push(`  타 급여 사용    -${won(otherAmt)}  (방문요양 등 같은 달 사용분)`);
+    f.push(`  주야간 남은한도 ${won(room)}`);
+  }
   f.push(`  한도 내         ${won(inLim)}`);
   f.push(`  한도 초과       ${won(over)}  ← 전액 본인부담`);
   f.push(`  급여 본인부담   ${won(inLim)} × ${Math.round(rate*100)}% + ${won(over)} = ${won(self)}`);
@@ -355,7 +374,7 @@ function calc(){
   $('formula').textContent = f.join('\n');
 
   /* 명세서용 값 보관 — '명세서 생성하기'를 누르면 이 값으로 그린다 */
-  last = {bName, bf, grade, rate, Y, M, hour, days, hdays, limit, base, bonus,
+  last = {bName, bf, grade, rate, Y, M, hour, days, hdays, limit, base, bonus, otherAmt, room,
           unit, gross, inLim, over, self, np, rows, notes,
           who: ($('who').value || '').trim()};
 }
@@ -379,6 +398,7 @@ function buildSheet(){
 
   $('sheetPay').innerHTML =
     tr('월 이용 한도액', won(L.limit) + (L.bonus?` <span style="color:#6b7280">(기본 ${won(L.base)} + 추가 ${won(L.limit-L.base)})</span>`:'')) +
+    (L.otherAmt ? tr('타 급여 사용액', `-${won(L.otherAmt)}  <span style="color:#6b7280">(주야간 남은 한도 ${won(L.room)})</span>`) : '') +
     tr('월 급여비용', `${won(L.unit)} × ${L.days}일 = ${won(L.gross)}`) +
     tr(`본인부담금 (한도 내 ${Math.round(L.rate*100)}%)`, won(L.inLim*L.rate)) +
     tr('초과 이용 금액 (전액 본인부담)', won(L.over));
@@ -407,6 +427,17 @@ $('days').onchange = ()=>{ fillHolidays(); calc(); };
 ['branch','grade','rate','hours','hdays','useLunch','useDinner','useBreak','useSnack']
   .forEach(id=>$(id).onchange=calc);
 $('who').oninput = calc;
+$('otheruse').querySelectorAll('button').forEach(b=>b.onclick=()=>{
+  otherUse = b.dataset.v==='yes';
+  $('otheruse').querySelectorAll('button').forEach(x=>x.classList.toggle('on', x===b));
+  $('otherBox').style.display = otherUse ? '' : 'none';
+  calc();
+});
+$('otherAmt').oninput = e=>{                       // 천 단위 콤마를 넣어 준다
+  const v = (e.target.value||'').replace(/[^\d]/g,'');
+  e.target.value = v ? Number(v).toLocaleString('ko-KR') : '';
+  calc();
+};
 $('sheetBtn').onclick = ()=>{ buildSheet(); document.body.dataset.view='sheet'; window.scrollTo(0,0); };
 $('sheetBack').onclick = ()=>{ document.body.dataset.view=''; window.scrollTo(0,0); };
 $('sheetPrint').onclick = ()=>window.print();
@@ -414,6 +445,8 @@ $('resetBtn').onclick = ()=>{
   $('branch').value=''; $('who').value=''; $('grade').value='4'; $('rate').value='0.15';
   $('hours').value='8'; $('days').value='22';
   dementia=false; $('dtype').querySelectorAll('button').forEach((x,i)=>x.classList.toggle('on', i===0));
+  otherUse=false; $('otherBox').style.display='none'; $('otherAmt').value='';
+  $('otheruse').querySelectorAll('button').forEach((x,i)=>x.classList.toggle('on', i===0));
   ['useLunch','useDinner','useSnack'].forEach(id=>$(id).checked=true);
   $('useBreak').checked=false;
   const [Y,M]=$('ym').value.split('-').map(Number); fillHolidays(holidayCount(Y,M));
