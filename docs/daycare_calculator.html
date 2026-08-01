@@ -102,6 +102,17 @@
   table.cal td.hold{background:#fdecea}
   table.cal td .hol{display:block;font-size:10.5px;color:#c0392b;margin-top:2px}
   table.cal td.off{background:#fafafa}
+  .remain{margin-top:16px;border:1.5px solid #e8899d;border-radius:12px;overflow:hidden}
+  .remain .rrow{display:flex;justify-content:space-between;align-items:baseline;
+    padding:9px 16px;font-size:13.5px;border-bottom:1px solid #f3dde3}
+  .remain .rrow:last-child{border-bottom:0}
+  .remain .rrow b{font-weight:700}
+  .remain .rrow.minus b{color:#8a6b72}
+  .remain .rrow.left{background:#fdeef1;padding:13px 16px}
+  .remain .rrow.left b{font-size:20px;font-weight:800;color:#b3556c}
+  .remain .rrow.over{background:#fdecea}
+  .remain .rrow.over b{color:#c0392b}
+  .remain .sub{font-size:11px;color:#8a6b72;font-weight:500;margin-left:6px}
   .calsum{margin-top:12px;display:flex;gap:18px;flex-wrap:wrap;font-size:13px}
   .calsum b{color:#b3556c}
   .sheet.on{display:block;margin-top:18px}
@@ -245,6 +256,7 @@
     <div class="hello" style="margin-bottom:6px"><u id="sh2Name">&nbsp;&nbsp;&nbsp;</u><span id="sh2Org"></span></div>
     <table class="cal" id="shCal"></table>
     <div class="calsum" id="shCalSum"></div>
+    <div class="remain" id="shRemain"></div>
     <div class="memo">* 실제 이용일은 출결·일정 변동에 따라 달라질 수 있습니다.</div>
   </div>
   <div class="btnbar">
@@ -646,6 +658,7 @@ function buildSheet(){
 /* 둘째 장 — 그 달 달력에 이용일을 표시한다. 요일 선택(dowOn)과 공휴일을 그대로 반영. */
 function buildCal(){
   const L = last; if(!L) return;
+  const num = v => Math.round(v).toLocaleString('ko-KR');   // buildSheet 의 것과 별개 스코프다
   const org = ORG[L.bName] || {};
   $('sh2Day').textContent = `${L.Y}년 ${L.M}월`;
   $('sh2Name').textContent = L.who || '   ';
@@ -674,6 +687,21 @@ function buildCal(){
   $('shCal').innerHTML =
     '<thead><tr>' + ['일','월','화','수','목','금','토'].map((n,i)=>
       `<th class="${i===0?'sun':i===6?'sat':''}">${n}</th>`).join('') + '</tr></thead><tbody>' + rows + '</tbody>';
+
+  const row = (k, v, cls='', sub='') =>
+    `<div class="rrow ${cls}"><span>${k}${sub?`<span class="sub">${sub}</span>`:''}</span><b>${v}</b></div>`;
+  const usedFee = L.gross;                        // 이번 달 주간보호 급여비용(공휴일 가산 포함)
+  const leftAll = L.limit - L.otherAmt - usedFee; // 한도에서 다 빼고 남는 금액
+  $('shRemain').innerHTML =
+    row('월 이용 한도액', num(L.limit)+'원', '',
+        L.bonus?`기본 ${num(L.base)} + 추가 ${num(L.limit-L.base)}`:'기본 한도') +
+    (L.otherAmt ? row('타 급여 사용', '-'+num(L.otherAmt)+'원', 'minus',
+        (L.otherParts||[]).map(p=>p[0]).join('·')) : '') +
+    row('주간보호 이용 수가', '-'+num(usedFee)+'원', 'minus',
+        `${num(L.unit)} × ${L.days-L.hdays}일` + (L.hdays?` + 공휴일 ${num(L.unitHol)} × ${L.hdays}일`:'')) +
+    (leftAll >= 0
+      ? row('이용 후 남은 한도', num(leftAll)+'원', 'left', '이 금액만큼 더 이용할 수 있습니다')
+      : row('한도 초과', num(-leftAll)+'원', 'over', '초과분은 전액 본인부담입니다'));
 
   $('shCalSum').innerHTML =
     `<span>이용 요일 <b>${L.dows||'-'}</b></span>` +
