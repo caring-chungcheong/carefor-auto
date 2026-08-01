@@ -145,10 +145,16 @@
         <button data-v="no" class="on">미이용</button>
         <button data-v="yes">이용</button>
       </div></div>
-    <div id="otherBox" style="display:none"><label>타 급여 월 급여비용</label>
-      <input type="text" id="otherAmt" inputmode="numeric" placeholder="예: 300,000">
-      <div style="font-size:11.5px;color:var(--mut);margin-top:4px">
-        방문요양·목욕 등 같은 달에 쓴 급여비용 — 한도액을 함께 씁니다</div></div>
+    </div>
+  <div id="otherBox" style="display:none;margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
+    <label>급여타입 선택 <span style="color:var(--mut)">— 같은 달에 함께 쓰는 급여(한도액을 나눠 씁니다)</span></label>
+    <div style="display:flex;flex-wrap:wrap;gap:8px 22px;margin-bottom:10px">
+      <label class="chk"><input type="checkbox" class="otype" id="ot_visit"> 일반요양(방문요양)</label>
+      <label class="chk"><input type="checkbox" class="otype" id="ot_family"> 가족요양</label>
+      <label class="chk"><input type="checkbox" class="otype" id="ot_bath"> 방문목욕</label>
+      <label class="chk"><input type="checkbox" class="otype" id="ot_nurse"> 방문간호</label>
+    </div>
+    <div class="row" id="otherInputs"></div>
   </div>
 </div>
 
@@ -231,6 +237,9 @@ const DAY = {
   10:{1:76820,2:71160,3:65750,4:64090,5:62460,C:56360},
   13:{1:82370,2:76310,3:70500,4:68860,5:67240,C:56360},
 };
+/* 방문요양 1회 시간대별 수가(2026 고시) — 타 급여로 방문요양을 함께 쓰는 경우에 쓴다 */
+const VISIT = [[30,17450],[60,25320],[90,34120],[120,43430],
+               [150,50640],[180,57020],[210,63530],[240,70080]];
 const HOURTXT = {3:'3~6시간',6:'6~8시간',8:'8~10시간',10:'10~13시간',13:'13시간 초과'};
 const HOLIDAY = {
   '2026-01-01':'신정','2026-02-16':'설날연휴','2026-02-17':'설날','2026-02-18':'설날연휴',
@@ -290,6 +299,82 @@ function fillHolidays(auto){
   h.value = Math.min(auto!=null ? auto : keep, maxDays, 10);
 }
 
+/* 아링처럼 급여타입을 고르게 하고, 고른 것만 입력칸을 띄운다.
+   ★방문요양(일반·가족)은 '1회 시간 × 월 횟수'로 수가를 자동 계산한다 — 금액을 손으로 적으면 틀리기 쉽다.
+     방문목욕·방문간호는 회당 수가가 조건(차량·간호사 자격)에 따라 갈려 월 사용액을 직접 받는다. */
+const OTYPES = [
+  {key:'visit',  id:'ot_visit',  name:'일반요양(방문요양)', kind:'time',  table:'VISIT'},
+  {key:'family', id:'ot_family', name:'가족요양',          kind:'time',  table:'FAMILY'},
+  {key:'bath',   id:'ot_bath',   name:'방문목욕',          kind:'bath'},
+  {key:'nurse',  id:'ot_nurse',  name:'방문간호',          kind:'nurse'},
+];
+const FAMILY = [[30,17450],[60,25320],[90,34120]];          // 가족요양은 90분까지
+const BATH = {                                              // [40~60분, 60분]
+  '차량 내 목욕':   [71190, 88990],
+  '가정 내 목욕':   [64180, 80230],
+  '차량 미이용':    [40080, 50100],
+};
+const NURSE = [['15분 이상~30분 미만',42880],['30분 이상~60분 미만',53770],['60분 이상',64690]];
+
+function sel(id, list, def){
+  return `<select id="${id}">` + list.map(v=>
+    `<option value="${v[0]}"${v[0]===def?' selected':''}>${v[1]}</option>`).join('') + '</select>';
+}
+const CNT = Array.from({length:31},(_,i)=>[i+1, (i+1)+'회']);
+
+function renderOtherInputs(){
+  const box = $('otherInputs');
+  OTYPES.forEach(t=>{
+    const on = $(t.id).checked, exist = $('oin_'+t.key);
+    if(on && !exist){
+      const d = document.createElement('div');
+      d.id = 'oin_'+t.key;
+      d.style.cssText = 'grid-column:1/-1;border:1px solid var(--line);border-radius:9px;padding:12px 14px;background:#fbfcfd';
+      let inner = `<div style="font-weight:700;margin-bottom:8px">${t.name} 설정</div><div class="row">`;
+      if(t.kind==='time'){
+        const tbl = t.table==='VISIT' ? VISIT : FAMILY;
+        inner += `<div><label>이용시간 선택</label>${sel('ot_'+t.key+'_min', tbl.map(([m])=>[m, m+'분 이상']), 60)}</div>`;
+      }else if(t.kind==='bath'){
+        inner += `<div><label>급여 유형 선택</label>${sel('ot_'+t.key+'_type',
+          Object.keys(BATH).map(k=>[k, k==='차량 미이용'?'방문목욕 차량을 이용하지 아니한 경우':'방문목욕 차량 이용 ('+k+')']), '차량 내 목욕')}</div>`;
+        inner += `<div><label>목욕 시간</label>${sel('ot_'+t.key+'_min', [[0,'40~60분'],[1,'60분']], 0)}</div>`;
+      }else{
+        inner += `<div><label>이용시간 선택</label>${sel('ot_'+t.key+'_min', NURSE.map((v,i)=>[i, v[0]]), 1)}</div>`;
+      }
+      inner += `<div><label>월 이용 횟수</label>${sel('ot_'+t.key+'_cnt', CNT, 20)}</div></div>`;
+      d.innerHTML = inner;
+      box.appendChild(d);
+      d.querySelectorAll('select').forEach(el=>el.onchange=calc);
+    }else if(!on && exist){ exist.remove(); }
+  });
+}
+
+/* 고른 급여타입들의 월 급여비용 합계 — 수가는 2026 고시(아링 실측 대조 일치) */
+function otherTotal(){
+  if(!otherUse) return {sum:0, parts:[]};
+  let sum=0; const parts=[];
+  OTYPES.forEach(t=>{
+    if(!$(t.id).checked) return;
+    const cnt = +(($('ot_'+t.key+'_cnt')||{}).value) || 0;
+    if(!cnt) return;
+    let fee=0, how='';
+    if(t.kind==='time'){
+      const min = +(($('ot_'+t.key+'_min')||{}).value) || 0;
+      const tbl = t.table==='VISIT' ? VISIT : FAMILY;
+      const row = tbl.filter(([m])=>m<=min).pop();
+      fee = row ? row[1] : 0; how = `${min}분 × ${cnt}회`;
+    }else if(t.kind==='bath'){
+      const typ = ($('ot_'+t.key+'_type')||{}).value, i = +(($('ot_'+t.key+'_min')||{}).value)||0;
+      fee = (BATH[typ]||[0,0])[i]; how = `${typ}·${i?'60분':'40~60분'} × ${cnt}회`;
+    }else{
+      const i = +(($('ot_'+t.key+'_min')||{}).value)||0;
+      fee = (NURSE[i]||[0,0])[1]; how = `${(NURSE[i]||['',0])[0]} × ${cnt}회`;
+    }
+    if(fee){ sum += fee*cnt; parts.push([t.name, how, fee*cnt]); }
+  });
+  return {sum, parts};
+}
+
 function calc(){
   const grade = $('grade').value, rate = +$('rate').value;
   const hour = +$('hours').value, days = +$('days').value, hdays = +$('hdays').value;
@@ -327,7 +412,8 @@ function calc(){
   /* ③ 급여비용 — 1일 수가 × 이용일수.
      ★타 급여(방문요양·목욕 등)를 같은 달에 쓰면 **한도액을 함께 쓴다** — 그만큼 먼저 빼고
        남은 한도로 주야간을 계산해야 초과금이 맞다(회원님 지적 2026-08-01). */
-  const otherAmt = otherUse ? (parseInt(($('otherAmt').value||'').replace(/[^\d]/g,''),10) || 0) : 0;
+  const oth = otherTotal();
+  const otherAmt = oth.sum;
   const room = Math.max(0, limit - otherAmt);
   const unit = DAY[hour][grade];
   const gross = unit*days;
@@ -353,7 +439,7 @@ function calc(){
       ${bonus?`<span class="k">기본 ${won(base)} + 증액 ${won(limit-base)}</span>`
              :'<span class="k">기본 한도</span>'}</div>
     ${otherAmt?`<div><span class="k">타 급여 사용액</span><b>${won(otherAmt)}</b>
-      <span class="k">주야간 남은 한도 ${won(room)}</span></div>`:''}
+      <span class="k">${oth.parts.map(p=>p[0]).join('·')} · 주야간 남은 한도 ${won(room)}</span></div>`:''}
     <div><span class="k">월 급여비용</span><b>${won(gross)}</b>
       <span class="k">${HOURTXT[hour]} ${won(unit)} × ${days}일</span></div>
     <div class="${over?'big':''}"><span class="k">한도 초과금 (전액 본인부담)</span><b>${won(over)}</b></div>
@@ -386,7 +472,8 @@ function calc(){
   f.push(`  월 급여비용     ${won(unit)} × ${days}일 = ${won(gross)}`);
   f.push(`  월 한도액       ${won(limit)}${bonus?`  (기본 ${won(base)} × ${1+bonus})`:''}`);
   if(otherAmt){
-    f.push(`  타 급여 사용    -${won(otherAmt)}  (방문요양 등 같은 달 사용분)`);
+    f.push(`  타 급여 사용    -${won(otherAmt)}`);
+    oth.parts.forEach(p=>f.push(`    · ${p[0]} ${p[1]} = ${won(p[2])}`));
     f.push(`  주야간 남은한도 ${won(room)}`);
   }
   f.push(`  한도 내         ${won(inLim)}`);
@@ -403,7 +490,7 @@ function calc(){
   $('formula').textContent = f.join('\n');
 
   /* 명세서용 값 보관 — '명세서 생성하기'를 누르면 이 값으로 그린다 */
-  last = {bName, bf, grade, rate, Y, M, hour, days, hdays, limit, base, bonus, otherAmt, room,
+  last = {bName, bf, grade, rate, Y, M, hour, days, hdays, limit, base, bonus, otherAmt, room, otherParts: oth.parts,
           unit, gross, inLim, over, self, np, rows, notes,
           who: ($('who').value || '').trim()};
 }
@@ -433,7 +520,8 @@ function buildSheet(){
     line('본인부담률', Math.round(L.rate*100), '%') +
     line('기초수급여부', L.rate===0 ? 'O' : 'X', '') +
     line('장기요양 월 급여액', num(L.limit), '원') +
-    (L.otherAmt ? line('타 급여 사용액', '-' + num(L.otherAmt), '원', 'ind') : '');
+    (L.otherAmt ? line('타 급여 사용액', '-' + num(L.otherAmt), '원') : '') +
+    (L.otherParts||[]).map(p=>line(`${p[0]} (${p[1]})`, num(p[2]), '원', 'ind')).join('');
 
   /* 02 이용 계획 */
   $('shSec2').innerHTML = `<div class="grp">주간보호</div>` +
@@ -517,11 +605,7 @@ $('otheruse').querySelectorAll('button').forEach(b=>b.onclick=()=>{
   $('otherBox').style.display = otherUse ? '' : 'none';
   calc();
 });
-$('otherAmt').oninput = e=>{                       // 천 단위 콤마를 넣어 준다
-  const v = (e.target.value||'').replace(/[^\d]/g,'');
-  e.target.value = v ? Number(v).toLocaleString('ko-KR') : '';
-  calc();
-};
+document.querySelectorAll('.otype').forEach(c=>c.onchange=()=>{ renderOtherInputs(); calc(); });
 $('sheetBtn').onclick = ()=>{ buildSheet(); document.body.dataset.view='sheet'; window.scrollTo(0,0); };
 $('sheetBack').onclick = ()=>{ document.body.dataset.view=''; window.scrollTo(0,0); };
 $('sheetPrint').onclick = ()=>window.print();
@@ -530,7 +614,8 @@ $('resetBtn').onclick = ()=>{
   $('branch').value=''; $('who').value=''; $('grade').value='4'; $('rate').value='0.15';
   $('hours').value='8'; $('days').value='22';
   dementia=false; $('dtype').querySelectorAll('button').forEach((x,i)=>x.classList.toggle('on', i===0));
-  otherUse=false; $('otherBox').style.display='none'; $('otherAmt').value='';
+  otherUse=false; $('otherBox').style.display='none';
+  document.querySelectorAll('.otype').forEach(c=>c.checked=false); renderOtherInputs();
   $('otheruse').querySelectorAll('button').forEach((x,i)=>x.classList.toggle('on', i===0));
   ['useLunch','useDinner','useSnack'].forEach(id=>$(id).checked=true);
   $('useBreak').checked=false;
