@@ -96,7 +96,10 @@
   table.cal td .d{font-weight:700;color:#444}
   table.cal td.sun .d{color:#c0392b} table.cal td.sat .d{color:#2f6fb0}
   table.cal td.use{background:#fdf3f5}
-  table.cal td .mk{display:block;margin-top:5px;font-size:11px;font-weight:700;color:#b3556c}
+  table.cal td .mk{display:block;margin-top:5px;font-size:11.5px;font-weight:700;color:#b3556c}
+  table.cal td .mk.holfee{color:#c0392b}
+  table.cal td .mk i{display:block;font-style:normal;font-size:10px;font-weight:600;color:#c0392b}
+  table.cal td.hold{background:#fdecea}
   table.cal td .hol{display:block;font-size:10.5px;color:#c0392b;margin-top:2px}
   table.cal td.off{background:#fafafa}
   .calsum{margin-top:12px;display:flex;gap:18px;flex-wrap:wrap;font-size:13px}
@@ -479,8 +482,11 @@ function calc(){
   const oth = otherTotal();
   const otherAmt = oth.sum;
   const room = Math.max(0, limit - otherAmt);
+  /* ★공휴일·일요일은 수가 30% 가산(2026 고시) — 8/15 광복절, 8/17 대체 같은 날.
+     빼먹으면 그 달 급여비용이 실제보다 적게 나온다(회원님 지적 2026-08-01). */
   const unit = DAY[hour][grade];
-  const gross = unit*days;
+  const unitHol = Math.round(unit*1.3);
+  const gross = unit*(days-hdays) + unitHol*hdays;
   const inLim = Math.min(gross, room), over = gross-inLim;
   const self = inLim*rate + over;               // 초과분은 전액 본인부담
 
@@ -505,7 +511,8 @@ function calc(){
     ${otherAmt?`<div><span class="k">타 급여 사용액</span><b>${won(otherAmt)}</b>
       <span class="k">${oth.parts.map(p=>p[0]).join('·')} · 주야간 남은 한도 ${won(room)}</span></div>`:''}
     <div><span class="k">월 급여비용</span><b>${won(gross)}</b>
-      <span class="k">${HOURTXT[hour]} ${won(unit)} × ${days}일</span></div>
+      <span class="k">${HOURTXT[hour]} ${won(unit)} × ${days-hdays}일${
+        hdays?` + 공휴일 ${won(unitHol)} × ${hdays}일`:''}</span></div>
     <div class="${over?'big':''}"><span class="k">한도 초과금 (전액 본인부담)</span><b>${won(over)}</b></div>
     <div><span class="k">급여 본인부담금</span><b>${won(self)}</b>
       <span class="k">한도내 ${Math.round(rate*100)}% + 초과분 100%</span></div>
@@ -533,7 +540,12 @@ function calc(){
   f.push('');
   f.push('■ 급여');
   f.push(`  1일 수가        ${won(unit)}`);
-  f.push(`  월 급여비용     ${won(unit)} × ${days}일 = ${won(gross)}`);
+  if(hdays){
+    f.push(`  공휴일 수가     ${won(unit)} × 1.3 = ${won(unitHol)}  (공휴일·일요일 30% 가산)`);
+    f.push(`  월 급여비용     ${won(unit)}×${days-hdays}일 + ${won(unitHol)}×${hdays}일 = ${won(gross)}`);
+  }else{
+    f.push(`  월 급여비용     ${won(unit)} × ${days}일 = ${won(gross)}`);
+  }
   f.push(`  월 한도액       ${won(limit)}${bonus?`  (기본 ${won(base)} × ${1+bonus})`:''}`);
   if(otherAmt){
     f.push(`  타 급여 사용    -${won(otherAmt)}`);
@@ -556,7 +568,7 @@ function calc(){
   /* 명세서용 값 보관 — '명세서 생성하기'를 누르면 이 값으로 그린다 */
   last = {bName, bf, grade, rate, Y, M, hour, days, hdays, limit, base, bonus, otherAmt, room, otherParts: oth.parts,
           unit, gross, inLim, over, self, np, rows, notes,
-          who: ($('who').value || '').trim(), dows: usedDows(), dowIdx: dowOn.slice()};
+          who: ($('who').value || '').trim(), dows: usedDows(), dowIdx: dowOn.slice(), unit, unitHol};
   if(wasOpen) buildSheet();   // 펼쳐 둔 채로 값을 고치면 명세서도 같이 따라 갱신된다
 }
 
@@ -592,8 +604,10 @@ function buildSheet(){
   $('shSec2').innerHTML = `<div class="grp">주간보호</div>` +
     (L.dows ? line('이용 요일', L.dows, '') : '') +
     line('일 이용 희망 시간', HOURTXT[L.hour], '') +
+    line('1일 수가', num(L.unit), '원') +
+    (L.hdays ? line('공휴일 수가 (30% 가산)', num(L.unitHol), '원', 'ind') : '') +
     line('월 희망 이용 일수', L.days, '일') +
-    line('그중 공휴일', L.hdays, '일', 'ind');
+    (L.hdays ? line('그중 공휴일', L.hdays, '일', 'ind') : '');
 
   /* 03 비용 구성 — 아링과 같은 순서(급여서비스 이용료 → 본인부담금 → 공단부담금 → 초과 → 비급여) */
   const gongdan = L.inLim - L.inLim*L.rate;      // 한도 내 급여비용 중 공단이 내는 몫
@@ -646,10 +660,12 @@ function buildCal(){
     const key = `${L.Y}-${String(L.M).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const h = HOLIDAY[key], on = (L.dowIdx||[]).includes(dow);
     if(on){ use++; if(h) hol++; }
-    const cls = [dow===0?'sun':dow===6?'sat':'', on?'use':''].filter(Boolean).join(' ');
+    const cls = [dow===0?'sun':dow===6?'sat':'', on?(h?'hold':'use'):''].filter(Boolean).join(' ');
+    const fee = h ? L.unitHol : L.unit;
     cells.push(`<td class="${cls}"><span class="d">${d}</span>`
       + (h?`<span class="hol">${h}</span>`:'')
-      + (on?`<span class="mk">이용 ${HOURTXT[L.hour]}</span>`:'')
+      + (on?`<span class="mk${h?' holfee':''}">${(fee||0).toLocaleString('ko-KR')}원`
+            + (h?'<i>30% 가산</i>':'') + '</span>':'')
       + '</td>');
   }
   while(cells.length % 7) cells.push('<td class="off"></td>');
@@ -662,7 +678,7 @@ function buildCal(){
   $('shCalSum').innerHTML =
     `<span>이용 요일 <b>${L.dows||'-'}</b></span>` +
     `<span>월 이용 <b>${use}일</b></span>` +
-    `<span>그중 공휴일 <b>${hol}일</b></span>` +
+    `<span>그중 공휴일 <b>${hol}일</b>${hol?` (30% 가산 ${((L.unitHol-L.unit)*hol).toLocaleString('ko-KR')}원)`:''}</span>` +
     (L.bf && $('useDinner').checked ? `<span>석식 제공 <b>${use-hol}일</b> (공휴일 제외)</span>` : '');
 }
 
