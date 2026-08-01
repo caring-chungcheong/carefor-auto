@@ -112,13 +112,14 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ms-playwright-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
 
-      - name: Playwright 브라우저 설치 (캐시 미스 시 전체)
-        if: steps.pw-cache.outputs.cache-hit != 'true'
+      # ★캐시 적중이어도 브라우저 설치를 건너뛰지 말 것 (2026-08-01 미발송 사고).
+      #   requirements.txt 는 playwright>=1.41.0 로 상한이 없어 러너가 새 버전을 받는데,
+      #   캐시 키는 requirements.txt 해시라 '옛 브라우저'가 그대로 적중한다.
+      #   그러면 새 playwright 가 요구하는 chromium_headless_shell 이 없어
+      #   BrowserType.launch 가 4지점 전부 실패한다(조용히 안 나가고 실패 알림만 뜬다).
+      #   playwright install 은 이미 있으면 즉시 끝나므로 캐시 이점은 그대로다.
+      - name: Playwright 브라우저 설치
         run: playwright install chromium --with-deps
-
-      - name: Playwright 의존성만 설치 (캐시 적중 시)
-        if: steps.pw-cache.outputs.cache-hit == 'true'
-        run: playwright install-deps chromium
 
       - name: 출석 현황 수집 및 슬랙 전송
         env:
