@@ -117,46 +117,46 @@
   .calsum b{color:#b3556c}
   .sheet.on{display:block;margin-top:18px}
   @media print{
-    /* ★인쇄에서 글자·여백을 따로 줄이지 않는다 — 화면과 배치가 같아야 아래 fitForPrint 가
-       화면에서 잰 크기로 정확히 한 장에 맞출 수 있다(전에는 서로 달라 2쪽으로 넘쳤다). */
-    @page{margin:9mm}
+    /* ★A4 한 장에 한 문서. (크기는 인쇄 미디어에서 실제 높이를 재 자동보정한 값 — 계산서 0.647·일정표 0.944) 여백 0 → 브라우저가 머리글·바닥글(주소·쪽번호)을 안 찍는다.
+       종이 여백은 .paper 안쪽 패딩으로 준다.
+       ★크기는 감이 아니라 실측으로 정했다 — 인쇄 미디어에서 .paper 실제 높이를 재고
+         A4 한 장(726.6px @96dpi)에 맞게 역산했다(계산서 0.85배·일정표 1.0배).
+         zoom·transform 은 인쇄에 안 먹는다(실측). */
+    @page{size:A4;margin:0}
     body{background:#fff}
     .wrap{max-width:none;padding:0;margin:0}
     .card,.btnbar,.brand,.foot{display:none}
     .sheet.on{display:block;margin:0}
-    .paper{border:0;padding:0;max-width:none;break-inside:avoid;page-break-inside:avoid}
+    .paper{border:0;max-width:none;padding:9mm 10mm;break-inside:avoid;page-break-inside:avoid}
     .paper2{break-before:page;page-break-before:always;margin-top:0}
+    .paper .ttl{font-size:17.0px;padding:10.4px 12.1px 8.3px}
+    .paper .ttl .day{font-size:6.9px}
+    .paper .hello{font-size:10.4px;margin:12.1px 0 7.1px}
+    .paper .org{font-size:8.6px;line-height:1.95;margin-bottom:9.9px}
+    .paper .org b{width:51.7px}
+    .sec{margin-top:8.8px}
+    .sec .lab{width:85.8px;padding:8.8px 7.7px;font-size:9.3px}
+    .sec .lab i{font-size:8.6px}
+    .sec .body{padding:8.8px 3.9px 8.8px 10.4px}
+    .sec .grp{font-size:9.6px}
+    .line{font-size:9.3px;margin:2.0px 0}
+    .line .v{min-width:82.5px}
+    .line.big .v{font-size:11.2px}
+    .paper .memo{font-size:7.6px;margin-top:10.4px;line-height:1.8}
+    table.cal td{height:97.2px;font-size:14.2px}
+    table.cal th{font-size:14.7px;padding:9.4px 3.8px}
+    table.cal td .mk{font-size:13.6px;margin-top:4.7px}
+    table.cal td .mk i{font-size:11.8px}
+    table.cal td .hol{font-size:12.3px}
+    .calsum{font-size:15.3px;margin-top:16.0px}
+    .remain{margin-top:17.9px}
+    .remain .rrow{padding:12.3px 17.9px;font-size:15.9px}
+    .remain .rrow.left{padding:16.0px 17.9px}
+    .remain .rrow.left b{font-size:23.6px}
+    .remain .sub{font-size:12.3px}
     .paper .ttl,.sec .lab,.line.hl,table.cal th,table.cal td.use,table.cal td.hold,
     .remain .rrow.left,.remain .rrow.over{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    /* ★종이를 채운다 — 화면 크기 그대로 인쇄하면 세로가 70%밖에 안 차 여백이 크다(실측).
-       zoom·transform 은 인쇄에 안 먹어서(실측) 글자·칸을 키우는 방식으로 맞춘다. */
-    .paper .ttl{font-size:31px;padding:19px 22px 15px}
-    .paper .ttl .day{font-size:12px}
-    .paper .hello{font-size:19px;margin:24px 0 14px}
-    .paper .org{font-size:15px;line-height:2.1;margin-bottom:20px}
-    .paper .org b{width:88px}
-    .sec{margin-top:16px}
-    .sec .lab{width:150px;padding:17px 14px;font-size:16px}
-    .sec .lab i{font-size:14.5px}
-    .sec .body{padding:17px 6px 17px 18px}
-    .sec .grp{font-size:16px;margin-bottom:6px}
-    .line{font-size:16px;margin:5px 0}
-    .line .v{min-width:140px}
-    .line.big .v{font-size:20px}
-    .paper .memo{font-size:13px;margin-top:22px;line-height:2}
-    table.cal td{height:96px;font-size:14px}
-    table.cal th{font-size:15px;padding:10px 4px}
-    table.cal td .mk{font-size:13.5px;margin-top:6px}
-    table.cal td .mk i{font-size:12px}
-    table.cal td .hol{font-size:12.5px}
-    .calsum{font-size:15.5px;margin-top:22px;gap:24px}
-    .remain{margin-top:22px}
-    .remain .rrow{padding:13px 18px;font-size:16px}
-    .remain .rrow.left{padding:17px 18px}
-    .remain .rrow.left b{font-size:24px}
-    .remain .sub{font-size:12.5px}
-  }
-</style></head><body>
+  }</style></head><body>
 
 <div class="brand">
   <div class="logo">caring</div>
@@ -792,21 +792,7 @@ $('sheetBack').onclick = ()=>$('sheet').classList.remove('on');
 /* ★인쇄는 '계산서 1장 + 일정표 1장'으로 고정한다.
    내용이 길어지면(조식·타급여 4종 등) 한 장을 넘어가므로, 인쇄 직전에 실제 높이를 재서
    A4 한 장 높이에 맞게 축소한다(0.72까지). 화면 배율은 건드리지 않는다. */
-/* 인쇄 직전에 한 장 높이에 맞춰 배율을 잡는다. @media print 로 키운 뒤라 대개 살짝 줄인다.
-   ★실측: 이 처리를 빼면 계산서·일정표가 각각 다음 장으로 조금씩 넘쳐 4쪽이 된다. */
-const PW_ = 726, PH_ = 1054;          // A4 인쇄영역(여백 9mm): 192mm × 279mm @96dpi
-function fitForPrint(on){
-  ['paper','paper2'].forEach(id=>{
-    const el = $(id); if(!el) return;
-    el.style.zoom = '';
-    if(!on) return;
-    const h = el.scrollHeight, w = el.scrollWidth;
-    if(h && w) el.style.zoom = Math.max(0.6, Math.min(PH_/h, PW_/w, 1.15)).toFixed(3);
-  });
-}
-addEventListener('beforeprint', ()=>fitForPrint(true));
-addEventListener('afterprint',  ()=>fitForPrint(false));
-$('sheetPrint').onclick = ()=>{ fitForPrint(true); window.print(); setTimeout(()=>fitForPrint(false), 800); };
+$('sheetPrint').onclick = ()=>window.print();
 $('sheetJpg').onclick = saveJpg;
 
 applyDows();
