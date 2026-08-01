@@ -87,17 +87,16 @@
   .line.hl{background:#fdeef1;border-radius:5px;padding:2px 4px}
   .line.big .v{font-size:17px;font-weight:800}
   .paper .memo{font-size:11.5px;color:#7a6a6e;margin-top:18px;line-height:1.85}
-  body[data-view="sheet"] .card,body[data-view="sheet"] .foot{display:none}
-  body[data-view="sheet"] .sheet{display:block}
+  .sheet.on{display:block;margin-top:18px}
   @media print{
     @page{margin:12mm}
     body{background:#fff}
     .wrap{max-width:none;padding:0}
     .brand{margin-bottom:10px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    .card{break-inside:avoid}
-    .btnbar{display:none}
-    .sheet{border:0;padding:0}
-    .sheet .sum{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .card,.btnbar,.brand,.foot{display:none}
+    .sheet.on{display:block;margin:0}
+    .paper{border:0;padding:0;max-width:none}
+    .paper .ttl,.sec .lab,.line.hl{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   }
 </style></head><body>
 
@@ -173,6 +172,12 @@
       <option value="10">10시간 이상 13시간 이하</option>
       <option value="13">13시간 초과</option>
     </select></div>
+    <div style="grid-column:1/-1"><label>서비스 일정 (이용 요일)</label>
+      <div class="seg" id="dows" style="max-width:420px">
+        ${''}
+      </div>
+      <div style="font-size:11.5px;color:var(--mut);margin-top:4px">
+        요일을 고르면 그 달 기준으로 이용 횟수·공휴일이 자동으로 채워집니다(직접 고쳐도 됩니다)</div></div>
     <div><label>월 이용 횟수</label><select id="days"></select></div>
     <div><label>그중 공휴일 이용</label><select id="hdays"></select>
       <div style="font-size:11.5px;color:var(--mut);margin-top:4px">기준 월 공휴일 수로 자동 채움</div></div>
@@ -194,7 +199,6 @@
 </div>
 
 <div class="btnbar">
-  <button class="btn ghost" id="resetBtn">↺ 초기화</button>
   <button class="btn" id="sheetBtn">📄 명세서 생성하기</button>
 </div>
 
@@ -216,7 +220,7 @@
     <div class="memo" id="shMemo"></div>
   </div>
   <div class="btnbar">
-    <button class="btn ghost" id="sheetBack">← 계산 화면으로</button>
+    <button class="btn ghost" id="sheetBack">✕ 명세서 닫기</button>
     <button class="btn" id="sheetJpg" style="background:#2e9e5b">🖼 JPG 저장</button>
     <button class="btn" id="sheetPrint" style="background:#2f7fd4">🖨 인쇄</button>
   </div>
@@ -277,6 +281,39 @@ const ORG = {
 const won = n => Math.round(n).toLocaleString('ko-KR') + '원';
 const $ = id => document.getElementById(id);
 let dementia = false, otherUse = false;
+
+const DOWNM = ['일','월','화','수','목','금','토'];
+let dowOn = [1,2,3,4,5];                     // 기본: 평일
+
+function renderDows(){
+  $('dows').innerHTML = DOWNM.map((n,i)=>
+    `<button data-d="${i}" class="${dowOn.includes(i)?'on':''}">${n}</button>`).join('');
+  $('dows').querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    const k = +b.dataset.d;
+    dowOn = dowOn.includes(k) ? dowOn.filter(x=>x!==k) : [...dowOn, k].sort();
+    renderDows(); applyDows(); calc();
+  });
+}
+/* 고른 요일이 그 달에 몇 번인지 → 이용 횟수, 그중 공휴일 수 */
+function dowCount(Y,M){
+  let all=0, hol=0; const lastD = new Date(Y,M,0).getDate();
+  for(let d=1; d<=lastD; d++){
+    const dt = new Date(Y,M-1,d);
+    if(!dowOn.includes(dt.getDay())) continue;
+    all++;
+    const key = `${Y}-${String(M).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    if(HOLIDAY[key]) hol++;
+  }
+  return {all, hol};
+}
+function applyDows(){
+  if(!dowOn.length) return;
+  const [Y,M] = $('ym').value.split('-').map(Number);
+  const c = dowCount(Y,M);
+  $('days').value = Math.min(c.all, 31);
+  fillHolidays(c.hol);
+}
+function usedDows(){ return dowOn.slice().sort().map(i=>DOWNM[i]).join('·'); }
 
 function fillDays(){
   const d = $('days');
@@ -376,6 +413,8 @@ function otherTotal(){
 }
 
 function calc(){
+  // 명세서를 펼쳐 둔 상태인지 먼저 기억한다(아래에서 다시 그릴지 판단)
+  const wasOpen = !!($('sheet') && $('sheet').classList.contains('on'));
   const grade = $('grade').value, rate = +$('rate').value;
   const hour = +$('hours').value, days = +$('days').value, hdays = +$('hdays').value;
   const [Y,M] = $('ym').value.split('-').map(Number);
@@ -492,7 +531,8 @@ function calc(){
   /* 명세서용 값 보관 — '명세서 생성하기'를 누르면 이 값으로 그린다 */
   last = {bName, bf, grade, rate, Y, M, hour, days, hdays, limit, base, bonus, otherAmt, room, otherParts: oth.parts,
           unit, gross, inLim, over, self, np, rows, notes,
-          who: ($('who').value || '').trim()};
+          who: ($('who').value || '').trim(), dows: usedDows()};
+  if(wasOpen) buildSheet();   // 펼쳐 둔 채로 값을 고치면 명세서도 같이 따라 갱신된다
 }
 
 /* 📄 명세서 — 아링의 '명세서 생성하기'와 같은 출력물.
@@ -525,6 +565,7 @@ function buildSheet(){
 
   /* 02 이용 계획 */
   $('shSec2').innerHTML = `<div class="grp">주간보호</div>` +
+    (L.dows ? line('이용 요일', L.dows, '') : '') +
     line('일 이용 희망 시간', HOURTXT[L.hour], '') +
     line('월 희망 이용 일수', L.days, '일') +
     line('그중 공휴일', L.hdays, '일', 'ind');
@@ -589,12 +630,13 @@ function saveJpg(){
 }
 
 fillDays();
+renderDows();
 $('dtype').querySelectorAll('button').forEach(b=>b.onclick=()=>{
   dementia = b.dataset.v==='dementia';
   $('dtype').querySelectorAll('button').forEach(x=>x.classList.toggle('on', x===b));
   calc();
 });
-$('ym').onchange = ()=>{ const [Y,M]=$('ym').value.split('-').map(Number); fillHolidays(holidayCount(Y,M)); calc(); };
+$('ym').onchange = ()=>{ applyDows(); calc(); };
 $('days').onchange = ()=>{ fillHolidays(); calc(); };
 ['branch','grade','rate','hours','hdays','useLunch','useDinner','useBreak','useSnack']
   .forEach(id=>$(id).onchange=calc);
@@ -606,23 +648,15 @@ $('otheruse').querySelectorAll('button').forEach(b=>b.onclick=()=>{
   calc();
 });
 document.querySelectorAll('.otype').forEach(c=>c.onchange=()=>{ renderOtherInputs(); calc(); });
-$('sheetBtn').onclick = ()=>{ buildSheet(); document.body.dataset.view='sheet'; window.scrollTo(0,0); };
-$('sheetBack').onclick = ()=>{ document.body.dataset.view=''; window.scrollTo(0,0); };
+$('sheetBtn').onclick = ()=>{
+  buildSheet(); $('sheet').classList.add('on');
+  $('sheet').scrollIntoView({behavior:'smooth', block:'start'});
+};
+$('sheetBack').onclick = ()=>$('sheet').classList.remove('on');
 $('sheetPrint').onclick = ()=>window.print();
 $('sheetJpg').onclick = saveJpg;
-$('resetBtn').onclick = ()=>{
-  $('branch').value=''; $('who').value=''; $('grade').value='4'; $('rate').value='0.15';
-  $('hours').value='8'; $('days').value='22';
-  dementia=false; $('dtype').querySelectorAll('button').forEach((x,i)=>x.classList.toggle('on', i===0));
-  otherUse=false; $('otherBox').style.display='none';
-  document.querySelectorAll('.otype').forEach(c=>c.checked=false); renderOtherInputs();
-  $('otheruse').querySelectorAll('button').forEach((x,i)=>x.classList.toggle('on', i===0));
-  ['useLunch','useDinner','useSnack'].forEach(id=>$(id).checked=true);
-  $('useBreak').checked=false;
-  const [Y,M]=$('ym').value.split('-').map(Number); fillHolidays(holidayCount(Y,M));
-  calc();
-};
-(()=>{ const [Y,M]=$('ym').value.split('-').map(Number); fillHolidays(holidayCount(Y,M)); })();
+
+applyDows();
 calc();
 </script>
 </body></html>
