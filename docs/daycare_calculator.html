@@ -123,7 +123,29 @@
     .brand{margin-bottom:10px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
     .card,.btnbar,.brand,.foot{display:none}
     .sheet.on{display:block;margin:0}
-    .paper{border:0;padding:0;max-width:none}
+    /* ★한 장에 한 문서 — 계산서 1장 / 일정표 1장.
+       기본 여백·글자로는 계산서가 2쪽으로 넘어간다(실측: 3쪽) → 인쇄에서만 촘촘하게 줄인다. */
+    .paper{border:0;padding:0;max-width:none;break-inside:avoid;page-break-inside:avoid}
+    .paper .ttl{font-size:21px;padding:11px 16px 9px;border-radius:9px}
+    .paper .hello{margin:12px 0 8px;font-size:14px}
+    .paper .org{font-size:11.5px;line-height:1.6;margin-bottom:10px}
+    .sec{margin-top:8px}
+    .sec .lab{width:112px;padding:9px 10px;font-size:13px}
+    .sec .lab i{font-size:11.5px}
+    .sec .body{padding:9px 4px 9px 12px}
+    .line{font-size:12.5px;margin:1px 0}
+    .line.big .v{font-size:15px}
+    /* 주석이 길어지면(조식·타급여 4종) 한 장을 넘어간다 → 인쇄에서는 2단으로 눕힌다 */
+    .paper .memo{font-size:9.5px;margin-top:9px;line-height:1.55;columns:2;column-gap:16px}
+    .line{margin:0}
+    .sec .body{padding:7px 4px 7px 12px}
+    .sec .lab{padding:7px 10px}
+    table.cal td{height:52px;font-size:11px}
+    table.cal td .mk{font-size:10.5px;margin-top:3px}
+    .calsum{font-size:11.5px;margin-top:9px}
+    .remain .rrow{padding:7px 13px;font-size:12.5px}
+    .remain .rrow.left{padding:10px 13px}
+    .remain .rrow.left b{font-size:17px}
     .paper2{break-before:page;page-break-before:always;margin-top:0}
     table.cal th,table.cal td.use,table.cal td.off{-webkit-print-color-adjust:exact;print-color-adjust:exact}
     .paper .ttl,.sec .lab,.line.hl{-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -761,7 +783,22 @@ $('sheetBtn').onclick = ()=>{
   $('sheet').scrollIntoView({behavior:'smooth', block:'start'});
 };
 $('sheetBack').onclick = ()=>$('sheet').classList.remove('on');
-$('sheetPrint').onclick = ()=>window.print();
+/* ★인쇄는 '계산서 1장 + 일정표 1장'으로 고정한다.
+   내용이 길어지면(조식·타급여 4종 등) 한 장을 넘어가므로, 인쇄 직전에 실제 높이를 재서
+   A4 한 장 높이에 맞게 축소한다(0.72까지). 화면 배율은 건드리지 않는다. */
+const A4H = 1035;                       // A4(297mm) - 위아래 여백 12mm씩 ≈ 273mm ≈ 1035px
+function fitForPrint(on){
+  ['paper','paper2'].forEach(id=>{
+    const el = $(id); if(!el) return;
+    el.style.zoom = '';
+    if(!on) return;
+    const h = el.scrollHeight;
+    if(h > A4H) el.style.zoom = Math.max(0.72, A4H / h).toFixed(3);
+  });
+}
+addEventListener('beforeprint', ()=>fitForPrint(true));
+addEventListener('afterprint',  ()=>fitForPrint(false));
+$('sheetPrint').onclick = ()=>{ fitForPrint(true); window.print(); setTimeout(()=>fitForPrint(false), 800); };
 $('sheetJpg').onclick = saveJpg;
 
 applyDows();
