@@ -1476,7 +1476,13 @@ def main():
     if ym:
         y, m = map(int, ym.split("-"))
     else:
-        y, m = date.today().year, date.today().month
+        # ★월이 바뀌어도 10일 전까지는 **전월**을 본다 (사용자 확정 2026-08-01).
+        #   본인부담금 청구 전에 지적사항이 조치됐는지 확인해야 하는데, 1일에 당월로 넘어가면
+        #   1일치짜리 표가 되고 전월이 화면에서 사라진다(실제로 8/1 아침 실행이 7월을 덮었다).
+        #   10일부터 당월로 넘어간다.
+        t = date.today()
+        y, m = (t.year, t.month) if t.day >= 10 else ((t.year - 1, 12) if t.month == 1
+                                                      else (t.year, t.month - 1))
     py, pm = (y - 1, 12) if m == 1 else (y, m - 1)
 
     cfg = Config.load(config_path())
