@@ -87,6 +87,20 @@
   .line.hl{background:#fdeef1;border-radius:5px;padding:2px 4px}
   .line.big .v{font-size:17px;font-weight:800}
   .paper .memo{font-size:11.5px;color:#7a6a6e;margin-top:18px;line-height:1.85}
+  .paper2{margin-top:18px}
+  table.cal{width:100%;border-collapse:collapse;margin-top:16px;table-layout:fixed}
+  table.cal th{background:#fdeef1;color:#7a4a55;font-size:12.5px;font-weight:700;
+    border:1px solid #f0d7de;padding:7px 4px;text-align:center}
+  table.cal th.sun{color:#c0392b} table.cal th.sat{color:#2f6fb0}
+  table.cal td{border:1px solid #f0d7de;height:62px;vertical-align:top;padding:5px 6px;font-size:12px}
+  table.cal td .d{font-weight:700;color:#444}
+  table.cal td.sun .d{color:#c0392b} table.cal td.sat .d{color:#2f6fb0}
+  table.cal td.use{background:#fdf3f5}
+  table.cal td .mk{display:block;margin-top:5px;font-size:11px;font-weight:700;color:#b3556c}
+  table.cal td .hol{display:block;font-size:10.5px;color:#c0392b;margin-top:2px}
+  table.cal td.off{background:#fafafa}
+  .calsum{margin-top:12px;display:flex;gap:18px;flex-wrap:wrap;font-size:13px}
+  .calsum b{color:#b3556c}
   .sheet.on{display:block;margin-top:18px}
   @media print{
     @page{margin:12mm}
@@ -96,6 +110,8 @@
     .card,.btnbar,.brand,.foot{display:none}
     .sheet.on{display:block;margin:0}
     .paper{border:0;padding:0;max-width:none}
+    .paper2{break-before:page;page-break-before:always;margin-top:0}
+    table.cal th,table.cal td.use,table.cal td.off{-webkit-print-color-adjust:exact;print-color-adjust:exact}
     .paper .ttl,.sec .lab,.line.hl{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   }
 </style></head><body>
@@ -218,6 +234,15 @@
     <div class="sec"><div class="lab">03<i>비용 구성</i></div><div class="body" id="shSec3"></div></div>
     <div class="sec"><div class="lab">04<i>총 합계</i></div><div class="body" id="shSec4"></div></div>
     <div class="memo" id="shMemo"></div>
+  </div>
+
+  <!-- 둘째 장: 월간 서비스 일정표 -->
+  <div class="paper paper2" id="paper2">
+    <div class="ttl">서비스 일정표<span class="day" id="sh2Day"></span></div>
+    <div class="hello" style="margin-bottom:6px"><u id="sh2Name">&nbsp;&nbsp;&nbsp;</u><span id="sh2Org"></span></div>
+    <table class="cal" id="shCal"></table>
+    <div class="calsum" id="shCalSum"></div>
+    <div class="memo">* 실제 이용일은 출결·일정 변동에 따라 달라질 수 있습니다.</div>
   </div>
   <div class="btnbar">
     <button class="btn ghost" id="sheetBack">✕ 명세서 닫기</button>
@@ -531,7 +556,7 @@ function calc(){
   /* 명세서용 값 보관 — '명세서 생성하기'를 누르면 이 값으로 그린다 */
   last = {bName, bf, grade, rate, Y, M, hour, days, hdays, limit, base, bonus, otherAmt, room, otherParts: oth.parts,
           unit, gross, inLim, over, self, np, rows, notes,
-          who: ($('who').value || '').trim(), dows: usedDows()};
+          who: ($('who').value || '').trim(), dows: usedDows(), dowIdx: dowOn.slice()};
   if(wasOpen) buildSheet();   // 펼쳐 둔 채로 값을 고치면 명세서도 같이 따라 갱신된다
 }
 
@@ -600,6 +625,45 @@ function buildSheet(){
     L.rows.some(r=>r[0].includes('공휴일 제외')) ? '* 석식은 공휴일에 제공하지 않아 그만큼 빼고 계산했습니다.' : '',
     ...L.notes.map(t=>`* ${t}.`),
   ].filter(Boolean).join('<br>');
+
+  buildCal();
+}
+
+/* 둘째 장 — 그 달 달력에 이용일을 표시한다. 요일 선택(dowOn)과 공휴일을 그대로 반영. */
+function buildCal(){
+  const L = last; if(!L) return;
+  const org = ORG[L.bName] || {};
+  $('sh2Day').textContent = `${L.Y}년 ${L.M}월`;
+  $('sh2Name').textContent = L.who || '   ';
+  $('sh2Org').textContent = `어르신 · ${org.full || L.bName || ''}`;
+
+  const first = new Date(L.Y, L.M-1, 1).getDay(), lastD = new Date(L.Y, L.M, 0).getDate();
+  const cells = [];
+  for(let i=0;i<first;i++) cells.push('<td class="off"></td>');
+  let use=0, hol=0;
+  for(let d=1; d<=lastD; d++){
+    const dow = new Date(L.Y, L.M-1, d).getDay();
+    const key = `${L.Y}-${String(L.M).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const h = HOLIDAY[key], on = (L.dowIdx||[]).includes(dow);
+    if(on){ use++; if(h) hol++; }
+    const cls = [dow===0?'sun':dow===6?'sat':'', on?'use':''].filter(Boolean).join(' ');
+    cells.push(`<td class="${cls}"><span class="d">${d}</span>`
+      + (h?`<span class="hol">${h}</span>`:'')
+      + (on?`<span class="mk">이용 ${HOURTXT[L.hour]}</span>`:'')
+      + '</td>');
+  }
+  while(cells.length % 7) cells.push('<td class="off"></td>');
+  let rows='';
+  for(let i=0;i<cells.length;i+=7) rows += '<tr>' + cells.slice(i,i+7).join('') + '</tr>';
+  $('shCal').innerHTML =
+    '<thead><tr>' + ['일','월','화','수','목','금','토'].map((n,i)=>
+      `<th class="${i===0?'sun':i===6?'sat':''}">${n}</th>`).join('') + '</tr></thead><tbody>' + rows + '</tbody>';
+
+  $('shCalSum').innerHTML =
+    `<span>이용 요일 <b>${L.dows||'-'}</b></span>` +
+    `<span>월 이용 <b>${use}일</b></span>` +
+    `<span>그중 공휴일 <b>${hol}일</b></span>` +
+    (L.bf && $('useDinner').checked ? `<span>석식 제공 <b>${use-hol}일</b> (공휴일 제외)</span>` : '');
 }
 
 /* JPG 저장 — 아링과 같은 버튼. 라이브러리 없이 SVG foreignObject 로 캔버스에 그린다. */
