@@ -60,18 +60,33 @@
   .btn.ghost{background:#fff;color:var(--mut);border:1px solid var(--line);font-weight:600}
   .btnbar{display:flex;gap:8px;justify-content:center;margin-top:14px}
 
-  /* 📄 명세서 — 아링의 '명세서 생성하기'와 같은 자리 */
-  .sheet{display:none;background:#fff;border:1px solid var(--line);border-radius:12px;padding:26px 28px}
-  .sheet h3{font-size:19px;margin:0 0 3px;text-align:center}
-  .sheet .who{text-align:center;color:var(--mut);font-size:12.5px;margin-bottom:18px}
-  .sheet table{margin:0 0 14px}
-  .sheet table th{background:#f7f9fb;text-align:left;width:38%;font-weight:600;color:#374151}
-  .sheet .sum{display:flex;justify-content:space-between;align-items:center;
-    background:var(--ok-bg);border:1px solid #bfe3c9;border-radius:10px;padding:14px 18px;margin-top:6px}
-  .sheet .sum .l{font-weight:700}
-  .sheet .sum .v{font-size:24px;font-weight:800;color:var(--ok)}
-  .sheet .memo{font-size:11.5px;color:var(--mut);margin-top:14px;line-height:1.7;
-    border-top:1px dashed var(--line);padding-top:10px}
+  /* 📄 명세서 — 아링(aring.caring.co.kr/daycare-calculator)의 '비용 계산서' 양식을 그대로 맞췄다.
+     실측(2026-08-01): 분홍 제목띠 + 어르신 이름 + 기관정보 + 01어르신정보/02이용계획/03비용구성/04총합계
+     + 주석 4줄 + [JPG 저장][인쇄]. 회원님이 "출력물은 아링이처럼" 지시. */
+  .sheet{display:none}
+  .paper{background:#fffafb;border:1px solid #f3dde3;border-radius:14px;padding:26px 30px 30px;
+    max-width:820px;margin:0 auto}
+  .paper .ttl{background:#e8899d;color:#fff;font-size:26px;font-weight:800;text-align:center;
+    border-radius:12px;padding:16px 20px 12px;position:relative;letter-spacing:-.5px}
+  .paper .ttl .day{position:absolute;right:14px;bottom:6px;font-size:10.5px;font-weight:600;opacity:.9}
+  .paper .hello{margin:20px 0 12px;font-size:16px;font-weight:700}
+  .paper .hello u{text-decoration:none;border-bottom:1.5px solid #444;padding:0 16px;margin-right:6px}
+  .paper .hello span{color:#e8899d;font-weight:700}
+  .paper .org{font-size:13px;line-height:1.9;margin-bottom:16px}
+  .paper .org b{display:inline-block;width:74px;font-weight:700}
+  .sec{display:flex;border-top:1.5px solid #e8899d;margin-top:14px}
+  .sec .lab{background:#fdeef1;width:130px;flex:none;padding:14px 12px;font-weight:700;line-height:1.35}
+  .sec .lab i{display:block;font-style:normal;font-size:13px;color:#8a6b72;font-weight:600}
+  .sec .body{flex:1;padding:14px 6px 14px 16px}
+  .sec .grp{font-weight:700;margin-bottom:4px}
+  .line{display:flex;align-items:baseline;gap:8px;margin:3px 0;font-size:14px}
+  .line .k{flex:1;color:#333}
+  .line .v{min-width:118px;text-align:right;border-bottom:1px solid #d9c2c8;font-weight:600;padding-right:6px}
+  .line .u{width:24px;color:#555;font-size:13px}
+  .line.ind .k{padding-left:14px;color:#555}
+  .line.hl{background:#fdeef1;border-radius:5px;padding:2px 4px}
+  .line.big .v{font-size:17px;font-weight:800}
+  .paper .memo{font-size:11.5px;color:#7a6a6e;margin-top:18px;line-height:1.85}
   body[data-view="sheet"] .card,body[data-view="sheet"] .foot{display:none}
   body[data-view="sheet"] .sheet{display:block}
   @media print{
@@ -182,18 +197,22 @@
   <pre id="formula"></pre>
 </div>
 
-<!-- 명세서 화면 — 생성하기를 누르면 이 화면만 남고 나머지는 감춰진다 -->
+<!-- 명세서 화면 — 생성하기를 누르면 이 화면만 남고 나머지는 감춰진다 (아링 '비용 계산서' 양식) -->
 <div class="sheet" id="sheet">
-  <h3>주·야간보호 이용료 명세서</h3>
-  <div class="who" id="sheetWho"></div>
-  <table id="sheetInfo"></table>
-  <table id="sheetPay"></table>
-  <table id="sheetNon"></table>
-  <div class="sum"><span class="l">총 합계 (지급하셔야 하는 금액)</span><span class="v" id="sheetTot"></span></div>
-  <div class="memo" id="sheetMemo"></div>
+  <div class="paper" id="paper">
+    <div class="ttl">케어링 주간보호센터 비용 계산서<span class="day" id="shDay"></span></div>
+    <div class="hello"><u id="shName">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u><span>어르신, 사랑합니다 ♥</span></div>
+    <div class="org" id="shOrg"></div>
+    <div class="sec"><div class="lab">01<i>어르신 정보</i></div><div class="body" id="shSec1"></div></div>
+    <div class="sec"><div class="lab">02<i>이용 계획</i></div><div class="body" id="shSec2"></div></div>
+    <div class="sec"><div class="lab">03<i>비용 구성</i></div><div class="body" id="shSec3"></div></div>
+    <div class="sec"><div class="lab">04<i>총 합계</i></div><div class="body" id="shSec4"></div></div>
+    <div class="memo" id="shMemo"></div>
+  </div>
   <div class="btnbar">
     <button class="btn ghost" id="sheetBack">← 계산 화면으로</button>
-    <button class="btn" id="sheetPrint">🖨 인쇄 / PDF 저장</button>
+    <button class="btn" id="sheetJpg" style="background:#2e9e5b">🖼 JPG 저장</button>
+    <button class="btn" id="sheetPrint" style="background:#2f7fd4">🖨 인쇄</button>
   </div>
 </div>
 
@@ -236,6 +255,15 @@ const BRANCH_FEE = {
   '청주 오창점': {조식:1100, 중식:3300, 석식:3300, 간식:1000, 간식단위:'1일', 적용:'2026.01.01~2026.12.31'},
 };
 
+const ORG = {
+  '둔산점':      {full:'(주)케어링 주간보호센터 대전 둔산점',
+                  addr:'대전광역시 서구 문정로 17 2~4층 (둔산동)', tel:'042-488-9255'},
+  '서구점':      {full:'(주)케어링 주간보호센터 대전 서구점', addr:'', tel:''},   // 주소·전화 확인 필요
+  '천안점':      {full:'(주)케어링 주간보호센터 천안점',
+                  addr:'충청남도 천안시 서북구 양지10길 67 2,3층 (성정동)', tel:'041-572-7780'},
+  '청주 오창점': {full:'(주)케어링 주간보호센터 청주 오창점',
+                  addr:'충청북도 청주시 청원구 오창읍 모정4길 1-2 1,2층 (오창읍)', tel:'043-212-6578'},
+};
 const won = n => Math.round(n).toLocaleString('ko-KR') + '원';
 const $ = id => document.getElementById(id);
 let dementia = false, otherUse = false;
@@ -384,36 +412,88 @@ function calc(){
 let last = null;
 function buildSheet(){
   if(!last) return;
-  const L = last, tr = (k,v)=>`<tr><th>${k}</th><td style="text-align:right">${v}</td></tr>`;
+  const L = last, org = ORG[L.bName] || {};
   const now = new Date();
-  const stamp = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')}`;
+  const pad = x => String(x).padStart(2,'0');
+  const num = v => Math.round(v).toLocaleString('ko-KR');
+  const line = (k, v, unit, cls='') =>
+    `<div class="line ${cls}"><span class="k">${k}</span><span class="v">${v}</span><span class="u">${unit||''}</span></div>`;
 
-  $('sheetWho').textContent =
-    [L.bName || '센터 미선택', L.who ? `수급자 ${L.who}` : null, `산출일 ${stamp}`].filter(Boolean).join('  ·  ');
+  $('shDay').textContent = `상담일자 ${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+  $('shName').textContent = L.who || '      ';
+  $('shOrg').innerHTML =
+    `<div><b>기관명</b>${org.full || L.bName || '센터 미선택'}</div>` +
+    `<div><b>주소</b>${org.addr || '(확인 필요)'}</div>` +
+    `<div><b>전화번호</b>${org.tel || '(확인 필요)'}</div>`;
 
-  $('sheetInfo').innerHTML =
-    tr('등급 · 본인부담률', `${L.grade==='C'?'인지지원등급':L.grade+'등급'} · ${Math.round(L.rate*100)}%`) +
-    tr('기준 월', `${L.Y}년 ${L.M}월`) +
-    tr('이용 조건', `${HOURTXT[L.hour]} · 월 ${L.days}일 (공휴일 ${L.hdays}일)`);
+  /* 01 어르신 정보 */
+  $('shSec1').innerHTML =
+    line('장기요양등급', L.grade==='C' ? '인지지원' : L.grade, '등급') +
+    line('본인부담률', Math.round(L.rate*100), '%') +
+    line('기초수급여부', L.rate===0 ? 'O' : 'X', '') +
+    line('장기요양 월 급여액', num(L.limit), '원') +
+    (L.otherAmt ? line('타 급여 사용액', '-' + num(L.otherAmt), '원', 'ind') : '');
 
-  $('sheetPay').innerHTML =
-    tr('월 이용 한도액', won(L.limit) + (L.bonus?` <span style="color:#6b7280">(기본 ${won(L.base)} + 추가 ${won(L.limit-L.base)})</span>`:'')) +
-    (L.otherAmt ? tr('타 급여 사용액', `-${won(L.otherAmt)}  <span style="color:#6b7280">(주야간 남은 한도 ${won(L.room)})</span>`) : '') +
-    tr('월 급여비용', `${won(L.unit)} × ${L.days}일 = ${won(L.gross)}`) +
-    tr(`본인부담금 (한도 내 ${Math.round(L.rate*100)}%)`, won(L.inLim*L.rate)) +
-    tr('초과 이용 금액 (전액 본인부담)', won(L.over));
+  /* 02 이용 계획 */
+  $('shSec2').innerHTML = `<div class="grp">주간보호</div>` +
+    line('일 이용 희망 시간', HOURTXT[L.hour], '') +
+    line('월 희망 이용 일수', L.days, '일') +
+    line('그중 공휴일', L.hdays, '일', 'ind');
 
-  $('sheetNon').innerHTML = L.rows.length
-    ? L.rows.map(r=>tr(`비급여 — ${r[0]}`, `${r[1]} = ${r[2]}`)).join('') + tr('비급여 이용료 합계', won(L.np))
-    : tr('비급여 이용료', '센터 미선택 — 계산 제외');
+  /* 03 비용 구성 — 아링과 같은 순서(급여서비스 이용료 → 본인부담금 → 공단부담금 → 초과 → 비급여) */
+  const gongdan = L.inLim - L.inLim*L.rate;      // 한도 내 급여비용 중 공단이 내는 몫
+  $('shSec3').innerHTML = `<div class="grp">주간보호</div>` +
+    line('급여서비스 이용료', num(L.gross), '원', 'hl') +
+    line('본인부담금', num(L.inLim*L.rate), '원', 'ind') +
+    line('공단부담금', num(gongdan), '원', 'ind') +
+    line('초과이용금액', num(L.over), '원', 'ind') +
+    line('비급여 이용료', num(L.np), '원', 'hl') +
+    L.rows.map(r=>line(r[0], r[2].replace('원',''), '원', 'ind')).join('');
 
-  $('sheetTot').textContent = won(L.self + L.np);
-  $('sheetMemo').innerHTML =
-    `· 급여비용은 2026년 장기요양 급여비용 고시, 비급여(식사·간식)는 ${L.bName||'센터'} 실제 등록 단가 기준입니다.<br>` +
-    (L.rows.some(r=>r[0].includes('공휴일 제외'))
-      ? '· 석식은 공휴일에 제공하지 않아 그만큼 빼고 계산했습니다.<br>' : '') +
-    L.notes.map(t=>`· ${t}<br>`).join('') +
-    '· 실제 청구액은 출결·일정 변동에 따라 달라질 수 있습니다.';
+  /* 04 총 합계 */
+  $('shSec4').innerHTML =
+    line('공단부담금', num(gongdan), '원') +
+    line('지급하셔야 하는 금액', num(L.self + L.np), '원', 'big') +
+    line('요양 본인부담금', num(L.inLim*L.rate), '원', 'ind') +
+    line('초과 이용 금액', num(L.over), '원', 'ind') +
+    line('비급여 이용료(식사재료비, 간식비)', num(L.np), '원', 'ind');
+
+  /* 주석 — 아링 문구 + 우리 지점 특이사항 */
+  $('shMemo').innerHTML = [
+    "* '주간보호 이용 가능 금액'은 이용하고 계신 타 급여에 따라 달라지게 됩니다.",
+    '* 본 명세서는 상담 내용을 바탕으로 작성되었으며, 법적 효력을 가지지 않습니다.',
+    '* 타 급여 수령 여부나 사용 형태에 따라 금액이 달라질 수 있습니다.',
+    '* 해당 명세서는 타 기관과 공유하지 말아주시길 바랍니다.',
+    L.rows.some(r=>r[0].includes('공휴일 제외')) ? '* 석식은 공휴일에 제공하지 않아 그만큼 빼고 계산했습니다.' : '',
+    ...L.notes.map(t=>`* ${t}.`),
+  ].filter(Boolean).join('<br>');
+}
+
+/* JPG 저장 — 아링과 같은 버튼. 라이브러리 없이 SVG foreignObject 로 캔버스에 그린다. */
+function saveJpg(){
+  const el = $('paper'), w = el.offsetWidth, h = el.offsetHeight, scale = 2;
+  const html = new XMLSerializer().serializeToString(el);
+  const css = [...document.styleSheets].map(ss=>{
+    try{ return [...ss.cssRules].map(r=>r.cssText).join(' '); }catch(e){ return ''; }
+  }).join(' ');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">
+    <foreignObject width="100%" height="100%">
+      <div xmlns="http://www.w3.org/1999/xhtml">
+        <style>${css}</style>${html}
+      </div></foreignObject></svg>`;
+  const img = new Image();
+  img.onload = ()=>{
+    const c = document.createElement('canvas');
+    c.width = w*scale; c.height = h*scale;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0,0,c.width,c.height);
+    ctx.scale(scale, scale); ctx.drawImage(img, 0, 0);
+    const a = document.createElement('a');
+    a.download = `비용계산서_${(last&&last.bName)||'센터'}_${(last&&last.who)||''}.jpg`.replace(/__+/g,'_');
+    a.href = c.toDataURL('image/jpeg', 0.95); a.click();
+  };
+  img.onerror = ()=>alert('JPG 저장이 안 되면 [인쇄]에서 PDF로 저장해 주세요.');
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
 }
 
 fillDays();
@@ -441,6 +521,7 @@ $('otherAmt').oninput = e=>{                       // 천 단위 콤마를 넣�
 $('sheetBtn').onclick = ()=>{ buildSheet(); document.body.dataset.view='sheet'; window.scrollTo(0,0); };
 $('sheetBack').onclick = ()=>{ document.body.dataset.view=''; window.scrollTo(0,0); };
 $('sheetPrint').onclick = ()=>window.print();
+$('sheetJpg').onclick = saveJpg;
 $('resetBtn').onclick = ()=>{
   $('branch').value=''; $('who').value=''; $('grade').value='4'; $('rate').value='0.15';
   $('hours').value='8'; $('days').value='22';
