@@ -39,7 +39,8 @@ from audit.deploy_hub import (CODE, MANIFEST, SCRIPT_ID, DEPLOY_ID, build_html, 
 # ★송영 코스(songyeong_*)도 마찬가지다 — 원본이 클로드코드/송영코스/ 라 CI 러너에는 없다.
 #   SONGYEONG_KEY 에서 끌어와 지점이 늘어도 자동으로 보존된다.
 # ★본인부담금 미납(nonpay)도 원본이 저장소 밖(클로드코드/미납관리/)이다 — 여기 없으면 CI 재배포마다 사라진다.
-PRESERVE = ("revenue", "carcost", "runbook", "sysmap", "workreport", "nonpay",
+# ★주간보호 대시보드(daycare)도 원본이 저장소 밖(클로드코드/주간보호대시보드/)이다.
+PRESERVE = ("revenue", "carcost", "runbook", "sysmap", "workreport", "nonpay", "daycare",
             "dunsan", "cheonan", "cheongju", "djhome") + tuple(SONGYEONG_KEY.values())
 
 
@@ -91,6 +92,8 @@ def main():
     #   경로가 고정이라 인자를 받지 않고 deploy_hub.page_html 을 쓴다 — 그쪽에 마스킹 검사 게이트가 있다.
     #   CI 에는 원본이 없으니 CI 에서는 이 플래그를 쓰지 않는다(안 주면 종전대로 보존).
     want_nonpay = "--nonpay" in sys.argv
+    # --daycare: 로컬 '주간보호_대시보드.html' 로 갱신(로컬 실행용). CI 러너엔 원본이 없다.
+    want_daycare = "--daycare" in sys.argv
 
     at = token_ci()
     base = f"https://script.googleapis.com/v1/projects/{SCRIPT_ID}"
@@ -123,6 +126,11 @@ def main():
         keep["nonpay"] = {"name": "nonpay", "type": "HTML", "source": _page_html("nonpay")}
         print(f"  갱신: nonpay ← 로컬 미납관리 허브본 ({len(keep['nonpay']['source'])}자, 이름 마스킹 확인)")
 
+    if want_daycare:
+        from audit.deploy_hub import page_html as _page_html
+        keep["daycare"] = {"name": "daycare", "type": "HTML", "source": _page_html("daycare")}
+        print(f"  갱신: daycare ← 로컬 주간보호 대시보드 ({len(keep['daycare']['source'])}자)")
+
     _updated = {"revenue"} if src_revenue else set()
     if src_workreport:
         _updated.add("workreport")
@@ -130,6 +138,8 @@ def main():
         _updated.add("carcost")
     if want_nonpay:
         _updated.add("nonpay")
+    if want_daycare:
+        _updated.add("daycare")
     for n in PRESERVE:
         if n in keep and n not in _updated:
             print(f"  보존: {n} ({len(keep[n].get('source',''))}자)")

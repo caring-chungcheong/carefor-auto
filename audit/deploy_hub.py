@@ -60,6 +60,7 @@ function doGet(e) {
   //    (2026-07-29: 송영 코스를 올려 놓고 이 목록에 안 넣어 '아예 안 열린다' 는 신고를 받았다)
   var map = { revenue: '매출 점검', carcost: '차량 월별 수리비', runbook: '케어포 운영 런북', sysmap: '시스템 점검 지도',
               workreport: '근무일지 점검', nonpay: '본인부담금 미납 관리',
+              daycare: '주간보호 대시보드',
               dunsan: '둔산점 홍보 리포트', cheonan: '천안점 홍보 리포트', cheongju: '청주 오창점 홍보 리포트',
               djhome: '대전 방문요양 홍보 리포트',
               songyeong_dunsan: '송영 코스 · 둔산점', songyeong_seogu: '송영 코스 · 서구점',
@@ -358,6 +359,9 @@ PAGE_SRC = {
     # 본인부담금 미납 관리(케어포 7-3) — 수급자 이름은 **생성 단계에서 이미 마스킹**된 허브본을 쓴다
     # (nonpay_check.py 가 로컬본=실명 / 허브본=마스킹 두 벌을 만든다). 로컬 실명본은 절대 올리지 않는다.
     "nonpay": CC / "미납관리" / "미납관리_합본_허브.html",
+    # 주간보호 대시보드 — 4지점 운영 지표 한 장. **이름을 가리지 않는다**(회원님 확정 2026-08-01)
+    # → 공개 Pages 금지, caring.co.kr 도메인 로그인이 걸린 이 허브로만 서빙한다.
+    "daycare": CC / "주간보호대시보드" / "주간보호_대시보드.html",
     # 운영 런북 — 공개 저장소에서 뺀 SKILL.md 내용(케어포 로그인·시트/채널 ID·사고 이력)을
     # 본부에만 도메인 제한으로 서빙한다. 원본은 Pages 밖 클로드코드/ 폴더.
     "runbook": CC / "케어포_운영런북.html",
@@ -537,7 +541,7 @@ def _inject_logging(s: str, kind: str) -> str:
     label = {
         "revenue": "매출 점검", "carcost": "차량 월별 수리비", "runbook": "케어포 운영 런북",
         "sysmap": "시스템 점검 지도", "workreport": "근무일지 점검",
-        "nonpay": "본인부담금 미납 관리",
+        "nonpay": "본인부담금 미납 관리", "daycare": "주간보호 대시보드",
         "dunsan": "둔산점 홍보 리포트", "cheonan": "천안점 홍보 리포트",
         "cheongju": "청주 오창점 홍보 리포트", "djhome": "대전 방문요양 홍보 리포트",
         "songyeong_dunsan": "송영 코스 · 둔산점", "songyeong_seogu": "송영 코스 · 서구점",
@@ -626,6 +630,7 @@ def main():
                 {"name": "hub", "type": "HTML", "source": build_html()},
                 {"name": "revenue", "type": "HTML", "source": page_html("revenue")},
                 {"name": "nonpay", "type": "HTML", "source": page_html("nonpay")},
+                {"name": "daycare", "type": "HTML", "source": page_html("daycare")},
                 {"name": "workreport", "type": "HTML", "source": page_html("workreport")},
                 {"name": "carcost", "type": "HTML", "source": page_html("carcost")},
                 {"name": "runbook", "type": "HTML", "source": page_html("runbook")},
