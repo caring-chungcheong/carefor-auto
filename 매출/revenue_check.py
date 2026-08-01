@@ -1442,6 +1442,68 @@ def finalize_branch(b, y, m, py, pm, data, hist_dir, progress=print):
     (hist_dir / f"{key}_{y}{m:02d}_totals.json").write_text(
         json.dumps(totals, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    # 7-1 은 '실행일의 전월' 청구월 화면이다 → 그 달의 청구 발행 여부로 기록(기준월과 무관).
+    _np = data.get("nonpay") or {}
+    billed_flag = bool(billed_prev) or bool(_np.get("부담금합계"))
+    _py, _pm = _prev_ym(date.today())
+    record_billing(hist_dir, f"{_py}-{_pm:02d}", b.name, billed_flag, progress)
+
+
+# ── 기준월 결정: 청구 발행 여부로 전환 ────────────────────────────────────
+# 케어포 7-1 은 '청구월 = 실행일의 전월' 화면이다. 청구가 생성되기 전에는 수급자 명단은 뜨지만
+# 합계가 '총 0 건'이라 금액이 0으로 잡힌다(2026-08-01 실측: 4지점 전부 0건 = 아직 청구 전).
+# → 그 0/양수를 지점별로 기록해 두고, **4지점이 모두 청구되면 다음 실행부터 당월**로 넘어간다.
+#   (판정은 수집하면서 알게 되므로 전환은 하루 늦다 — 기준월을 미리 정하려고 로그인을 한 번 더
+#    하지 않기 위한 의도된 선택이다.)
+# ★HARD_SWITCH_DAY: 어느 지점이 청구를 계속 안 하거나 감지가 빗나가도 영영 안 넘어가지 않게 하는 상한.
+HARD_SWITCH_DAY = 15
+
+
+def _prev_ym(t: date) -> tuple[int, int]:
+    return (t.year - 1, 12) if t.month == 1 else (t.year, t.month - 1)
+
+
+def _billing_state_file(hist_dir):
+    return hist_dir / "billing_state.json"
+
+
+def load_billing_state(hist_dir) -> dict:
+    f = _billing_state_file(hist_dir)
+    if not f.exists():
+        return {}
+    try:
+        return json.loads(f.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def record_billing(hist_dir, ym_key: str, branch: str, billed: bool, progress=print) -> None:
+    """그 지점의 <ym_key> 청구 발행 여부를 기록한다."""
+    st = load_billing_state(hist_dir)
+    st.setdefault(ym_key, {})[branch] = bool(billed)
+    st[ym_key]["_확인일"] = date.today().isoformat()
+    _billing_state_file(hist_dir).write_text(
+        json.dumps(st, ensure_ascii=False, indent=1), encoding="utf-8")
+    progress(f"  청구 발행({ym_key}) {branch}: {'발행됨' if billed else '아직 전'}")
+
+
+def decide_target_month(today: date, branches, hist_dir, progress=print) -> tuple[int, int]:
+    """인자 없이 실행할 때의 기준월. 전월 청구가 4지점 전부 끝났으면 당월, 아니면 전월."""
+    py, pm = _prev_ym(today)
+    key = f"{py}-{pm:02d}"
+    st = load_billing_state(hist_dir).get(key, {})
+    done = [b.name for b in branches if st.get(b.name)]
+    todo = [b.name for b in branches if not st.get(b.name)]
+    if branches and not todo:
+        progress(f"  기준월: {today.year}-{today.month:02d} (당월) — {key} 청구가 전 지점 완료")
+        return today.year, today.month
+    if today.day >= HARD_SWITCH_DAY:
+        progress(f"  기준월: {today.year}-{today.month:02d} (당월) — {HARD_SWITCH_DAY}일 상한 도달"
+                 f" · 미확인 지점 {todo}")
+        return today.year, today.month
+    progress(f"  기준월: {key} (전월) — 청구 완료 {done or '없음'} · 대기 {todo}")
+    return py, pm
+
 
 def _save_raw(key, y, m, data, hist_dir):
     """재스크래핑 없이 재생성(제외 변경 등)할 수 있게 원자료 durable 저장."""
@@ -1473,24 +1535,22 @@ def main():
     argv = [a for a in sys.argv[1:]]
     branch_filter = argv[0] if argv and not re.match(r"\d{4}-\d{2}", argv[0]) else ""
     ym = next((a for a in argv if re.match(r"\d{4}-\d{2}", a)), None)
-    if ym:
-        y, m = map(int, ym.split("-"))
-    else:
-        # ★월이 바뀌어도 10일 전까지는 **전월**을 본다 (사용자 확정 2026-08-01).
-        #   본인부담금 청구 전에 지적사항이 조치됐는지 확인해야 하는데, 1일에 당월로 넘어가면
-        #   1일치짜리 표가 되고 전월이 화면에서 사라진다(실제로 8/1 아침 실행이 7월을 덮었다).
-        #   10일부터 당월로 넘어간다.
-        t = date.today()
-        y, m = (t.year, t.month) if t.day >= 10 else ((t.year - 1, 12) if t.month == 1
-                                                      else (t.year, t.month - 1))
-    py, pm = (y - 1, 12) if m == 1 else (y, m - 1)
 
     cfg = Config.load(config_path())
-
     branches_all = cfg.branches
     hist_dir = app_data_dir() / "revenue_history"
     hist_dir.mkdir(parents=True, exist_ok=True)
     pr = lambda s: print(s, flush=True)
+
+    # ★기준월: 인자를 주면 그 달, 없으면 **청구 발행 여부**로 정한다 (사용자 확정 2026-08-01).
+    #   본인부담금 청구 전에 지적사항이 조치됐는지 확인해야 하므로, 전월 청구가 끝나기 전에는
+    #   전월을 유지한다. 1일에 당월로 넘어가면 1일치짜리 표가 되고 전월이 화면에서 사라진다
+    #   (실제로 8/1 아침 실행이 7월을 덮었다). 지점마다 청구일이 달라 **4지점 전부** 끝나야 넘어간다.
+    if ym:
+        y, m = map(int, ym.split("-"))
+    else:
+        y, m = decide_target_month(date.today(), branches_all, hist_dir, pr)
+    py, pm = (y - 1, 12) if m == 1 else (y, m - 1)
 
     # 합본 전용 모드: 케어포 접속 없이 이미 만들어진 지점 HTML만 합친다.
     if branch_filter in ("combine", "합본", "merge"):
