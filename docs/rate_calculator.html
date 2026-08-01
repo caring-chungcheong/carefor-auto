@@ -220,6 +220,19 @@
       <option value="0">0% (감경 100%) · 기초수급</option>
     </select></div>
     <div><label>기준 월</label><input type="month" id="ym" value="2026-08"></div>
+    <div><label>지점 (비급여 단가)</label><select id="branch">
+      <option value="">선택 안 함 (비급여 계산 제외)</option>
+      <option value="둔산점">둔산점</option>
+      <option value="서구점">서구점</option>
+      <option value="천안점">천안점</option>
+      <option value="청주 오창점">청주 오창점</option>
+    </select></div>
+    <div><label>비급여 식사</label>
+      <label style="display:inline-flex;align-items:center;gap:5px;font-size:14px;color:var(--ink);cursor:pointer">
+        <input type="checkbox" id="useDinner" checked> 석식</label>
+      <label style="display:inline-flex;align-items:center;gap:5px;font-size:14px;color:var(--ink);cursor:pointer;margin-left:8px">
+        <input type="checkbox" id="useBreak"> 조식</label>
+      <div style="font-size:11.5px;color:var(--mut)">공휴일은 석식 제외</div></div>
     <div><label>주·야간보호 유형</label><div class="toggle" id="dtype">
       <button data-t="normal" class="on">일반</button>
       <button data-t="dementia">치매전담실</button>
@@ -365,6 +378,20 @@ const HOLIDAY = {
   '2026-08-15':'광복절','2026-08-17':'광복절 대체','2026-09-24':'추석연휴',
   '2026-09-25':'추석','2026-09-26':'추석연휴','2026-10-03':'개천절',
   '2026-10-05':'개천절 대체','2026-10-09':'한글날','2026-12-25':'성탄절',
+};
+/* ── 지점별 비급여 단가 (케어포 9-2 요양급여 수가설정 실측, 2026-07-29 수집) ──
+   ★지점마다 금액도, 간식 단위도 다르다 — 둔산·서구는 간식이 '1식', 천안·청주는 '1일' 기준.
+     천안은 케어포 9-2 에 식사 금액이 비어 있어(공단 게시도 '점심식사'로 문구만) 확인 필요.
+   출처: audit_results/비급여_3자대조.json (audit.nonpay_audit) */
+const BRANCH_FEE = {
+  '둔산점':      {조식:550,  중식:3800, 석식:3800, 간식:550,  간식단위:'1식', 적용:'2025.07.01~2027.12.31'},
+  '서구점':      {조식:550,  중식:4000, 석식:4000, 간식:550,  간식단위:'1식', 적용:'2026.01.01~'},
+  // ★천안점은 식사가 '1끼 4,000원'(중·석식 두 끼면 8,000원)이고, 간식 1,300원에 **조식이 포함**된다
+  //   (회원님 확인 2026-07-30). 케어포 9-2 에는 금액이 비어 있어 여기 직접 넣었다.
+  '천안점':      {조식:null, 중식:4000, 석식:4000, 간식:1300, 간식단위:'1일',
+                  간식라벨:'간식 + 조식', 조식메모:'조식은 간식비(1일 1,300원)에 포함됩니다',
+                  적용:'2026.01.01~2026.12.31'},
+  '청주 오창점': {조식:1100, 중식:3300, 석식:3300, 간식:1000, 간식단위:'1일', 적용:'2026.01.01~2026.12.31'},
 };
 const DAYNM = ['일','월','화','수','목','금','토'];
 const won = n => Math.round(n).toLocaleString('ko-KR')+'원';
@@ -586,11 +613,16 @@ function calc(){
 
   /* ④ 월 집계 */
   let used=0, over=0, self=0, gross=0, sevMonth=0, rows='';
+  let dayCnt=0, dayCntNoHol=0;              // 주·야간보호 이용일수(전체 / 공휴일 제외) — 비급여용
   const dayTotals={};                       // 요일별 초과금 집계
   for(let d=1; d<=last; d++){
     const dt=new Date(Y,M-1,d), dow=dt.getDay();
     const key=`${Y}-${String(M).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const hol=HOLIDAY[key];
+    // 비급여(식사·간식)는 주·야간보호를 실제 이용한 날에만 붙는다
+    if(scheds.some(s=>s.svc==='day' && s.days.includes(dow) && span(s).min>0)){
+      dayCnt++; if(!hol) dayCntNoHol++;
+    }
     let fee=0, sevSum=0, parts=[];
     scheds.forEach(s=>{
       if(!s.days.includes(dow)) return;
@@ -621,6 +653,40 @@ function calc(){
     `<thead><tr><th class="l">날짜</th><th class="l">내역</th><th>급여비용</th>
       <th>한도내</th><th>초과금</th><th>본인부담</th><th>한도잔액</th></tr></thead><tbody>${rows}</tbody>`;
 
+  /* ④-2 비급여(식사·간식) — 지점을 고르면 그 지점 단가가 자동 적용된다.
+     ★식사·간식은 주·야간보호를 실제 이용한 날에만 붙는다. 석식은 공휴일에 제공하지 않으므로
+       공휴일을 뺀 일수로 센다(회원님 확인 2026-07-30). 조식은 기본 미포함(선택). */
+  const bName = document.getElementById('branch').value;
+  const bf = BRANCH_FEE[bName];
+  const nonpay = {sum:0, html:''};
+  if(bf && dayCnt>0){
+    const lines=[], miss=[];
+    const add=(label, cnt, unit)=>{
+      if(unit==null){ miss.push(label); return; }
+      const amt = cnt*unit; nonpay.sum += amt;
+      lines.push(`<div><span class="k">${label}</span><b>${won(amt)}</b>
+        <span class="k">${cnt}일 × ${won(unit)}</span></div>`);
+    };
+    const notes=[];
+    add('중식', dayCnt, bf.중식);
+    if(document.getElementById('useDinner').checked) add('석식 (공휴일 제외)', dayCntNoHol, bf.석식);
+    if(document.getElementById('useBreak').checked){
+      // 천안처럼 조식이 간식비에 포함된 지점은 따로 받지 않는다 — 경고가 아니라 안내로 표시
+      if(bf.조식==null && bf.조식메모) notes.push(bf.조식메모);
+      else add('조식', dayCnt, bf.조식);
+    }
+    add(`${bf.간식라벨||'간식'} (${bf.간식단위} 기준)`, dayCnt, bf.간식);
+    nonpay.html = `
+      <div style="grid-column:1/-1;border-top:1px solid var(--line);margin-top:6px;padding-top:8px">
+        <span class="k">비급여 — ${bName} · 적용 ${bf.적용} · 이용 ${dayCnt}일(공휴일 ${dayCnt-dayCntNoHol}일)</span></div>
+      ${lines.join('')}
+      ${notes.map(n=>`<div style="grid-column:1/-1"><span class="k">ℹ ${n}</span></div>`).join('')}
+      ${miss.length?`<div style="grid-column:1/-1"><span class="k" style="color:var(--over)">
+        ⚠ ${miss.join('·')} 단가가 케어포 9-2 에 없습니다 — 확인 필요</span></div>`:''}
+      <div class="big"><span class="k">비급여 합계</span><b>${won(nonpay.sum)}</b></div>
+      <div class="big"><span class="k">총 부담액 (본인부담 + 비급여)</span><b>${won(self + nonpay.sum)}</b></div>`;
+  }
+
   document.getElementById('totals').innerHTML = `
     <div><span class="k">월 총 급여비용</span><b>${won(gross)}</b></div>
     <div><span class="k">한도 내 사용</span><b>${won(used)}</b>
@@ -630,7 +696,8 @@ function calc(){
       <span class="k">한도내 ${Math.round(rate*100)}% + 초과분 100%</span></div>
     ${sevMonth>0?`
     <div><span class="k">월 중증가산 합계</span><b>${won(sevMonth)}</b>
-      <span class="k">1·2등급 방문요양 (급여비용 포함)</span></div>`:''}`;
+      <span class="k">1·2등급 방문요양 (급여비용 포함)</span></div>`:''}
+    ${nonpay.html}`;
 
   /* ⑤ 계산식 */
   const f=[];
@@ -706,7 +773,7 @@ function calc(){
 
 document.getElementById('addBtn').onclick=()=>{
   scheds.push({svc:'visit',days:[],from:'09:00',to:'12:00'}); renderScheds(); calc(); };
-['grade','rate','ym'].forEach(id=>document.getElementById(id).onchange=calc);
+['grade','rate','ym','branch','useDinner','useBreak'].forEach(id=>document.getElementById(id).onchange=calc);
 document.getElementById('cap8').oninput = calc;
 document.getElementById('who').oninput = calc;
 document.getElementById('useSevere').onchange = calc;
