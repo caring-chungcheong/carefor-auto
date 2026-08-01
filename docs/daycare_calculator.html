@@ -1,376 +1,161 @@
-<meta charset="utf-8">
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>주·야간보호 이용료 계산기 (지점별·2026)</title>
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
-
-<meta name="theme-color" content="#52909c">
-<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="theme-color" content="#3a6f78">
 <style>
-  :root{
-    --bg:#f6f7f9; --card:#fff; --line:#e3e6ea; --ink:#1c2024; --mut:#6b7280;
-    --accent:#3a6f78; --accent-soft:#eef5f7; --warn:#b45309; --warn-bg:#fef6e7;
-    --over:#c0392b; --over-bg:#fdeceb; --ok:#166534; --ok-bg:#e9f6ec;
-  }
+  :root{--bg:#f6f7f9;--card:#fff;--line:#e3e6ea;--ink:#1c2024;--mut:#6b7280;
+    --accent:#3a6f78;--soft:#eef5f7;--over:#c0392b;--over-bg:#fdeceb;--ok:#166534;--ok-bg:#e9f6ec;
+    --warn:#b45309;--warn-bg:#fef6e7}
   *{box-sizing:border-box}
-  body{margin:0;background:linear-gradient(180deg, #fbf1f4 0%, #f8f5f7 220px, #f7f9fb 560px) no-repeat, #f6f7f9;color:var(--ink);
-    font:15px/1.6 'Pretendard Variable',Pretendard,-apple-system,"Segoe UI","Malgun Gothic",sans-serif}
-  .wrap{max-width:1080px;margin:0 auto;padding:24px 16px 80px}
-  h1{font-size:22px;margin:0 0 4px}
-  .sub{color:var(--mut);font-size:13px;margin-bottom:20px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
-    padding:16px 18px;margin-bottom:16px}
-  .card h2{font-size:15px;margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line)}
-  label{font-size:13px;color:var(--mut);display:block;margin-bottom:4px}
-  select,input[type=text],input[type=time],input[type=month]{
-    font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#fff}
-  .row{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end}
-  .row>div{min-width:120px}
-
-  /* 서비스 토글 */
-  .toggle{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
-  .toggle button{font:inherit;border:0;background:#fff;padding:6px 14px;cursor:pointer;color:var(--mut)}
-  .toggle button.on{background:var(--accent);color:#fff;font-weight:600}
-  .toggle button+button{border-left:1px solid var(--line)}
-
-  /* 요일 칩 */
-  .days{display:flex;gap:4px}
-  .days button{font:inherit;font-size:13px;width:32px;height:32px;border-radius:16px;
-    border:1px solid var(--line);background:#fff;color:var(--mut);cursor:pointer;padding:0}
-  .days button.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
-  .days button.sun.on{background:var(--over);border-color:var(--over)}
-  .days button.sat.on{background:#0f766e;border-color:#0f766e}
-
-  .sched{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:10px;background:#fbfcfd}
-  .sched .top{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
-  .del{margin-left:auto;background:none;border:0;color:var(--mut);cursor:pointer;font-size:18px;line-height:1}
-  .add{font:inherit;padding:7px 14px;border:1px dashed var(--accent);color:var(--accent);
-    background:#fff;border-radius:8px;cursor:pointer;width:100%}
-
-  table{width:100%;border-collapse:collapse;font-size:13.5px}
-  th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
-  th:first-child,td:first-child,th.l,td.l{text-align:left}
-  thead th{background:#f2f4f7;font-weight:600;color:#374151;font-size:12.5px}
-  .scroll{overflow-x:auto}
-  tr.over td{background:var(--over-bg)}
-  tr.part td{background:var(--warn-bg)}
-
-  .tot{display:flex;flex-wrap:wrap;gap:10px;margin-top:4px}
-  .tot div{flex:1;min-width:150px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:#fbfcfd}
-  .tot b{display:block;font-size:19px;margin-top:2px}
-  .tot .k{font-size:12px;color:var(--mut)}
-  .tot .big{background:var(--over-bg);border-color:#f3c9c4}
-  .tot .big b{color:var(--over)}
-
-  .note{font-size:12.5px;color:var(--mut);margin-top:10px}
-  .warn{background:var(--warn-bg);border:1px solid #f0d9a8;color:var(--warn);
-    padding:9px 12px;border-radius:7px;font-size:13px;margin:8px 0}
-  .badge{display:inline-block;font-size:11.5px;padding:1px 7px;border-radius:10px;
-    background:var(--accent-soft);color:var(--accent);margin-left:4px}
-  .badge.g{background:var(--over-bg);color:var(--over)}
-  pre{background:#1c2024;color:#e6e8ea;padding:14px;border-radius:8px;overflow-x:auto;
-    font:12.5px/1.7 Consolas,monospace;white-space:pre-wrap}
-  .copy{font:inherit;font-size:13px;padding:5px 12px;border:1px solid var(--line);
-    background:#fff;border-radius:6px;cursor:pointer;float:right}
-  .print{font:inherit;font-size:13.5px;padding:7px 16px;border:0;background:var(--accent);
-    color:#fff;border-radius:7px;cursor:pointer;font-weight:600}
-  .printhead{display:none}
-  .popts{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;
-    background:#fbfcfd;border:1px solid var(--line);border-radius:8px;padding:9px 12px;margin-bottom:16px}
-  .popts b{font-size:13px;margin-right:4px}
-  .popts label{display:inline-flex;align-items:center;gap:4px;margin:0;
-    font-size:13px;color:var(--ink);cursor:pointer}
-  .popts input{margin:0}
-
-  /* 케어링 본사 브랜드 */
-  .brand{display:flex;align-items:center;gap:12px;
-    background:#fff8fa;color:#020617;
-    border-bottom:1px solid #f5e1e7;box-shadow:0 2px 12px rgba(244,63,94,0.05);padding:16px 20px;margin-bottom:18px}
-  .brand .logo{display:flex;align-items:center;gap:9px;font-weight:800;
-    font-size:22px;letter-spacing:-.5px;color:#3a6f78}
-  .brand .logo .heart{width:26px;height:26px;flex:none}
+  body{margin:0;background:linear-gradient(180deg,#fbf1f4 0%,#f8f5f7 220px,#f7f9fb 560px) no-repeat,var(--bg);
+    color:var(--ink);font:15px/1.6 'Pretendard Variable',Pretendard,-apple-system,"Malgun Gothic",sans-serif}
+  .brand{display:flex;align-items:center;gap:12px;background:#fff8fa;border-bottom:1px solid #f5e1e7;
+    padding:16px 20px;margin-bottom:18px}
+  .brand .logo{font-weight:800;font-size:21px;color:var(--accent);letter-spacing:-.5px}
   .brand .txt{border-left:1px solid #e6eef0;padding-left:12px;line-height:1.35}
   .brand .txt .t{font-size:14.5px;font-weight:600}
   .brand .txt .s{font-size:12px;color:#64748b}
-  .brand .prov{margin-left:auto;text-align:right;font-size:11.5px;color:#64748b;line-height:1.4}
-  .foot{text-align:center;color:var(--mut);font-size:12px;margin-top:24px;
-    padding-top:14px;border-top:1px solid var(--line)}
-  .foot b{color:#3a6f78}
-  .limtag{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;
-    border-radius:10px;vertical-align:middle;margin-left:4px;
-    background:#eef1f5;color:var(--mut)}
-  .limtag.inc{background:var(--ok-bg);color:var(--ok)}
-  .limsub{font-size:11.5px;color:var(--mut);font-weight:400;margin-top:2px}
+  .brand .prov{margin-left:auto;text-align:right;font-size:11.5px;color:#64748b}
+  .wrap{max-width:960px;margin:0 auto;padding:0 16px 70px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:14px}
+  .card h2{font-size:15px;margin:0 0 13px;padding-bottom:8px;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:8px}
+  .card h2 .n{background:var(--accent);color:#fff;width:21px;height:21px;border-radius:50%;
+    display:inline-flex;align-items:center;justify-content:center;font-size:12px}
+  label{font-size:13px;color:var(--mut);display:block;margin-bottom:5px}
+  select,input[type=text],input[type=month]{font:inherit;padding:8px 10px;border:1px solid var(--line);
+    border-radius:8px;background:#fff;width:100%}
+  .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
+  .seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{flex:1;font:inherit;font-size:13.5px;border:0;background:#fff;padding:8px 6px;cursor:pointer;color:var(--mut)}
+  .seg button.on{background:var(--accent);color:#fff;font-weight:600}
+  .seg button+button{border-left:1px solid var(--line)}
+  .feebox{background:var(--soft);border:1px solid #cfe0e4;border-radius:9px;padding:11px 13px;font-size:13px;margin-top:12px}
+  .feebox b{color:var(--accent)}
+  .feegrid{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:6px}
+  .feegrid span{font-size:12.5px;color:var(--mut)}
+  .feegrid span b{color:var(--ink)}
+  .res{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+  .res>div{border:1px solid var(--line);border-radius:9px;padding:11px 13px;background:#fbfcfd}
+  .res .k{font-size:12px;color:var(--mut);display:block}
+  .res b{font-size:19px;display:block;margin-top:3px}
+  .res .big{background:var(--over-bg);border-color:#f3c9c4}
+  .res .big b{color:var(--over)}
+  .res .tot{background:var(--ok-bg);border-color:#bfe3c9;grid-column:1/-1}
+  .res .tot b{color:var(--ok);font-size:23px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:4px}
+  th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  thead th{background:#f2f4f7;font-size:12.5px;color:#374151}
+  .warn{background:var(--warn-bg);border:1px solid #f0d9a8;color:var(--warn);padding:9px 12px;
+    border-radius:7px;font-size:13px;margin-top:10px}
+  .chk{display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--ink);cursor:pointer;margin-right:14px}
+  pre{background:#1c2024;color:#e6e8ea;padding:14px;border-radius:8px;overflow-x:auto;
+    font:12.5px/1.7 Consolas,monospace;white-space:pre-wrap}
+  .foot{text-align:center;color:var(--mut);font-size:12px;margin-top:22px;padding-top:14px;border-top:1px solid var(--line)}
+  @media print{.brand{margin-bottom:10px}.card{break-inside:avoid}}
+</style></head><body>
 
-  /* 모드 토글 (급여 / 본인부담금) */
-  .modebar{display:flex;justify-content:center;margin-bottom:18px}
-  .modebar .toggle{border:1px solid var(--line);border-radius:10px}
-  .modebar .toggle button{padding:10px 26px;font-size:15px}
-  body[data-mode="wage"] #copayView{display:none}
-  body[data-mode="copay"] #wageView{display:none}
-  /* 급여 계산기 결과줄 */
-  .wrow{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;
-    padding:12px 4px;border-bottom:1px solid var(--line)}
-  .wrow .lab{font-weight:600}
-  .wrow .desc{font-size:12px;color:var(--mut);margin-top:3px}
-  .wrow .amt{font-weight:700;font-size:17px;white-space:nowrap}
-  .wrow.net{background:var(--accent-soft);border-radius:8px;border:0;padding:14px 12px;margin-top:6px}
-  .wrow.net .amt{color:var(--accent);font-size:20px}
-  .wtag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;
-    background:var(--ok-bg);color:var(--ok);margin-left:6px;vertical-align:middle}
-  @media (max-width:560px){.brand{flex-wrap:wrap}.brand .prov{margin-left:0;text-align:left}}
-
-  @media print{
-    @page{margin:12mm}
-    body{background:#fff}
-    .wrap{max-width:none;padding:0}
-    .brand{-webkit-print-color-adjust:exact;print-color-adjust:exact;
-      border-radius:0;padding:10px 14px;margin-bottom:10px}
-    .brand .prov{opacity:1}
-    .foot{page-break-inside:avoid}
-    .limtag{-webkit-print-color-adjust:exact;print-color-adjust:exact;
-      border:1px solid #999}
-    .printhead{display:block;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #333}
-    .printhead .t{font-size:19px;font-weight:700}
-    .printhead .m{font-size:12.5px;color:#555;margin-top:3px}
-    h1,.sub,.print,.add,.del,.copy,#addBtn,.popts{display:none !important}
-    .noprint{display:none !important}
-    .card{border:1px solid #bbb;box-shadow:none;page-break-inside:avoid;
-      margin-bottom:10px;padding:12px 14px}
-    .card h2{font-size:13.5px}
-    /* 스크롤 영역을 펼쳐서 전부 인쇄 */
-    .scroll{overflow:visible !important;max-height:none !important}
-    .card .scroll[style]{max-height:none !important;overflow:visible !important}
-    table{font-size:11px} th,td{padding:4px 5px}
-    thead{display:table-header-group}
-    tr{page-break-inside:avoid}
-    /* 입력 컨트롤은 테두리 없이 값만 */
-    select,input{border:0 !important;padding:0 !important;background:none !important;
-      -webkit-appearance:none;appearance:none;font-weight:600;
-      outline:none !important;box-shadow:none !important}
-    .toggle button:not(.on){display:none}
-    .toggle{border:0} .toggle button.on{background:none;color:#000;padding:0 4px}
-    .days button:not(.on){display:none}
-    .days button.on{background:none !important;border:0;color:#000;width:auto;font-weight:700}
-    pre{background:#fff;color:#000;border:1px solid #ccc;font-size:10.5px;line-height:1.5}
-    .warn{border:1px solid #999;background:none !important;color:#000 !important}
-    .tot div{background:none} .tot .big{border:2px solid #000}
-    .tot .big b{color:#000}
-  }
-</style>
-
-<div class="wrap">
 <div class="brand">
-  <div class="logo">
-    <svg class="heart" viewBox="0 0 24 24" fill="#3a6f78" aria-hidden="true">
-      <path d="M12 21s-7.5-4.9-10-9.2C.4 8.9 1.6 5.3 5 4.4c2.1-.6 4 .4 5 2 1-1.6 2.9-2.6 5-2
-        3.4.9 4.6 4.5 3 7.4C19.5 16.1 12 21 12 21z"/>
-    </svg>
-    케어링
-  </div>
-  <div class="txt">
-    <div class="t">장기요양 수가·초과금 계산기</div>
-    <div class="s">2026년 급여비용 고시 기준</div>
-  </div>
+  <div class="logo">caring</div>
+  <div class="txt"><div class="t">주·야간보호 이용료 계산기</div>
+    <div class="s">2026년 급여비용 고시 + 지점별 식사·간식 비급여</div></div>
   <div class="prov">케어링 충청본부<br>주·야간보호 4지점</div>
 </div>
 
-<div class="printhead">
-  <div class="t">주·야간보호 이용료 산출내역 (급여 + 비급여)</div>
-  <div class="m" id="phMeta"></div>
-</div>
+<div class="wrap">
 
-<div class="sub" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-  <span>2026년 급여비용 고시 기준 · 주·야간보호 전용 · 지점별 식사·간식 비급여 포함</span>
-  <button class="print" id="printBtn">🖨 인쇄 / PDF 저장</button>
-  <button class="print" id="installBtn" style="background:#0f766e">⬇ 바로가기 설치</button></div>
-
-<div class="modebar">
-  <div class="toggle" id="mode">
-    <button data-m="copay" class="on">🧾 본인부담금 계산기</button>
-    <button data-m="wage">💰 급여 계산기</button>
+<div class="card">
+  <h2><span class="n">1</span>센터 정보</h2>
+  <div class="row">
+    <div><label>센터(지점) 선택</label><select id="branch">
+      <option value="">센터를 선택해주세요</option>
+      <option value="둔산점">둔산점</option>
+      <option value="서구점">서구점</option>
+      <option value="천안점">천안점</option>
+      <option value="청주 오창점">청주 오창점</option>
+    </select></div>
+    <div><label>기준 월 (공휴일 계산용)</label><input type="month" id="ym" value="2026-08"></div>
   </div>
-</div>
-
-<div id="copayView">
-<div class="popts">
-  <b>출력 항목</b>
-  <label><input type="checkbox" data-sec="secSched">이용 일정</label>
-  <label><input type="checkbox" data-sec="secUnit" checked>요일별 1회 단가</label>
-  <label><input type="checkbox" data-sec="secSum" checked>월 집계 총액</label>
-  <label><input type="checkbox" data-sec="secCal">날짜별 상세(1개월)</label>
-  <label><input type="checkbox" data-sec="secFormula" checked>계산식</label>
-  <label><input type="checkbox" data-sec="secRef">근거와 한계</label>
+  <div class="feebox" id="feeBox">센터를 선택하면 그 지점의 식사·간식 단가가 자동으로 적용됩니다.</div>
 </div>
 
 <div class="card">
-  <h2>① 수급자 정보</h2>
+  <h2><span class="n">2</span>고객 정보</h2>
   <div class="row">
-    <div><label>수급자명 (출력용·저장 안 됨)</label>
-      <input type="text" id="who" placeholder="예: 홍○○" style="width:120px"></div>
+    <div><label>어르신 성함 (출력용·저장 안 됨)</label><input type="text" id="who" placeholder="예: 홍○○"></div>
     <div><label>등급</label><select id="grade">
       <option value="1">1등급</option><option value="2">2등급</option>
       <option value="3">3등급</option><option value="4" selected>4등급</option>
       <option value="5">5등급</option><option value="C">인지지원등급</option>
     </select></div>
     <div><label>본인부담률</label><select id="rate">
-      <option value="0.15" selected>15% (감경 0%)</option>
+      <option value="0.15" selected>15% (일반)</option>
       <option value="0.09">9% (감경 40%)</option>
-      <option value="0.06">6% (감경 60%) · 의료급여</option>
       <option value="0.06">6% (감경 60%)</option>
-      <option value="0">0% (감경 100%) · 기초수급</option>
+      <option value="0">0% (기초수급자)</option>
     </select></div>
-    <div><label>기준 월</label><input type="month" id="ym" value="2026-08"></div>
-    <div><label>지점 (비급여 단가)</label><select id="branch">
-      <option value="">선택 안 함 (비급여 제외)</option>
-      <option value="둔산점">둔산점</option>
-      <option value="서구점">서구점</option>
-      <option value="천안점">천안점</option>
-      <option value="청주 오창점">청주 오창점</option>
-    </select></div>
-    <div><label>비급여 식사</label>
-      <label style="display:inline-flex;align-items:center;gap:5px;font-size:14px;color:var(--ink);cursor:pointer">
-        <input type="checkbox" id="useDinner" checked> 석식</label>
-      <label style="display:inline-flex;align-items:center;gap:5px;font-size:14px;color:var(--ink);cursor:pointer;margin-left:8px">
-        <input type="checkbox" id="useBreak"> 조식</label>
-      <div style="font-size:11.5px;color:var(--mut)">공휴일은 석식 제외</div></div>
-    <div><label>주·야간보호 유형</label><div class="toggle" id="dtype">
-      <button data-t="normal" class="on">일반</button>
-      <button data-t="dementia">치매전담실</button>
-    </div></div>
-    <div><label>8시간 인정 횟수</label>
-      <input type="text" id="cap8" placeholder="자동" style="width:64px"> 회
-      <div style="font-size:11.5px;color:var(--mut)">비우면 자동 산출</div></div>
-    <div style="display:none"><label>중증가산 (1·2등급 방문요양)</label>
-      <label style="display:inline-flex;align-items:center;gap:5px;font-size:14px;color:var(--ink);cursor:pointer">
-        <input type="checkbox" id="useSevere"> 포함</label>
-      <div style="font-size:11.5px;color:var(--mut)">시간당 2,000·일 최대 6,000원</div></div>
-    <div><label>월 한도액</label><div style="font-weight:600;font-size:16px" id="limitTxt">-</div></div>
   </div>
-  <div id="bonusBox"></div>
-  <div id="capBox"></div>
 </div>
 
-<div class="card" id="secSched">
-  <h2>② 이용 일정 <span class="badge">요일별로 추가</span></h2>
-  <div id="scheds"></div>
-  <button class="add" id="addBtn">+ 일정 추가</button>
-  <div class="note">같은 날 2건 이상(예: 주간보호 후 방문요양)도 각각 추가하면 합산됩니다.
-    한 줄에 여러 요일을 함께 선택할 수 있습니다.</div>
+<div class="card">
+  <h2><span class="n">3</span>이용 정보</h2>
+  <div class="row">
+    <div><label>치매전담실 이용여부</label>
+      <div class="seg" id="dtype">
+        <button data-v="normal" class="on">미이용(일반)</button>
+        <button data-v="dementia">이용</button>
+      </div></div>
+    <div><label>시간대</label><select id="hours">
+      <option value="3">3시간 이상 6시간 미만</option>
+      <option value="6">6시간 이상 8시간 미만</option>
+      <option value="8" selected>8시간 이상 10시간 미만</option>
+      <option value="10">10시간 이상 13시간 이하</option>
+      <option value="13">13시간 초과</option>
+    </select></div>
+    <div><label>월 이용 횟수</label><select id="days"></select></div>
+    <div><label>그중 공휴일 이용</label><select id="hdays"></select>
+      <div style="font-size:11.5px;color:var(--mut);margin-top:4px">기준 월 공휴일 수로 자동 채움</div></div>
+  </div>
+  <div style="margin-top:12px">
+    <label>비급여 식사</label>
+    <label class="chk"><input type="checkbox" id="useLunch" checked> 중식</label>
+    <label class="chk"><input type="checkbox" id="useDinner" checked> 석식 (공휴일 제외)</label>
+    <label class="chk"><input type="checkbox" id="useBreak"> 조식</label>
+    <label class="chk"><input type="checkbox" id="useSnack" checked> 간식</label>
+  </div>
 </div>
 
-<div class="card" id="secUnit">
-  <h2>③ 요일별 1회 단가</h2>
-  <div class="scroll"><table id="unitTbl"></table></div>
-  <div id="unitWarn"></div>
+<div class="card">
+  <h2><span class="n">4</span>계산 결과</h2>
+  <div class="res" id="res"></div>
+  <div id="resWarn"></div>
+  <table id="detail"></table>
 </div>
 
-<div class="card" id="secSum">
-  <h2>④ 월 집계 — 한도 소진과 초과금</h2>
-  <div class="tot" id="totals"></div>
-</div>
-
-<div class="card" id="secCal">
-  <h2>날짜별 상세</h2>
-  <div class="scroll" style="max-height:420px;overflow-y:auto">
-    <table id="calTbl"></table></div>
-  <div class="note">한도 소진은 <b>날짜 순서대로</b> 차감합니다. 한도를 걸치는 날은 잔액까지만 급여로 처리하고
-    나머지를 초과금(전액 본인부담)으로 나눕니다.</div>
-</div>
-
-<div class="card" id="secFormula">
-  <h2>⑤ 계산식 <button class="copy" id="copyBtn">복사</button></h2>
+<div class="card">
+  <h2><span class="n">5</span>계산식</h2>
   <pre id="formula"></pre>
 </div>
 
-<div class="card" id="secRef">
-  <h2>근거와 한계</h2>
-  <div style="font-size:13px;line-height:1.8">
-    <b>가산 규정</b>(장기요양급여 제공기준 및 급여비용 산정방법 등에 관한 고시)<br>
-    · 방문요양: 22시~06시 30% / 일요일 30% / 유급휴일·근로자의 날 50% · <b>18~22시 야간가산 없음</b><br>
-    · 주·야간보호: 18시~22시 20% / 관공서 공휴일(일요일 포함) 30%<br>
-    · 두 가산이 동시에 걸리면 <b>중복하지 않고 높은 쪽 하나만</b> 적용<br>
-    · <b>토요일은 공휴일이 아니므로 두 급여 모두 가산 없음</b><br>
-    · <b>방문요양 중증가산</b>(2026): 1·2등급 <b>시간당 2,000원 · 1일 최대 6,000원</b>
-      (2025년 180분 이상 일 3,000원에서 개편). 시간대 가산과 별도로 더해지고,
-      급여비용에 포함되어 월 한도액에서 차감됩니다<br><br>
-    <b>월 한도액 추가 산정</b> — 주·야간보호를 <b>월 15일 이상(1일 8시간 이상)</b> 이용한 경우<br>
-    · 일반 주·야간보호: 1·2등급 <b>+10%</b> / 3~5등급 <b>+20%</b> 범위 내<br>
-    · 치매전담실: <b>+50%</b> 범위 내 · 인지지원등급은 월 9일 이상 <b>+30%</b> 범위 내<br>
-    · 계산기는 <b>범위의 최대치</b>를 적용합니다. 실제로는 "범위 내에서" 추가 산정하므로
-      공단 승인분이 이보다 적을 수 있습니다<br><br>
-    <span style="color:var(--warn)">⚠ 확인 필요</span> — 가산은 <b>급여비용 전액에 가산율을 곱하는 방식</b>으로 계산했습니다.
-    이용시간이 가산시간대에 일부만 걸칠 때 비례 산정하는지 여부는 고시 원문에서 확인하지 못했습니다.
-    실제 청구 전 공단에 확인하세요.<br>
-    <span style="color:var(--warn)">⚠ 확인 필요</span> — 2026년 공휴일 목록은 언론·민간 자료 기준입니다.
-    추석 연휴(9/26 토) 대체공휴일과 지방선거일 반영 여부는 관보로 확인하세요.
-  </div>
-</div>
-</div><!-- /copayView -->
-
-<div id="wageView">
-<div class="card">
-  <h2>요양보호사 급여 (일반요양) <span class="badge">시급 직접입력</span></h2>
-  <div class="row">
-    <div><label>요양보호사명 (출력용)</label>
-      <input type="text" id="wName" placeholder="예: 김○○" style="width:110px"></div>
-    <div><label>등급</label><select id="wGrade">
-      <option value="1">1등급</option><option value="2">2등급</option>
-      <option value="3">3등급</option><option value="4" selected>4등급</option>
-      <option value="5">5등급</option></select></div>
-    <div><label>평일 시급 (급여 직접입력)</label>
-      <input type="text" id="wHourly" value="13000" style="width:80px"> 원</div>
-    <div><label>일 근무시간</label><input type="text" id="wHours" value="3" style="width:52px"> 시간</div>
-    <div><label>평일 근무일</label><input type="text" id="wWeekday" value="20" style="width:52px"> 일</div>
-    <div><label>일요일 근무</label><input type="text" id="wSun" value="0" style="width:52px"> 일</div>
-    <div><label>공휴일 근무</label><input type="text" id="wHol" value="0" style="width:52px"> 일</div>
-  </div>
-  <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:6px 18px">
-    <label style="display:inline-flex;gap:5px;align-items:center;font-size:13px;cursor:pointer">
-      <input type="checkbox" id="wNoPension"> 만 65세 이상 (국민연금 제외)</label>
-    <label style="display:inline-flex;gap:5px;align-items:center;font-size:13px;cursor:pointer">
-      <input type="checkbox" id="wMedicaid"> 의료급여 수급권자 (건강·장기요양 제외)</label>
-    <label style="display:inline-flex;gap:5px;align-items:center;font-size:13px;cursor:pointer">
-      <input type="checkbox" id="wNoEmploy"> 고용보험 중복가입 (고용보험 제외)</label>
-  </div>
-  <div style="font-size:12px;color:var(--mut);margin-top:10px">
-    일요일·공휴일 시급 = 평일 시급 + 통상임금(2026년 12,390원) × 0.5 (휴일근로 50% 가산)</div>
-</div>
-
-<div class="card">
-  <h2>급여 계산 결과 <button class="copy" id="wCopyBtn">계산식 복사</button></h2>
-  <div id="wResult"></div>
-</div>
-
-<div class="card" id="wFormulaCard">
-  <h2>계산식</h2>
-  <pre id="wFormula"></pre>
-</div>
-</div><!-- /wageView -->
-
-<div class="foot">
-  본 계산기는 <b>케어링 충청본부 방문요양 대전점</b>에서 제공합니다<br>
-  결과는 참고용 산출값이며 실제 급여비용은 국민건강보험공단 청구 결과에 따릅니다.
-</div>
+<div class="foot">케어링 충청본부 · 급여비용은 2026년 장기요양 급여비용 고시,
+  비급여는 케어포 9-2 요양급여 수가설정(지점 실제 청구값) 기준</div>
 </div>
 
 <script>
 /* ── 2026년 급여비용 고시 ── */
 const LIMIT = {1:2512900,2:2331200,3:1528200,4:1409700,5:1208900,C:676320};
-
-// 방문요양 (분 이상 → 금액). 210·240분 구간은 1·2등급만 산정 가능
-const VISIT = [[30,17450],[60,25320],[90,34120],[120,43430],
-               [150,50640],[180,57020],[210,63530],[240,70080]];
-
-// 주·야간보호 (시간 이상 → 등급별 금액)
-const DAY = [
-  [3, {1:41820,2:38720,3:35740,4:34120,5:32490,C:32490}],
-  [6, {1:56060,2:51930,3:47940,4:46300,5:44650,C:44650}],
-  [8, {1:69730,2:64590,3:59640,4:58010,5:56360,C:56360}],
-  [10,{1:76820,2:71160,3:65750,4:64090,5:62460,C:56360}],
-  [13,{1:82370,2:76310,3:70500,4:68860,5:67240,C:56360}],
-];
-
-// 2026년 법정공휴일 · 대체공휴일
+/* 주·야간보호 시간대별 1일 수가 (일반) */
+const DAY = {
+  3: {1:41820,2:38720,3:35740,4:34120,5:32490,C:32490},
+  6: {1:56060,2:51930,3:47940,4:46300,5:44650,C:44650},
+  8: {1:69730,2:64590,3:59640,4:58010,5:56360,C:56360},
+  10:{1:76820,2:71160,3:65750,4:64090,5:62460,C:56360},
+  13:{1:82370,2:76310,3:70500,4:68860,5:67240,C:56360},
+};
+const HOURTXT = {3:'3~6시간',6:'6~8시간',8:'8~10시간',10:'10~13시간',13:'13시간 초과'};
 const HOLIDAY = {
   '2026-01-01':'신정','2026-02-16':'설날연휴','2026-02-17':'설날','2026-02-18':'설날연휴',
   '2026-03-01':'삼일절','2026-03-02':'삼일절 대체','2026-05-05':'어린이날',
@@ -379,10 +164,11 @@ const HOLIDAY = {
   '2026-09-25':'추석','2026-09-26':'추석연휴','2026-10-03':'개천절',
   '2026-10-05':'개천절 대체','2026-10-09':'한글날','2026-12-25':'성탄절',
 };
+
 /* ── 지점별 비급여 단가 — 케어포 9-2 요양급여 수가설정(실제 청구값), 2026-07-29 수집 ──
    ★지점마다 금액도 단위도 다르다: 간식이 둔산·서구는 '1식', 천안·청주는 '1일' 기준.
-   ★천안은 케어포 9-2 에 금액이 비어 있어 직접 넣었다 — 1끼 4,000원(중·석식 두 끼 8,000원),
-     간식 1,300원에 **조식이 포함**된다(회원님 확인 2026-07-30).
+   ★천안은 케어포 9-2 에 금액이 비어 있어 직접 넣었다 — 1끼 4,000원(중·석식이면 8,000원),
+     간식 1,300원에 조식이 포함된다(회원님 확인 2026-07-30) → 조식을 켜도 따로 받지 않는다.
    출처: audit_results/비급여_3자대조.json (audit.nonpay_audit) */
 const BRANCH_FEE = {
   '둔산점':      {조식:550,  중식:3800, 석식:3800, 간식:550,  간식단위:'1식', 적용:'2025.07.01~2027.12.31'},
@@ -392,494 +178,146 @@ const BRANCH_FEE = {
                   적용:'2026.01.01~2026.12.31'},
   '청주 오창점': {조식:1100, 중식:3300, 석식:3300, 간식:1000, 간식단위:'1일', 적용:'2026.01.01~2026.12.31'},
 };
-const DAYNM = ['일','월','화','수','목','금','토'];
-const won = n => Math.round(n).toLocaleString('ko-KR')+'원';
 
-/* ── 일정 상태 ── */
-let dementiaRoom = false;          // 주·야간보호 내 치매전담실 여부
-let scheds = [
-  {svc:'day', days:[1,2,3,4,5], from:'08:00', to:'18:00'},  // 평일 주·야간보호
-  {svc:'day', days:[6],         from:'10:00', to:'18:00'},  // 토요일
-];
+const won = n => Math.round(n).toLocaleString('ko-KR') + '원';
+const $ = id => document.getElementById(id);
+let dementia = false;
 
-function renderScheds(){
-  const box = document.getElementById('scheds');
-  box.innerHTML = '';
-  scheds.forEach((s,i)=>{
-    const d = document.createElement('div');
-    d.className='sched';
-    d.innerHTML = `
-      <div class="top">
-        <span class="badge" style="align-self:center">주·야간보호</span>
-        <div class="days">${DAYNM.map((n,k)=>
-          `<button data-d="${k}" class="${k===0?'sun ':k===6?'sat ':''}${s.days.includes(k)?'on':''}">${n}</button>`).join('')}
-        </div>
-        <div><input type="time" class="f" value="${s.from}"> ~ <input type="time" class="t" value="${s.to}"></div>
-        <button class="del" title="삭제">✕</button>
-      </div>`;
-    d.querySelectorAll('.toggle button').forEach(b=>b.onclick=()=>{
-      scheds[i].svc=b.dataset.svc; renderScheds(); calc(); });
-    d.querySelectorAll('.days button').forEach(b=>b.onclick=()=>{
-      const k=+b.dataset.d, a=scheds[i].days;
-      a.includes(k) ? a.splice(a.indexOf(k),1) : a.push(k);
-      renderScheds(); calc(); });
-    const bindTime=(sel,key)=>{
-      const el=d.querySelector(sel);
-      // input: 시·분·오전/오후 스피너와 시계 선택 즉시 반영 / change: 커밋 시 반영
-      const upd=e=>{ if(e.target.value){ scheds[i][key]=e.target.value; calc(); } };
-      el.oninput=upd; el.onchange=upd;
-    };
-    bindTime('.f','from'); bindTime('.t','to');
-    d.querySelector('.del').onclick = ()=>{scheds.splice(i,1); renderScheds(); calc();};
-    box.appendChild(d);
-  });
+function fillDays(){
+  const d = $('days');
+  for(let i=1;i<=31;i++) d.add(new Option(i+'일', i));
+  d.value = 22;
 }
-
-/* ── 단가 · 가산 ── */
-const toMin = t => (+t.slice(0,2))*60 + (+t.slice(3,5));
-function span(s){                        // 이용 분 (자정 넘김 허용)
-  let a=toMin(s.from), b=toMin(s.to);
-  if(b<=a) b+=1440;
-  return {a,b,min:b-a};
-}
-// [a,b) 와 [x,y) 가 겹치는 분
-const ov = (a,b,x,y) => Math.max(0, Math.min(b,y)-Math.max(a,x));
-
-function baseFee(s, grade){
-  const {min} = span(s);
-  if(s.svc==='visit'){
-    let hit=null;
-    for(const [m,f] of VISIT) if(min>=m) hit={m,f};
-    if(!hit) return {fee:0, label:`${min}분`, warn:'30분 미만은 산정되지 않습니다'};
-    let warn=null;
-    if(hit.m>=210 && grade!=='1' && grade!=='2')
-      warn=`210분 이상 구간은 1·2등급만 산정 가능 — ${grade}등급은 180분 구간까지만 인정됩니다`;
-    if(min>240) warn=(warn?warn+' / ':'')+`1회 240분 초과분(${min-240}분)은 급여비용에 반영되지 않습니다`;
-    return {fee:hit.f, label:`방문요양 ${hit.m}분 구간 (실이용 ${min}분)`, warn};
-  }else{
-    const h = min/60;
-    if(h<3) return {fee:0, label:`${min}분`, warn:'주·야간보호는 3시간 미만이면 산정되지 않습니다'};
-    let hit=null;
-    for(const [t,tbl] of DAY) if(h>=t) hit={t,f:tbl[grade]};
-    return {fee:hit.f, label:`주·야간보호 ${hit.t}시간 이상 구간 (실이용 ${(min/60).toFixed(1)}h)`, warn:null};
+/* 그 달의 공휴일 수 — 일요일은 어차피 미운영이라 세지 않는다 */
+function holidayCount(Y,M){
+  let n=0; const last=new Date(Y,M,0).getDate();
+  for(let d=1;d<=last;d++){
+    const key=`${Y}-${String(M).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    if(HOLIDAY[key] && new Date(Y,M-1,d).getDay()!==0) n++;
   }
+  return n;
+}
+function fillHolidays(auto){
+  const h = $('hdays'), keep = +h.value || 0, maxDays = +$('days').value;
+  h.innerHTML = '';
+  for(let i=0;i<=Math.min(maxDays,10);i++) h.add(new Option(i+'일', i));
+  h.value = Math.min(auto!=null ? auto : keep, maxDays, 10);
 }
 
-function surcharge(s, dow, isHoliday){
-  const {a,b}=span(s);
-  const cands=[];
-  if(s.svc==='visit'){
-    if(isHoliday) cands.push([0.50,'유급휴일 50%']);
-    if(dow===0)   cands.push([0.30,'일요일 30%']);
-    // 심야 22:00~06:00 (당일 22시 이후 + 익일 06시 이전)
-    if(ov(a,b,1320,1800) > 0 || ov(a,b,0,360) > 0) cands.push([0.30,'심야(22~06시) 30%']);
-  }else{
-    if(isHoliday || dow===0) cands.push([0.30, isHoliday?'공휴일 30%':'일요일(공휴일) 30%']);
-    if(ov(a,b,1080,1320) > 0) cands.push([0.20,'야간(18~22시) 20%']);
-    if(ov(a,b,1320,1800) > 0 || ov(a,b,0,360) > 0) cands.push([0.30,'심야(22~06시) 30%']);
-  }
-  if(!cands.length) return {r:0, why:'가산 없음'};
-  cands.sort((x,y)=>y[0]-x[0]);
-  const why = cands.length>1
-    ? cands[0][1] + ` (중복 미적용: ${cands.slice(1).map(c=>c[1]).join(', ')} 배제)`
-    : cands[0][1];
-  return {r:cands[0][0], why};
-}
-
-/* ── 계산 ── */
 function calc(){
-  const grade = document.getElementById('grade').value;
-  const useSevere = document.getElementById('useSevere').checked;
-  const rateSel = document.getElementById('rate');
-  const rate  = +rateSel.value;
-  const rateLabel = rateSel.options[rateSel.selectedIndex].text;  // 예: "6% (감경 60%) · 의료급여"
-  const [Y,M] = document.getElementById('ym').value.split('-').map(Number);
-  const base  = LIMIT[grade];
-  const last  = new Date(Y,M,0).getDate();
+  const grade = $('grade').value, rate = +$('rate').value;
+  const hour = +$('hours').value, days = +$('days').value, hdays = +$('hdays').value;
+  const [Y,M] = $('ym').value.split('-').map(Number);
+  const bName = $('branch').value, bf = BRANCH_FEE[bName];
 
-  /* 월 한도액 추가 산정 — 주·야간보호 월 15일(1일 8시간 이상) 이상 이용 시 */
-  let cnt8=0;
-  for(let d=1; d<=last; d++){
-    const dow=new Date(Y,M-1,d).getDay();
-    if(scheds.some(s=>s.svc==='day' && s.days.includes(dow) && span(s).min>=480)) cnt8++;
-  }
+  /* ① 센터 단가 안내 */
+  $('feeBox').innerHTML = bf
+    ? `<b>${bName}</b> · 적용 ${bf.적용}
+       <div class="feegrid">
+         <span>중식 <b>${won(bf.중식)}</b></span>
+         <span>석식 <b>${won(bf.석식)}</b></span>
+         <span>조식 <b>${bf.조식==null?'간식비 포함':won(bf.조식)}</b></span>
+         <span>${bf.간식라벨||'간식'} <b>${won(bf.간식)}</b> (${bf.간식단위})</span>
+       </div>`
+    : '센터를 선택하면 그 지점의 식사·간식 단가가 자동으로 적용됩니다.';
+
+  /* ② 월 한도액 — 8시간 이상 15일(인지지원 9일) 이상이면 추가 산정 */
+  const base = LIMIT[grade];
   let bonus=0, bonusWhy='';
-  if(dementiaRoom){
+  const eligible = hour>=8 ? days : 0;
+  if(dementia){
     if(grade==='C'){
-      if(cnt8>=9){bonus=0.30; bonusWhy=`치매전담실 1일 8시간 이상 ${cnt8}일 이용 (기준 9일) → 한도액 +30%`;}
-      else bonusWhy=`치매전담실 8시간 이상 ${cnt8}일 — 인지지원등급 기준 9일 미달로 추가 산정 없음`;
-    }else if(cnt8>=15){
-      bonus=0.50; bonusWhy=`치매전담실 1일 8시간 이상 ${cnt8}일 이용 (기준 15일) → 한도액 +50%`;
-    }else bonusWhy=`치매전담실 8시간 이상 ${cnt8}일 — 기준 15일 미달로 추가 산정 없음`;
-  }else if(cnt8>=15){
-    if(grade==='C') bonusWhy=`8시간 이상 ${cnt8}일 — 인지지원등급은 일반 주·야간보호 추가 산정 대상이 아닙니다`;
-    else{
-      bonus = (grade==='1'||grade==='2') ? 0.10 : 0.20;
-      bonusWhy=`주·야간보호 1일 8시간 이상 ${cnt8}일 이용 (기준 15일) → `+
-               `${grade}등급 한도액 +${bonus*100}%`;
-    }
-  }else if(cnt8>0){
-    bonusWhy=`주·야간보호 8시간 이상 ${cnt8}일 — 기준 15일 미달로 추가 산정 없음`;
-  }
+      if(eligible>=9){bonus=.30; bonusWhy=`치매전담실 8시간 이상 ${eligible}일 (기준 9일) → 한도액 +30%`;}
+      else bonusWhy=`치매전담실 8시간 이상 ${eligible}일 — 인지지원 기준 9일 미달`;
+    }else if(eligible>=15){bonus=.50; bonusWhy=`치매전담실 8시간 이상 ${eligible}일 (기준 15일) → 한도액 +50%`;}
+    else bonusWhy=`치매전담실 8시간 이상 ${eligible}일 — 기준 15일 미달`;
+  }else if(eligible>=15){
+    if(grade==='C') bonusWhy='인지지원등급은 일반 주·야간보호 추가 산정 대상이 아닙니다';
+    else{ bonus = (grade==='1'||grade==='2') ? .10 : .20;
+          bonusWhy=`8시간 이상 ${eligible}일 이용 (기준 15일) → ${grade}등급 한도액 +${bonus*100}%`; }
+  }else if(eligible>0) bonusWhy=`8시간 이상 ${eligible}일 — 기준 15일 미달로 추가 산정 없음`;
   const limit = Math.round(base*(1+bonus));
 
-  document.getElementById('limitTxt').innerHTML = bonus
-    ? `<span style="color:var(--ok)">${won(limit)}</span>
-       <span class="limtag inc">증액 +${bonus*100}%</span>
-       <div class="limsub">기본 ${won(base)} + 증액 ${won(limit-base)}</div>`
-    : `<span>${won(limit)}</span>
-       <span class="limtag">기본 한도</span>`;
-  document.getElementById('bonusBox').innerHTML = bonusWhy
-    ? `<div class="warn" style="${bonus?'background:var(--ok-bg);border-color:#bfe3c9;color:var(--ok)':''}">
-        ${bonus?'✔':'ℹ'} ${bonusWhy}</div>` : '';
+  /* ③ 급여비용 — 1일 수가 × 이용일수 */
+  const unit = DAY[hour][grade];
+  const gross = unit*days;
+  const inLim = Math.min(gross, limit), over = gross-inLim;
+  const self = inLim*rate + over;               // 초과분은 전액 본인부담
 
-  /* 증액분으로 커버되는 8시간 이용 횟수 */
-  const addAmt = limit - base;              // 한도액 증액분
-  const fee8   = DAY[2][1][grade];          // 주·야간보호 8시간 이상 구간 수가
-  const autoCap= fee8 ? addAmt/fee8 : 0;
-  const manual = parseFloat(document.getElementById('cap8').value);
-  const useMan = Number.isFinite(manual);
-  const cap    = useMan ? manual : Math.floor(autoCap);
-  let capTxt='';
-  if(addAmt>0){
-    capTxt = useMan
-      ? `8시간 인정 횟수 <b>${cap}회</b> (직접 입력) — 자동 산출값은 `+
-        `${won(addAmt)} ÷ ${won(fee8)} = ${autoCap.toFixed(1)}회분(내림 ${Math.floor(autoCap)}회)입니다`
-      : `증액분 ${won(addAmt)} ÷ 8시간 수가 ${won(fee8)} = <b>${autoCap.toFixed(1)}회분</b> `+
-        `→ 8시간 이용을 <b>${cap}회</b> 더 할 수 있는 금액입니다`;
-  }
-  document.getElementById('capBox').innerHTML = capTxt
-    ? `<div class="warn" style="background:var(--accent-soft);border-color:#b3d8df;color:var(--accent)">
-        📐 ${capTxt}</div>` : '';
-
-  /* ③ 요일별 단가 */
-  const warns=new Set(); let unitRows='';
-  const unitOf = (s,dow,hol)=>{
-    const bf = baseFee(s,grade), sc = surcharge(s,dow,hol);
-    if(bf.warn) warns.add(bf.warn);
-    // 방문요양 중증가산: 1·2등급, 시간당 2,000원, 1일 최대 6,000원 (시간대 가산과 별도)
-    let severe=0;
-    if(useSevere && s.svc==='visit' && (grade==='1'||grade==='2') && bf.fee>0)
-      severe = Math.min(Math.round(span(s).min/60*2000), 6000);
-    return {...bf, ...sc, add: bf.fee*sc.r, severe, total: bf.fee*(1+sc.r) + severe};
-  };
-  // 요일별 대표 단가 (그 요일이 공휴일인 날은 캘린더에서 따로 처리)
-  const seen=[];
-  scheds.forEach(s=>s.days.forEach(dow=>{
-    const u = unitOf(s,dow,false);
-    seen.push({dow, s, u});
-  }));
-  seen.sort((x,y)=>((x.dow+6)%7)-((y.dow+6)%7));
-  const whyOf = u=>{
-    const parts=[];
-    if(u.r) parts.push(u.why); else if(u.why!=='가산 없음') parts.push(u.why);
-    if(u.severe) parts.push(`중증가산 ${won(u.severe)}`);
-    return parts.length ? parts.join(' + ') : '가산 없음';
-  };
-  unitRows = seen.map(({dow,s,u})=>`<tr>
-      <td class="l"><b>${DAYNM[dow]}</b></td>
-      <td class="l">${s.from}~${s.to}</td>
-      <td class="l">${u.label}</td>
-      <td>${won(u.fee)}</td>
-      <td class="l">${whyOf(u)}</td>
-      <td>${(u.add+u.severe)?won(u.add+u.severe):'-'}</td>
-      <td><b>${won(u.total)}</b></td>
-      <td>${won(u.total*rate)}</td>
-      <td style="color:var(--over)"><b>${won(u.total)}</b></td>
-    </tr>`).join('');
-  document.getElementById('unitTbl').innerHTML =
-    `<thead><tr><th class="l">요일</th><th class="l">시간</th><th class="l">적용 구간</th>
-      <th>기본수가</th><th class="l">가산</th><th>가산액</th><th>1회 합계</th>
-      <th>한도 있을 때<br>본인부담</th><th>한도 소진 후<br>하루 부담액</th></tr></thead>
-      <tbody>${unitRows}</tbody>`;
-
-  // 같은 요일에 시간이 겹치는 급여가 2건 이상이면 고시 위반
-  const clash=[];
-  for(let dow=0;dow<7;dow++){
-    const on=scheds.filter(s=>s.days.includes(dow));
-    for(let i=0;i<on.length;i++) for(let j=i+1;j<on.length;j++){
-      const A=span(on[i]), B=span(on[j]);
-      if(ov(A.a,A.b,B.a,B.b)>0)
-        clash.push(`${DAYNM[dow]}요일 ${on[i].from}~${on[i].to} 와 ${on[j].from}~${on[j].to} 가 `+
-          `${ov(A.a,A.b,B.a,B.b)}분 겹칩니다 — 2종류 이상의 급여를 동일 시간에 이용할 수 없습니다`);
+  /* ④ 비급여 — 석식은 공휴일에 제공하지 않으므로 공휴일을 뺀 일수로 센다 */
+  let np=0; const rows=[], notes=[];
+  if(bf){
+    const add=(label,cnt,amt)=>{ if(amt==null||!cnt) return; np+=cnt*amt;
+      rows.push([label, `${cnt}일 × ${won(amt)}`, won(cnt*amt)]); };
+    if($('useLunch').checked)  add('중식', days, bf.중식);
+    if($('useDinner').checked) add('석식 (공휴일 제외)', Math.max(0,days-hdays), bf.석식);
+    if($('useBreak').checked){
+      if(bf.조식==null && bf.조식메모) notes.push(bf.조식메모);   // 이중청구 방지
+      else add('조식', days, bf.조식);
     }
-  }
-  document.getElementById('unitWarn').innerHTML =
-    [...warns,...clash].map(w=>`<div class="warn">⚠ ${w}</div>`).join('');
-
-  /* ④ 월 집계 */
-  let used=0, over=0, self=0, gross=0, sevMonth=0, rows='';
-  let dayCnt=0, dayCntNoHol=0;              // 이용일수(전체 / 공휴일 제외) — 비급여 계산용
-  const dayTotals={};                       // 요일별 초과금 집계
-  for(let d=1; d<=last; d++){
-    const dt=new Date(Y,M-1,d), dow=dt.getDay();
-    const key=`${Y}-${String(M).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const hol=HOLIDAY[key];
-    // 식사·간식은 실제 이용한 날에만 붙는다
-    if(scheds.some(s=>s.days.includes(dow) && span(s).min>0)){ dayCnt++; if(!hol) dayCntNoHol++; }
-    let fee=0, sevSum=0, parts=[];
-    scheds.forEach(s=>{
-      if(!s.days.includes(dow)) return;
-      const u=unitOf(s,dow,!!hol);
-      if(u.total<=0) return;
-      fee += u.total - u.severe;   // 급여 + 시간대가산 (중증가산 제외)
-      sevSum += u.severe;
-      parts.push(`${s.svc==='visit'?'방문':'주보'} ${won(u.total)}`);
-    });
-    const daySev = Math.min(sevSum, 6000);  // 중증가산 1일 최대 6,000원 (하루 여러 건 합산 상한)
-    fee += daySev; sevMonth += daySev;
-    if(fee<=0) continue;
-    gross+=fee;
-    const room=Math.max(0,limit-used);
-    const inLim=Math.min(fee,room), ex=fee-inLim;
-    used+=inLim; over+=ex;
-    const mine=inLim*rate + ex;             // 초과분은 전액 본인부담
-    self+=mine;
-    dayTotals[dow]=(dayTotals[dow]||0)+ex;
-    rows+=`<tr class="${ex>0?(inLim>0?'part':'over'):''}">
-      <td class="l">${M}/${d} (${DAYNM[dow]})${hol?`<span class="badge g">${hol}</span>`:''}</td>
-      <td class="l">${parts.join(' + ')}</td>
-      <td>${won(fee)}</td><td>${won(inLim)}</td>
-      <td><b>${ex?won(ex):'-'}</b></td><td>${won(mine)}</td>
-      <td>${won(Math.max(0,limit-used))}</td></tr>`;
-  }
-  document.getElementById('calTbl').innerHTML =
-    `<thead><tr><th class="l">날짜</th><th class="l">내역</th><th>급여비용</th>
-      <th>한도내</th><th>초과금</th><th>본인부담</th><th>한도잔액</th></tr></thead><tbody>${rows}</tbody>`;
-
-  /* 비급여(식사·간식) — 지점을 고르면 그 지점 단가가 자동 적용된다.
-     ★석식은 공휴일에 제공하지 않으므로 공휴일을 뺀 일수로 센다(회원님 확인). */
-  const bName = document.getElementById('branch').value;
-  const bf = BRANCH_FEE[bName];
-  const nonpay = {sum:0, html:''};
-  if(bf && dayCnt>0){
-    const lines=[], notes=[], miss=[];
-    const add=(label, cnt, unit)=>{
-      if(unit==null){ miss.push(label); return; }
-      const amt = cnt*unit; nonpay.sum += amt;
-      lines.push(`<div><span class="k">${label}</span><b>${won(amt)}</b>
-        <span class="k">${cnt}일 × ${won(unit)}</span></div>`);
-    };
-    add('중식', dayCnt, bf.중식);
-    if(document.getElementById('useDinner').checked) add('석식 (공휴일 제외)', dayCntNoHol, bf.석식);
-    if(document.getElementById('useBreak').checked){
-      if(bf.조식==null && bf.조식메모) notes.push(bf.조식메모);   // 천안: 간식비에 포함 — 이중청구 방지
-      else add('조식', dayCnt, bf.조식);
-    }
-    add(`${bf.간식라벨||'간식'} (${bf.간식단위} 기준)`, dayCnt, bf.간식);
-    nonpay.html = `
-      <div style="grid-column:1/-1;border-top:1px solid var(--line);margin-top:6px;padding-top:8px">
-        <span class="k">비급여 — ${bName} · 적용 ${bf.적용} · 이용 ${dayCnt}일(공휴일 ${dayCnt-dayCntNoHol}일)</span></div>
-      ${lines.join('')}
-      ${notes.map(t=>`<div style="grid-column:1/-1"><span class="k">ℹ ${t}</span></div>`).join('')}
-      ${miss.length?`<div style="grid-column:1/-1"><span class="k" style="color:var(--over)">
-        ⚠ ${miss.join('·')} 단가 확인 필요</span></div>`:''}
-      <div class="big"><span class="k">비급여 합계</span><b>${won(nonpay.sum)}</b></div>
-      <div class="big"><span class="k">총 부담액 (본인부담 + 비급여)</span><b>${won(self + nonpay.sum)}</b></div>`;
+    if($('useSnack').checked) add(`${bf.간식라벨||'간식'} (${bf.간식단위})`, days, bf.간식);
   }
 
-  document.getElementById('totals').innerHTML = `
-    <div><span class="k">월 총 급여비용</span><b>${won(gross)}</b></div>
-    <div><span class="k">한도 내 사용</span><b>${won(used)}</b>
-      <span class="k">한도 ${won(limit)}</span></div>
-    <div class="big"><span class="k">한도 초과금 (전액 본인부담)</span><b>${won(over)}</b></div>
-    <div><span class="k">본인부담 총액</span><b>${won(self)}</b>
+  $('res').innerHTML = `
+    <div><span class="k">월 한도액</span><b>${won(limit)}</b>
+      ${bonus?`<span class="k">기본 ${won(base)} + 증액 ${won(limit-base)}</span>`
+             :'<span class="k">기본 한도</span>'}</div>
+    <div><span class="k">월 급여비용</span><b>${won(gross)}</b>
+      <span class="k">${HOURTXT[hour]} ${won(unit)} × ${days}일</span></div>
+    <div class="${over?'big':''}"><span class="k">한도 초과금 (전액 본인부담)</span><b>${won(over)}</b></div>
+    <div><span class="k">급여 본인부담금</span><b>${won(self)}</b>
       <span class="k">한도내 ${Math.round(rate*100)}% + 초과분 100%</span></div>
-    ${sevMonth>0?`
-    <div><span class="k">월 중증가산 합계</span><b>${won(sevMonth)}</b>
-      <span class="k">1·2등급 방문요양 (급여비용 포함)</span></div>`:''}
-    ${nonpay.html}`;
+    ${bf?`<div><span class="k">비급여 합계</span><b>${won(np)}</b>
+      <span class="k">${bName} 식사·간식</span></div>`:''}
+    <div class="tot"><span class="k">${bf?'총 부담액 (급여 본인부담 + 비급여)':'총 부담액 (급여 본인부담)'}</span>
+      <b>${won(self+np)}</b></div>`;
 
-  /* ⑤ 계산식 */
+  $('resWarn').innerHTML =
+    (bonusWhy?`<div class="warn" style="${bonus?'background:var(--ok-bg);border-color:#bfe3c9;color:var(--ok)':''}">
+       ${bonus?'✔':'ℹ'} ${bonusWhy}</div>`:'') +
+    notes.map(t=>`<div class="warn" style="background:var(--soft);border-color:#cfe0e4;color:var(--accent)">ℹ ${t}</div>`).join('') +
+    (dementia?`<div class="warn">⚠ 치매전담실은 별도 수가표가 있습니다 — 이 화면은 일반 수가로 계산하므로 금액 확인이 필요합니다</div>`:'');
+
+  $('detail').innerHTML = rows.length
+    ? `<thead><tr><th>비급여 항목</th><th>산식</th><th>금액</th></tr></thead><tbody>
+       ${rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td><b>${r[2]}</b></td></tr>`).join('')}
+       <tr><td><b>합계</b></td><td></td><td><b>${won(np)}</b></td></tr></tbody>`
+    : '';
+
   const f=[];
-  f.push(`■ 기준`);
-  f.push(`  등급 ${grade==='C'?'인지지원':grade+'등급'} · 본인부담률 ${rateLabel}`);
-  f.push(`  기준월 ${Y}년 ${M}월 · 주·야간보호 ${dementiaRoom?'치매전담실':'일반'}`);
-  f.push(``);
-  f.push(`■ 월 한도액`);
-  f.push(`  기본 한도액   ${won(base)}`);
-  if(bonus){
-    f.push(`  추가 산정      ${bonusWhy}`);
-    f.push(`               ${won(base)} × ${1+bonus} = ${won(limit)}`);
-  }else if(bonusWhy) f.push(`  추가 산정      없음 — ${bonusWhy}`);
-  f.push(`  적용 한도액   ${won(limit)}`);
-  if(addAmt>0){
-    f.push(``);
-    f.push(`■ 증액분으로 커버되는 8시간 이용 횟수`);
-    f.push(`  증액분 ${won(addAmt)} ÷ 8시간 수가 ${won(fee8)} = ${autoCap.toFixed(2)}회분`);
-    f.push(`  적용 횟수 ${cap}회${useMan?' (직접 입력)':' (자동 산출·내림)'}`);
+  f.push('■ 기준');
+  f.push(`  ${bName||'(센터 미선택)'} · ${grade==='C'?'인지지원':grade+'등급'} · 본인부담률 ${Math.round(rate*100)}%`);
+  f.push(`  ${Y}년 ${M}월 · ${HOURTXT[hour]} · 월 ${days}일 이용(공휴일 ${hdays}일)`);
+  f.push('');
+  f.push('■ 급여');
+  f.push(`  1일 수가        ${won(unit)}`);
+  f.push(`  월 급여비용     ${won(unit)} × ${days}일 = ${won(gross)}`);
+  f.push(`  월 한도액       ${won(limit)}${bonus?`  (기본 ${won(base)} × ${1+bonus})`:''}`);
+  f.push(`  한도 내         ${won(inLim)}`);
+  f.push(`  한도 초과       ${won(over)}  ← 전액 본인부담`);
+  f.push(`  급여 본인부담   ${won(inLim)} × ${Math.round(rate*100)}% + ${won(over)} = ${won(self)}`);
+  if(bf){
+    f.push('');
+    f.push(`■ 비급여 (${bName})`);
+    rows.forEach(r=>f.push(`  ${r[0]}  ${r[1]} = ${r[2]}`));
+    f.push(`  비급여 합계     ${won(np)}`);
   }
-  f.push(``);
-  f.push(`■ 1회 단가 산출`);
-  seen.forEach(({dow,s,u})=>{
-    f.push(`  [${DAYNM[dow]}] ${s.from}~${s.to} — ${u.label}`);
-    f.push(`      기본수가 ${won(u.fee)}`);
-    f.push(u.r ? `      시간대가산 ${u.why} → ${won(u.fee)} × ${u.r} = ${won(u.add)}`
-               : `      시간대가산 없음`);
-    if(u.severe)
-      f.push(`      중증가산(${grade}등급) ${(span(s).min/60).toFixed(1)}h × 2,000원 `+
-             `= ${won(u.severe)} (1일 최대 6,000원)`);
-    const bits=[won(u.fee)];
-    if(u.r) bits.push(won(u.add));
-    if(u.severe) bits.push(won(u.severe));
-    f.push(`      1회 합계 = ${bits.join(' + ')} = ${won(u.total)}`);
-    f.push(`      → 한도 소진 후 이 날 이용하면 하루 부담액 = ${won(u.total)} (전액)`);
-  });
-  f.push(``);
-  f.push(`■ 월 한도 소진 (날짜 순 차감)`);
-  f.push(`  월 총 급여비용        ${won(gross)}`);
-  f.push(`  － 한도 내 사용        ${won(used)}   (한도 ${won(limit)})`);
-  f.push(`  ＝ 한도 초과금        ${won(over)}   ← 전액 본인부담`);
-  if(sevMonth>0){
-    f.push(``);
-    f.push(`■ 중증가산 (1·2등급 방문요양, 급여비용에 포함)`);
-    f.push(`  월 중증가산 합계      ${won(sevMonth)}`);
-  }
-  f.push(``);
-  f.push(`■ 본인부담 총액`);
-  f.push(`  한도 내 ${won(used)} × ${Math.round(rate*100)}% = ${won(used*rate)}`);
-  f.push(`  초과분 ${won(over)} × 100%          = ${won(over)}`);
-  f.push(`  합계                                = ${won(self)}`);
-  const dt=Object.keys(dayTotals).map(Number).filter(k=>dayTotals[k]>0);
-  if(dt.length){
-    f.push(``);
-    f.push(`■ 요일별 월 초과금 합계 (날짜순 차감 결과라 한도가 소진된 날부터만 잡힙니다)`);
-    dt.sort((a,b)=>((a+6)%7)-((b+6)%7)).forEach(k=>
-      f.push(`  ${DAYNM[k]}요일   ${won(dayTotals[k])}`));
-  }
-  document.getElementById('formula').textContent = f.join('\n');
-
-  /* 인쇄 머리글 */
-  const who = document.getElementById('who').value.trim();
-  const t = new Date();
-  const stamp = `${t.getFullYear()}. ${t.getMonth()+1}. ${t.getDate()}.`;
-  document.getElementById('phMeta').textContent =
-    [ who ? `수급자 ${who}` : null,
-      `${grade==='C'?'인지지원등급':grade+'등급'}`,
-      `본인부담률 ${rateLabel}`,
-      `${Y}년 ${M}월 기준`,
-      `주·야간보호 ${dementiaRoom?'치매전담실':'일반'}`,
-      `작성일 ${stamp}` ].filter(Boolean).join('  ·  ');
+  f.push('');
+  f.push(`■ 총 부담액       ${won(self+np)}`);
+  $('formula').textContent = f.join('\n');
 }
 
-document.getElementById('addBtn').onclick=()=>{
-  scheds.push({svc:'day',days:[],from:'09:00',to:'12:00'}); renderScheds(); calc(); };
-['grade','rate','ym','branch','useDinner','useBreak'].forEach(id=>document.getElementById(id).onchange=calc);
-document.getElementById('cap8').oninput = calc;
-document.getElementById('who').oninput = calc;
-document.getElementById('useSevere').onchange = calc;
-
-/* ── 모드 토글 (급여 / 본인부담금) ── */
-document.body.dataset.mode = 'copay';
-document.querySelectorAll('#mode button').forEach(b=>b.onclick=()=>{
-  document.body.dataset.mode = b.dataset.m;
-  document.querySelectorAll('#mode button').forEach(x=>x.classList.toggle('on', x===b));
+fillDays();
+$('dtype').querySelectorAll('button').forEach(b=>b.onclick=()=>{
+  dementia = b.dataset.v==='dementia';
+  $('dtype').querySelectorAll('button').forEach(x=>x.classList.toggle('on', x===b));
+  calc();
 });
-
-/* ── 급여 계산기 (일반요양, 2026 기준) ── */
-const TONGSANG_2026 = 12390;                 // 통상임금(최저시급)
-const floor10 = x => Math.floor(x/10)*10;    // 10원 단위 절삭
-function wageCalc(){
-  const num = id => parseFloat(document.getElementById(id).value)||0;
-  const hourly = num('wHourly'), hours = num('wHours');
-  const wd = num('wWeekday'), sun = num('wSun'), hol = num('wHol');
-  const grade = document.getElementById('wGrade').value;
-  const noPension = document.getElementById('wNoPension').checked;
-  const medicaid  = document.getElementById('wMedicaid').checked;
-  const noEmploy  = document.getElementById('wNoEmploy').checked;
-
-  const holWage = hourly + TONGSANG_2026*0.5;   // 일요일·공휴일 시급
-  const gross = hours*(hourly*wd + holWage*hol + holWage*sun);
-
-  const employ  = noEmploy  ? 0 : floor10(gross*0.009);    // 고용 0.9%
-  const health  = medicaid  ? 0 : floor10(gross*0.03595);  // 건강 3.595%
-  const ltc     = medicaid  ? 0 : floor10(health*0.1314);  // 장기요양 = 건강 ×13.14%
-  const pension = noPension ? 0 : floor10(gross*0.0475);    // 연금 4.75%
-  const net = gross - employ - health - ltc - pension;
-
-  const nm = document.getElementById('wName').value.trim();
-  const R=[];
-  R.push(`<div class="wrow"><div><div class="lab">평일 시급</div>
-    <div class="desc">${grade}등급 · 직접입력</div></div><div class="amt">${won(hourly)}</div></div>`);
-  R.push(`<div class="wrow"><div><div class="lab">일요일·공휴일 시급</div>
-    <div class="desc">평일 ${won(hourly)} + 통상임금 ${won(TONGSANG_2026)} × 0.5</div></div>
-    <div class="amt">${won(holWage)}</div></div>`);
-  R.push(`<div class="wrow"><div><div class="lab">월급여 (총급여)</div>
-    <div class="desc">${hours}시간 × (평일 ${won(hourly)}×${wd}일${hol?` + 공휴일 ${won(holWage)}×${hol}일`:''}${sun?` + 일요일 ${won(holWage)}×${sun}일`:''})</div></div>
-    <div class="amt">${won(gross)}</div></div>`);
-  const dline=(lab,amt,desc,zero)=>`<div class="wrow"><div><div class="lab">${lab}${zero?' <span class="wtag">제외</span>':''}</div>
-    <div class="desc">${desc}</div></div><div class="amt">－${won(amt)}</div></div>`;
-  R.push(dline('고용보험료', employ, `총급여 × 0.9% (10원 절삭)`, noEmploy));
-  R.push(dline('건강보험료', health, `총급여 × 3.595% (10원 절삭)`, medicaid));
-  R.push(dline('장기요양보험료', ltc, `건강보험료 × 13.14% (10원 절삭)`, medicaid));
-  R.push(dline('국민연금', pension, `총급여 × 4.75% (10원 절삭)`, noPension));
-  R.push(`<div class="wrow net"><div><div class="lab">실수령액</div>
-    <div class="desc">총급여 ${won(gross)} − 공제 ${won(gross-net)}</div></div>
-    <div class="amt">${won(net)}</div></div>`);
-  document.getElementById('wResult').innerHTML = R.join('');
-
-  const f=[];
-  f.push(`■ 요양보호사 급여 (일반요양·2026)`);
-  if(nm) f.push(`  ${nm} · ${grade}등급`);
-  f.push(`  평일 시급 ${won(hourly)} / 일 근무 ${hours}시간`);
-  f.push(`  근무일 — 평일 ${wd}일${sun?` · 일요일 ${sun}일`:''}${hol?` · 공휴일 ${hol}일`:''}`);
-  f.push(``);
-  f.push(`  일요일·공휴일 시급 = ${won(hourly)} + ${won(TONGSANG_2026)} × 0.5 = ${won(holWage)}`);
-  f.push(`  월급여 = ${hours} × (${won(hourly)}×${wd}${hol?` + ${won(holWage)}×${hol}`:''}${sun?` + ${won(holWage)}×${sun}`:''}) = ${won(gross)}`);
-  f.push(``);
-  f.push(`  고용보험료   ${won(employ)}${noEmploy?'  (중복가입 제외)':'  = 총급여 × 0.9%'}`);
-  f.push(`  건강보험료   ${won(health)}${medicaid?'  (의료급여 제외)':'  = 총급여 × 3.595%'}`);
-  f.push(`  장기요양보험 ${won(ltc)}${medicaid?'  (의료급여 제외)':'  = 건강 × 13.14%'}`);
-  f.push(`  국민연금     ${won(pension)}${noPension?'  (65세이상 제외)':'  = 총급여 × 4.75%'}`);
-  f.push(`  ───────────────`);
-  f.push(`  실수령액 = ${won(gross)} − ${won(gross-net)} = ${won(net)}`);
-  document.getElementById('wFormula').textContent = f.join('\n');
-}
-['wHourly','wHours','wWeekday','wSun','wHol','wName'].forEach(id=>
-  document.getElementById(id).oninput = wageCalc);
-['wGrade','wNoPension','wMedicaid','wNoEmploy'].forEach(id=>
-  document.getElementById(id).onchange = wageCalc);
-document.getElementById('wCopyBtn').onclick=()=>{
-  navigator.clipboard.writeText(document.getElementById('wFormula').textContent);
-  document.getElementById('wCopyBtn').textContent='복사됨'; };
-wageCalc();
-
-/* 바로가기 설치 (PWA) — 공유허브 서비스워커와 충돌 방지 위해 매니페스트 방식만 사용 */
-let deferredPrompt=null;
-const installBtn=document.getElementById('installBtn');
-// 이미 설치(standalone)로 열렸으면 버튼 숨김
-if(window.matchMedia('(display-mode: standalone)').matches) installBtn.style.display='none';
-window.addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); deferredPrompt=e; });
-installBtn.onclick=async()=>{
-  if(deferredPrompt){
-    deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
-    deferredPrompt=null; installBtn.style.display='none';
-  }else{
-    alert('설치 방법\n\n· 크롬/엣지: 주소창 오른쪽 설치(⊕) 아이콘 클릭\n'+
-          '· 안드로이드: 메뉴(⋮) → 앱 설치 / 홈 화면에 추가\n'+
-          '· 아이폰 사파리: 공유 → 홈 화면에 추가');
-  }
-};
-window.addEventListener('appinstalled', ()=>{ installBtn.style.display='none'; });
-document.getElementById('printBtn').onclick = ()=>window.print();
-
-/* 출력 항목 선택 — 체크 해제한 카드는 인쇄에서만 빠짐 (화면에는 그대로) */
-function applyPrintOpts(){
-  document.querySelectorAll('.popts input').forEach(c=>{
-    const el=document.getElementById(c.dataset.sec);
-    if(el) el.classList.toggle('noprint', !c.checked);
-  });
-}
-document.querySelectorAll('.popts input').forEach(c=>c.onchange=applyPrintOpts);
-applyPrintOpts();
-document.querySelectorAll('#dtype button').forEach(b=>b.onclick=()=>{
-  dementiaRoom = b.dataset.t==='dementia';
-  document.querySelectorAll('#dtype button').forEach(x=>
-    x.classList.toggle('on', x.dataset.t===b.dataset.t));
-  calc(); });
-document.getElementById('copyBtn').onclick=()=>{
-  navigator.clipboard.writeText(document.getElementById('formula').textContent);
-  document.getElementById('copyBtn').textContent='복사됨'; };
-renderScheds(); calc();
+$('ym').onchange = ()=>{ const [Y,M]=$('ym').value.split('-').map(Number); fillHolidays(holidayCount(Y,M)); calc(); };
+$('days').onchange = ()=>{ fillHolidays(); calc(); };
+['branch','grade','rate','hours','hdays','useLunch','useDinner','useBreak','useSnack']
+  .forEach(id=>$(id).onchange=calc);
+(()=>{ const [Y,M]=$('ym').value.split('-').map(Number); fillHolidays(holidayCount(Y,M)); })();
+calc();
 </script>
+</body></html>

@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>장기요양 수가·급여 계산기 (2026)</title>
+<title>방문요양 수가·급여 계산기 (2026)</title>
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <link rel="manifest" href="rate_calc_manifest.json">
 <meta name="theme-color" content="#52909c">
@@ -175,12 +175,12 @@
 </div>
 
 <div class="printhead">
-  <div class="t">장기요양 급여비용·본인부담 산출내역</div>
+  <div class="t">방문요양 급여비용·본인부담 산출내역</div>
   <div class="m" id="phMeta"></div>
 </div>
 
 <div class="sub" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-  <span>2026년 급여비용 고시 기준 · 방문요양 / 주·야간보호 · 월 한도액 초과금·중증가산 자동 산출</span>
+  <span>2026년 급여비용 고시 기준 · 방문요양 전용 · 월 한도액 초과금·중증가산 자동 산출</span>
   <button class="print" id="printBtn">🖨 인쇄 / PDF 저장</button>
   <button class="print" id="installBtn" style="background:#0f766e">⬇ 바로가기 설치</button></div>
 
@@ -220,11 +220,11 @@
       <option value="0">0% (감경 100%) · 기초수급</option>
     </select></div>
     <div><label>기준 월</label><input type="month" id="ym" value="2026-08"></div>
-    <div><label>주·야간보호 유형</label><div class="toggle" id="dtype">
+    <div style="display:none"><label>주·야간보호 유형</label><div class="toggle" id="dtype">
       <button data-t="normal" class="on">일반</button>
       <button data-t="dementia">치매전담실</button>
     </div></div>
-    <div><label>8시간 인정 횟수</label>
+    <div style="display:none"><label>8시간 인정 횟수</label>
       <input type="text" id="cap8" placeholder="자동" style="width:64px"> 회
       <div style="font-size:11.5px;color:var(--mut)">비우면 자동 산출</div></div>
     <div><label>중증가산 (1·2등급 방문요양)</label>
@@ -372,8 +372,7 @@ const won = n => Math.round(n).toLocaleString('ko-KR')+'원';
 /* ── 일정 상태 ── */
 let dementiaRoom = false;          // 주·야간보호 내 치매전담실 여부
 let scheds = [
-  {svc:'day', days:[1,2,3,4,5], from:'08:00', to:'18:00'},  // 평일 주·야간보호
-  {svc:'day', days:[6,0],       from:'10:00', to:'18:00'},  // 주말(토·일)
+  {svc:'visit', days:[1,2,3,4,5], from:'09:00', to:'12:00'},  // 평일 방문요양 3시간
 ];
 
 function renderScheds(){
@@ -384,10 +383,7 @@ function renderScheds(){
     d.className='sched';
     d.innerHTML = `
       <div class="top">
-        <div class="toggle">
-          <button data-svc="visit" class="${s.svc==='visit'?'on':''}">방문요양</button>
-          <button data-svc="day"   class="${s.svc==='day'  ?'on':''}">주·야간보호</button>
-        </div>
+        <span class="badge" style="align-self:center">방문요양</span>
         <div class="days">${DAYNM.map((n,k)=>
           `<button data-d="${k}" class="${k===0?'sun ':k===6?'sat ':''}${s.days.includes(k)?'on':''}">${n}</button>`).join('')}
         </div>
