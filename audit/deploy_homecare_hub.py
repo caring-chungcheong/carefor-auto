@@ -167,7 +167,8 @@ function status() {
 
 # 개별 페이지 상단에 '허브로' 버튼을 끼워 넣는다(뒤로가기가 iframe 안에서 안 먹는 경우가 있어서)
 BACKBAR = """
-<div style="position:sticky;top:0;z-index:9999;background:#2f5c64;padding:9px 16px;
+<style>@media print{.hubbar{display:none !important}}</style>
+<div class="hubbar" style="position:sticky;top:0;z-index:9999;background:#2f5c64;padding:9px 16px;
             font:600 13px/1 'Pretendard Variable',Pretendard,'Malgun Gothic',sans-serif;">
   <a href="%s" target="_top" style="color:#fff;text-decoration:none;">← 방문요양 공유허브</a>
 </div>

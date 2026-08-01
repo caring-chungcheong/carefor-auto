@@ -124,6 +124,8 @@
     body{background:#fff}
     .wrap{max-width:none;padding:0;margin:0}
     .card,.btnbar,.brand,.foot{display:none}
+    /* ★허브가 페이지 위에 붙이는 복귀 바 — 인쇄에 나가면 첫 장이 거의 빈 채로 뜬다(실측) */
+    .hubbar,body>div[style*="sticky"]{display:none !important}
     .sheet.on{display:block;margin:0}
     .paper{border:0;max-width:none;padding:10mm 11mm;break-inside:avoid;page-break-inside:avoid;
       display:flex;flex-direction:column;min-height:277mm}

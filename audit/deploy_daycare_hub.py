@@ -119,9 +119,10 @@ function logItem(item) { log_(String(item || '').slice(0, 60)); return true; }
 """ % (SHEET_ID, LOG_SHEET)
 
 BACKBAR = """
-<div style="position:sticky;top:0;z-index:9999;background:#152647;padding:9px 16px;
-            font:600 13px/1 'Malgun Gothic',system-ui,sans-serif;">
-  <a href="%s" target="_top" style="color:#fff;text-decoration:none;">← 주간보호 공유허브</a>
+<style>@media print{.hubbar{display:none !important}}</style>
+<div class="hubbar" style="position:sticky;top:0;z-index:9999;background:#0d7268;padding:9px 16px;
+            font:600 13px/1 'Pretendard Variable',Pretendard,'Malgun Gothic',sans-serif;">
+  <a href="%s" target="_top" style="color:#fff;text-decoration:none;">← 주간보호 허브</a>
 </div>
 """
 
