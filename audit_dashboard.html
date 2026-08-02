@@ -104,10 +104,16 @@ function subVal(manual, no, label){
   return m && m.subs ? m.subs[label] : undefined;
 }
 function autoVal(it, s, d){
-  // 자동판정 결과로 자동 만점 부여 — 기준(sub) 단위 판정(sub_status) 우선, 없으면 항목 status
+  // 자동판정 결과로 점수 부여.
+  //  1) auto_score: 판정기가 점수를 직접 지정한 경우(부분점수 항목 — 예 31번 0.75점).
+  //     수집 실패 시엔 판정기가 auto_score 를 아예 넣지 않으므로 빈칸이 유지된다.
+  //  2) 없으면 기존 규칙 — 기준(sub) 단위 판정(sub_status) 우선, 없으면 항목 status.
   if(!d || !it.auto_subs || !it.auto_subs.includes(s.label)) return undefined;
   const r = d.item_results && d.item_results[String(it.no)];
   if(!r) return undefined;
+  if(r.auto_score && r.auto_score[s.label] !== undefined && r.auto_score[s.label] !== null){
+    return r.auto_score[s.label];
+  }
   if(r.sub_status && r.sub_status[s.label] !== undefined){
     return r.sub_status[s.label] === '양호' ? s.score : undefined;
   }

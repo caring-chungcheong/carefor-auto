@@ -92,10 +92,13 @@ def scrape_level_report(page, g_pammgno, cutoff: str | None = None,
 
 
 def judge_item31(data: dict) -> dict:
-    """31① 판정. 75% 이상만 '양호'(자동 만점) — 50~75%는 부분점수라 수기 입력이 필요하다.
+    """31① 판정.
 
-    ★'주의'로 두는 이유: autoVal 은 '양호'일 때만 만점을 넣는다. 0.75점을 자동으로 넣을
-      수단이 없으므로 채점자가 직접 넣도록 detail 에 점수를 명시한다.
+    점수는 auto_score 로 직접 지정한다 — 이 항목은 1점/0.75점/0점 3단계라
+    '양호=만점' 규칙만으로는 0.75점을 넣을 수 없기 때문이다.
+    (대시보드 autoVal 이 auto_score 를 sub_status 보다 우선해서 읽는다)
+    ★수집이 실패해 산출값을 못 읽은 경우에는 auto_score 를 넣지 않는다 —
+      안 본 항목에 점수가 자동으로 찍히면 안 된다.
     """
     rate, rows = data.get("rate"), data.get("rows") or []
     period = " ~ ".join(data.get("period") or [])
@@ -103,7 +106,7 @@ def judge_item31(data: dict) -> dict:
     # 기준 문언은 "해당 수급자 없으면 '해당없음' 제외 처리"지만,
     # ★본부 방침(회원님 확정 2026-08-02)에 따라 **미흡(0점)** 으로 처리한다.
     if data.get("excluded") or not rows:
-        return {"status": "미흡", "sub_status": {"①": "미흡"},
+        return {"status": "미흡", "sub_status": {"①": "미흡"}, "auto_score": {"①": 0},
                 "detail": (f"[①등급 유지·호전율] 적용기간 내 갱신 등급판정 수급자 0명 "
                            f"(케어포 1-9 하단 '제외' 표시) · 조회 {period} → "
                            f"**0점**(본부 방침: 해당없음 제외가 아니라 미흡 처리)")}
@@ -122,8 +125,10 @@ def judge_item31(data: dict) -> dict:
             base += f" 외 {len(worse) - 6}명"
 
     if rate >= 75:
-        return {"status": "양호", "sub_status": {"①": "양호"}, "detail": base + " → 1점"}
+        return {"status": "양호", "sub_status": {"①": "양호"}, "auto_score": {"①": 1.0},
+                "detail": base + " → 1점"}
     if rate >= 50:
-        return {"status": "주의", "sub_status": {"①": "주의"},
-                "detail": base + " → **0.75점**(50~75% 구간 · 부분점수라 채점 시 직접 입력)"}
-    return {"status": "미흡", "sub_status": {"①": "미흡"}, "detail": base + " → 0점(50% 미만)"}
+        return {"status": "주의", "sub_status": {"①": "주의"}, "auto_score": {"①": 0.75},
+                "detail": base + " → 0.75점(50~75% 구간) — 점수 자동 기입됨"}
+    return {"status": "미흡", "sub_status": {"①": "미흡"}, "auto_score": {"①": 0},
+            "detail": base + " → 0점(50% 미만)"}
