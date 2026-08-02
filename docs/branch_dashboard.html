@@ -485,16 +485,17 @@ function exportPDF(){
       const verdict = itF===0 ? '미입력' : (possible<=0 ? '해당없음' : (itE>=possible ? '충족' : '미달'));
       const cls = verdict==='충족' ? 'ok' : (verdict==='미달' ? 'bad' : 'na');
       const r = d && d.item_results && d.item_results[String(it.no)];
-      rows += `<tr class="item"><td>${it.no}</td><td class="l" colspan="2"><b>${it.name}</b></td>
+      // 항목 하나(제목행+기준행)를 한 tbody 로 묶는다 — 인쇄에서 항목이 쪼개져 넘어가지 않게
+      rows += `<tbody class="grp"><tr class="item"><td>${it.no}</td><td class="l" colspan="2"><b>${it.name}</b></td>
         <td><b>${it.total||'-'}</b></td><td class="st"></td><td><b>${itF===0?'-':fmt(itE)}</b></td>
         <td><span class="v ${cls}">${verdict}</span></td><td class="auto">${r?r.status:''}</td></tr>`;
-      rows += subRows.join('');
+      rows += subRows.join('') + `</tbody>`;
     });
     // 1) 점검표 — 한 페이지
     pages.push(`
       <div class="phead"><div class="ttl">지점 점검표</div><div class="br">${b}</div></div>
       <div class="meta">생성 ${new Date().toLocaleDateString('ko-KR')} · 총점 <b>${fmt(earned)}점</b> / 만점 ${fmt(100-naPts)}점 <span class="dim">(해당없음 ${fmt(naPts)}점 제외)</span> · 기준 입력 ${filled}/${total} · 자동수집 ${(d||{}).run_at||'-'} · 기관 지정일 ${(d||{}).opened||'-'}</div>
-      <table class="grid"><thead><tr><th style="width:30px">번호</th><th style="width:26px">기준</th><th>항목 · 기준 내용</th><th style="width:38px">배점</th><th style="width:74px">점수 단계</th><th style="width:40px">득점</th><th style="width:58px">판정</th><th style="width:40px">채점</th></tr></thead><tbody>${rows}</tbody></table>`);
+      <table class="grid"><thead><tr><th style="width:30px">번호</th><th style="width:26px">기준</th><th>항목 · 기준 내용</th><th style="width:38px">배점</th><th style="width:70px">점수 단계</th><th style="width:52px">득점</th><th style="width:66px">판정</th><th style="width:38px">채점</th></tr></thead>${rows}</table>`);
     // 2) 현장 확인 포인트 — 아예 다른 페이지(있을 때만)
     const chk = branchChecks(b);
     if(chk.length){
@@ -510,10 +511,11 @@ function exportPDF(){
         const steps = (x.steps&&x.steps.length) ? x.steps.map(v=>fmt(v)).join(' / ') : fmt(x.score);
         return `<tr><td class="k">${x.label}</td><td class="l">${x.text}</td><td>${fmt(x.score)}</td><td class="st">${steps}</td></tr>`;
       }).join('');
-      return `<div class="crit"><div class="ch"><span class="cno">${it.no}</span> ${it.name}
-          <span class="cpt">배점 ${it.total||'-'}점</span></div>
-        <div class="cbody">${it.criteria}</div>
-        <table class="grid mini"><thead><tr><th style="width:26px">기준</th><th class="l">내용</th><th style="width:38px">배점</th><th style="width:74px">점수 단계</th></tr></thead><tbody>${subs}</tbody></table></div>`;
+      return `<table class="crit"><thead><tr><th class="ch"><span class="cno">${it.no}</span> ${it.name}
+          <span class="cpt">배점 ${it.total||'-'}점</span></th></tr></thead><tbody>
+        <tr><td class="cbody">${it.criteria}</td></tr>
+        <tr><td class="cwrap"><table class="grid mini"><thead><tr><th style="width:26px">기준</th><th class="l">내용</th><th style="width:38px">배점</th><th style="width:74px">점수 단계</th></tr></thead><tbody>${subs}</tbody></table></td></tr>
+        </tbody></table>`;
     }).join('');
     pages.push(`
       <div class="phead teal"><div class="ttl">📘 평가 기준 (매뉴얼 원문)</div><div class="br">${b}</div></div>
@@ -535,7 +537,8 @@ function exportPDF(){
     .meta{font-size:10.5px;color:#6a7686;margin:7px 0 11px}
     .meta .dim{color:#9aa6b5}
     table.grid{border-collapse:collapse;width:100%;font-size:10.5px}
-    .grid th,.grid td{border:1px solid #b3d8df;padding:4px 7px;text-align:center;vertical-align:top}
+    /* 세로 가운데 — '부분충족'처럼 두 줄이 되는 셀이 있어도 나머지 칸이 위로 쏠리지 않게 */
+    .grid th,.grid td{border:1px solid #b3d8df;padding:4px 7px;text-align:center;vertical-align:middle}
     .grid thead th{background:#3a6f78;color:#fff;font-weight:700;border-color:#2f5c64}
     .grid.amber thead th{background:#b57a00;border-color:#9c690a}
     .grid td.l{text-align:left}
@@ -544,7 +547,12 @@ function exportPDF(){
     .grid td.auto{color:#7a8698;font-size:9.5px}
     .grid td.cbox{font-size:14px}
     .grid tbody tr{break-inside:avoid}
-    .v{display:inline-block;border-radius:9px;padding:1px 8px;font-weight:700;font-size:10px}
+    /* 항목 묶음(제목행+기준행)이 페이지 경계에서 쪼개지지 않게 */
+    .grid tbody.grp{break-inside:avoid;page-break-inside:avoid}
+    /* '미입력'(세 글자)이 두 줄로 접히던 문제 — 배지·셀 여백을 줄여 한 줄에 들어가게 한다.
+       '해당없음'(네 글자)은 그대로 두 줄로 접힌다(폭을 더 넓히면 표가 밀린다) */
+    .grid td:nth-child(7){padding-left:2px;padding-right:2px}
+    .v{display:inline-block;border-radius:9px;padding:1px 4px;font-weight:700;font-size:9.5px;line-height:1.35}
     .v.ok{background:#e4f4e8;color:#1f7a37}
     .v.bad{background:#fbe6e6;color:#bb2020}
     .v.na{background:#eef1f5;color:#7a8698}
@@ -555,9 +563,17 @@ function exportPDF(){
     .grid td.k{font-weight:700;color:#3a6f78}
     .grid td.st{font-size:9.5px;color:#5b6b7c;white-space:nowrap}
     .phead.teal{border-color:#3a6f78}
-    .crit{break-inside:avoid;margin:0 0 11px;border:1px solid #cfe2e6;border-radius:6px;overflow:hidden}
+    /* 한 항목은 한 페이지 안에 들어간다(항목과 페이지 일치) — 통째로 다음 장으로 넘긴다.
+       그래도 항목 자체가 한 페이지보다 길면 어쩔 수 없이 넘어가는데, 그때는 thead 가
+       다음 장 맨 위에 다시 그려져 번호·항목명이 앞에 온다. */
+    table.crit{width:100%;border-collapse:collapse;margin:0 0 11px;
+               border:1px solid #cfe2e6;border-radius:6px;overflow:hidden;
+               break-inside:avoid;page-break-inside:avoid}
+    table.crit > thead{display:table-header-group}
+    table.crit > tbody > tr{break-inside:avoid}
     .crit .ch{background:#eef5f7;padding:5px 9px;font-size:11.5px;font-weight:700;color:#23424a;
-              border-bottom:1px solid #cfe2e6}
+              border-bottom:1px solid #cfe2e6;text-align:left}
+    .crit td.cwrap{padding:0;border:0}
     .crit .cno{display:inline-block;background:#3a6f78;color:#fff;border-radius:4px;padding:0 6px;margin-right:5px}
     .crit .cpt{float:right;font-weight:600;color:#5b6b7c;font-size:10.5px}
     .crit .cbody{padding:7px 9px;font-size:10px;line-height:1.65;color:#3c4a58;white-space:pre-wrap}
