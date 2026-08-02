@@ -177,6 +177,17 @@ def run_branch_audit(
         except Exception as e:
             progress_cb(f"[{branch_name}] 33번 수집 실패(계속): {e}")
 
+        # 항목 31① 등급 유지·호전율: 1-9 수급자 등급 변동 현황 하단 산출값 (시설 단위)
+        item31 = None
+        try:
+            from .collect_item31 import scrape_level_report, judge_item31
+            progress_cb(f"[{branch_name}] 31번 등급 유지·호전율 (1-9)...")
+            item31 = judge_item31(scrape_level_report(page, g_pammgno, cutoff,
+                                                      progress=progress_cb,
+                                                      branch_name=branch_name))
+        except Exception as e:
+            progress_cb(f"[{branch_name}] 31번 수집 실패(계속): {e}")
+
         # 항목 18 보강용: 케어포 9-2 요양급여 수가설정(비급여 실제 단가).
         # ★반드시 이 with 블록 **안에서** 읽어야 한다 — 항목 판정부(아래)는 browser.close() 뒤라
         #   거기서 page 를 만지면 'Event loop is closed' 로 죽는다(실측).
@@ -376,6 +387,9 @@ def run_branch_audit(
                         r28["status"] = ins["status"]
         except Exception as e:
             progress_cb(f"[{branch_name}] 28③ 자동차보험 판정 건너뜀: {e}")
+
+    if item31:
+        analysis["item_results"]["31"] = item31
 
     if item33:
         analysis["item_results"]["33"] = item33

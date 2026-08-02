@@ -295,29 +295,44 @@ if __name__ == "__main__":
     main()
 
 
-def judge_avoid_food(results, cut: str = "2026.01.01"):
+def judge_avoid_food(results, cut: str = "2026.01.01", today: str | None = None):
     """항목 33①: 기간 내 신규 수급자의 욕구사정에 기피식품 기재 여부.
 
     - 욕구사정 영양상태 판단근거에 '기피식품'이 있으면 기재로 인정('없음' 포함, 매뉴얼 기준)
     - 기간 내 신규 수급자 없으면 예외(양호)
     - avoidFood 필드가 아예 없으면(구버전 스캔) 판정 보류 → (None, None)
+
+    ★급여개시일이 아직 오지 않은 사람은 판정에서 뺀다(사용자 지적 2026-08-02).
+      기준이 "급여제공 시작일까지 파악"이라 시작 전에는 욕구사정이 없는 게 정상인데,
+      스캔이 개시일 전날 밤에 돌면 그 사람이 '미기재'로 잡혔다
+      (실측: 급여개시 07-31 수급자 1명 / 스캔 07-30 22:55 → 오탐).
     반환: (status, note) 또는 (None, None)
     """
+    from datetime import date as _date
+
+    if today is None:
+        today = f"{_date.today():%Y.%m.%d}"
+
     has_field = any("avoidFood" in n for p in results for n in (p.get("needs") or []))
     if not has_field:
         return None, None
 
-    new = []
+    new, pending = [], []
     for p in results:
         starts = [e["d"] for e in (p.get("enroll") or [])
                   if e.get("k") == "급여개시일" and e.get("d")]
-        if starts and min(starts) >= cut:
-            new.append(p)
+        if not starts or min(starts) < cut:
+            continue
+        (pending if min(starts) > today else new).append(p["name"])
+
+    tail = (f" · 급여개시 전 {len(pending)}명 판정 제외({', '.join(pending[:3])})"
+            if pending else "")
     if not new:
-        return "양호", "①기피식품: 기간 내 신규 수급자 없음(예외)"
+        return "양호", "①기피식품: 기간 내 신규 수급자 없음(예외)" + tail
+    new = [p for p in results if p["name"] in set(new)]
 
     miss = [p["name"] for p in new if not any(n.get("avoidFood") for n in (p.get("needs") or []))]
     if miss:
         return "미흡", (f"①기피식품 미기재 {len(miss)}명"
-                      f"({', '.join(miss[:5])}{'…' if len(miss) > 5 else ''})")
-    return "양호", f"①기피식품 기재 확인(신규 {len(new)}명 전원)"
+                      f"({', '.join(miss[:5])}{'…' if len(miss) > 5 else ''})" + tail)
+    return "양호", f"①기피식품 기재 확인(신규 {len(new)}명 전원)" + tail
