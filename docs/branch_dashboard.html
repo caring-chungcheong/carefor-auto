@@ -384,7 +384,9 @@ function branchRows(b){
       }
       const r = d && d.item_results && d.item_results[String(it.no)];
       const m = manual[it.no] || {};
-      rows.push([si===0 ? it.no : '', si===0 ? it.name : '', s.label, s.text, s.score,
+      // 점수 단계(평가 매뉴얼) — 예 "2 / 1.75 / 0". 어떤 조건에 몇 점인지는 '기준 내용'에 있다.
+      const steps = (s.steps && s.steps.length) ? s.steps.join(' / ') : String(s.score);
+      rows.push([si===0 ? it.no : '', si===0 ? it.name : '', s.label, s.text, s.score, steps,
                  scoreCell, subStatusOf(e.v, s), e.v===undefined?'':(e.auto?'자동':'수기'),
                  r ? r.status : '', si===0 ? (m.memo||'') : '']);
     });
@@ -421,7 +423,7 @@ function exportExcel(){
   wsSum['!cols'] = [{wch:14},{wch:12},{wch:10},{wch:12},{wch:17},{wch:12}];
   XLSX.utils.book_append_sheet(wb, wsSum, '요약');
   brs.forEach(b=>{
-    const aoa = [["번호","항목","기준","기준 내용","배점","점수","판정","채점","자동판정","메모"], ...packs[b].rows];
+    const aoa = [["번호","항목","기준","기준 내용","배점","점수 단계","점수","판정","채점","자동판정","메모"], ...packs[b].rows];
     const chk = branchChecks(b);
     if(chk.length){
       aoa.push([], ["── 현장 확인 포인트 (2026 보완) — 배점 무관 ──"],
@@ -429,9 +431,22 @@ function exportExcel(){
       chk.forEach(r=>aoa.push([r[0], r[1], r[2], r[3] ? 'O' : '']));
     }
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws['!cols'] = [{wch:6},{wch:16},{wch:5},{wch:55},{wch:6},{wch:8},{wch:9},{wch:6},{wch:9},{wch:24}];
+    ws['!cols'] = [{wch:6},{wch:16},{wch:5},{wch:55},{wch:6},{wch:13},{wch:8},{wch:9},{wch:6},{wch:9},{wch:24}];
     XLSX.utils.book_append_sheet(wb, ws, b);
   });
+  // 평가 매뉴얼 기준 시트 — 배점·점수 단계의 근거 원문
+  const crit = [["번호","항목","총배점","기준","기준 내용","배점","점수 단계","평가 매뉴얼 기준(원문)"]];
+  ITEMS.forEach(it=>{
+    (it.subs||[]).forEach((x,i)=>{
+      const steps = (x.steps && x.steps.length) ? x.steps.join(' / ') : String(x.score);
+      crit.push([i===0?it.no:'', i===0?it.name:'', i===0?(it.total||''):'',
+                 x.label, x.text, x.score, steps, i===0?(it.criteria||''):'']);
+    });
+  });
+  const wsCrit = XLSX.utils.aoa_to_sheet(crit);
+  wsCrit['!cols'] = [{wch:6},{wch:18},{wch:8},{wch:5},{wch:50},{wch:6},{wch:13},{wch:100}];
+  XLSX.utils.book_append_sheet(wb, wsCrit, '평가기준(매뉴얼)');
+
   const tag = brs.length===1 ? brs[0]+'_' : '';
   const dt = new Date();
   const ymd = dt.getFullYear() + String(dt.getMonth()+1).padStart(2,'0') + String(dt.getDate()).padStart(2,'0');
@@ -446,27 +461,40 @@ function exportPDF(){
     let earned=0, naPts=0, filled=0, total=0, rows='';
     ITEMS.forEach(it=>{
       let itE=0, itNa=0, itF=0;
+      const subRows = [];
       (it.subs||[]).forEach(s=>{
         const e = effVal(it, s, manual, d);
         total++;
+        let got = '-';
         if(e.v !== undefined){
           filled++; itF++;
-          if(e.v==='NA'){ itNa+=s.score; naPts+=s.score; }
-          else { itE+=parseFloat(e.v); earned+=parseFloat(e.v); }
+          if(e.v==='NA'){ itNa+=s.score; naPts+=s.score; got='해당없음'; }
+          else { itE+=parseFloat(e.v); earned+=parseFloat(e.v); got=fmt(parseFloat(e.v)); }
         }
+        // 기준별 판정 — 배점을 다 받았으면 충족, 0점이면 미충족, 그 사이는 부분충족
+        const st = subStatusOf(e.v, s);
+        const scls = st==='충족' ? 'ok' : (st==='미충족' ? 'bad' : (st==='부분충족' ? 'part' : 'na'));
+        // 점수 부여 단계(평가 매뉴얼) — 예 2 / 1.75 / 0
+        const steps = (s.steps && s.steps.length) ? s.steps.map(x=>fmt(x)).join(' / ') : fmt(s.score);
+        subRows.push(`<tr class="sub"><td></td><td class="k">${s.label}</td>
+          <td class="l">${s.text}</td><td>${fmt(s.score)}</td><td class="st">${steps}</td>
+          <td>${got}</td><td><span class="v ${scls}">${st}</span></td>
+          <td class="auto">${e.v===undefined?'':(e.auto?'자동':'수기')}</td></tr>`);
       });
       const possible = (it.total||0) - itNa;
       const verdict = itF===0 ? '미입력' : (possible<=0 ? '해당없음' : (itE>=possible ? '충족' : '미달'));
       const cls = verdict==='충족' ? 'ok' : (verdict==='미달' ? 'bad' : 'na');
       const r = d && d.item_results && d.item_results[String(it.no)];
-      rows += `<tr><td>${it.no}</td><td class="l">${it.name}</td><td>${it.total||'-'}</td>
-        <td>${itF===0?'-':fmt(itE)}</td><td><span class="v ${cls}">${verdict}</span></td><td class="auto">${r?r.status:''}</td></tr>`;
+      rows += `<tr class="item"><td>${it.no}</td><td class="l" colspan="2"><b>${it.name}</b></td>
+        <td><b>${it.total||'-'}</b></td><td class="st"></td><td><b>${itF===0?'-':fmt(itE)}</b></td>
+        <td><span class="v ${cls}">${verdict}</span></td><td class="auto">${r?r.status:''}</td></tr>`;
+      rows += subRows.join('');
     });
     // 1) 점검표 — 한 페이지
     pages.push(`
       <div class="phead"><div class="ttl">지점 점검표</div><div class="br">${b}</div></div>
       <div class="meta">생성 ${new Date().toLocaleDateString('ko-KR')} · 총점 <b>${fmt(earned)}점</b> / 만점 ${fmt(100-naPts)}점 <span class="dim">(해당없음 ${fmt(naPts)}점 제외)</span> · 기준 입력 ${filled}/${total} · 자동수집 ${(d||{}).run_at||'-'} · 기관 지정일 ${(d||{}).opened||'-'}</div>
-      <table class="grid"><thead><tr><th style="width:34px">번호</th><th>항목</th><th style="width:46px">배점</th><th style="width:46px">득점</th><th style="width:62px">판정</th><th style="width:66px">자동판정</th></tr></thead><tbody>${rows}</tbody></table>`);
+      <table class="grid"><thead><tr><th style="width:30px">번호</th><th style="width:26px">기준</th><th>항목 · 기준 내용</th><th style="width:38px">배점</th><th style="width:74px">점수 단계</th><th style="width:40px">득점</th><th style="width:58px">판정</th><th style="width:40px">채점</th></tr></thead><tbody>${rows}</tbody></table>`);
     // 2) 현장 확인 포인트 — 아예 다른 페이지(있을 때만)
     const chk = branchChecks(b);
     if(chk.length){
@@ -476,6 +504,21 @@ function exportPDF(){
         <table class="grid amber"><thead><tr><th style="width:34px">#</th><th style="width:150px">항목</th><th class="l">확인 포인트</th><th style="width:46px">확인</th></tr></thead><tbody>
         ${chk.map(r=>`<tr><td>${r[0]}</td><td class="l">${r[1]}</td><td class="l">${r[2]}</td><td class="cbox">${r[3]?'☑':'☐'}</td></tr>`).join('')}</tbody></table>`);
     }
+    // 3) 평가 매뉴얼 기준 전문 — 점수를 왜 그렇게 줬는지 근거가 되는 원문
+    const crit = ITEMS.filter(it=>it.criteria).map(it=>{
+      const subs = (it.subs||[]).map(x=>{
+        const steps = (x.steps&&x.steps.length) ? x.steps.map(v=>fmt(v)).join(' / ') : fmt(x.score);
+        return `<tr><td class="k">${x.label}</td><td class="l">${x.text}</td><td>${fmt(x.score)}</td><td class="st">${steps}</td></tr>`;
+      }).join('');
+      return `<div class="crit"><div class="ch"><span class="cno">${it.no}</span> ${it.name}
+          <span class="cpt">배점 ${it.total||'-'}점</span></div>
+        <div class="cbody">${it.criteria}</div>
+        <table class="grid mini"><thead><tr><th style="width:26px">기준</th><th class="l">내용</th><th style="width:38px">배점</th><th style="width:74px">점수 단계</th></tr></thead><tbody>${subs}</tbody></table></div>`;
+    }).join('');
+    pages.push(`
+      <div class="phead teal"><div class="ttl">📘 평가 기준 (매뉴얼 원문)</div><div class="br">${b}</div></div>
+      <div class="meta">위 점검표의 배점·점수 단계가 어디서 나왔는지 근거 · 2026 주간보호 평가 매뉴얼</div>
+      ${crit}`);
   });
   const body = pages.map((pg,i)=>`<section class="page${i?' brk':''}">${pg}</section>`).join('');
   const w = window.open('', '_blank');
@@ -505,6 +548,21 @@ function exportPDF(){
     .v.ok{background:#e4f4e8;color:#1f7a37}
     .v.bad{background:#fbe6e6;color:#bb2020}
     .v.na{background:#eef1f5;color:#7a8698}
+    .v.part{background:#fff4e0;color:#a86400}
+    .grid tr.item td{background:#dcecef;font-size:11px}
+    .grid tr.item td b{color:#23424a}
+    .grid tr.sub td{font-size:10px;color:#33414f}
+    .grid td.k{font-weight:700;color:#3a6f78}
+    .grid td.st{font-size:9.5px;color:#5b6b7c;white-space:nowrap}
+    .phead.teal{border-color:#3a6f78}
+    .crit{break-inside:avoid;margin:0 0 11px;border:1px solid #cfe2e6;border-radius:6px;overflow:hidden}
+    .crit .ch{background:#eef5f7;padding:5px 9px;font-size:11.5px;font-weight:700;color:#23424a;
+              border-bottom:1px solid #cfe2e6}
+    .crit .cno{display:inline-block;background:#3a6f78;color:#fff;border-radius:4px;padding:0 6px;margin-right:5px}
+    .crit .cpt{float:right;font-weight:600;color:#5b6b7c;font-size:10.5px}
+    .crit .cbody{padding:7px 9px;font-size:10px;line-height:1.65;color:#3c4a58;white-space:pre-wrap}
+    .grid.mini{font-size:9.5px}
+    .grid.mini th,.grid.mini td{padding:3px 6px}
     @page{size:A4;margin:0}
   </style></head><body>${body}
   <script>window.onload=()=>setTimeout(()=>window.print(),350);<\/script></body></html>`);
