@@ -344,7 +344,11 @@
                 }
                 closeModalSync();
               }
-              const nd = /재사정|신규/.test(rd.needs) ? dateOf(rd.needs) : '';
+              // ★욕구사정 칸은 '신규/재사정' 라벨 없이 날짜+작성자만 있는 경우가 있다
+              //   (예: "2026.07.31 양덕모 (10/10)"). 라벨을 조건으로 걸면 그런 건을 통째로
+              //   놓쳐 '욕구사정 0건'이 되고 33① 기피식품이 미기재로 오판된다(실측 2026-08-03).
+              //   급여제공계획(rd.plan)처럼 날짜만 있으면 연다.
+              const nd = dateOf(rd.needs);
               if (nd && !needsArr.some(n => n.date === nd)) {
                 closeModalSync();
                 const p3 = anyXhrWait('일어나 앉기', 15000);

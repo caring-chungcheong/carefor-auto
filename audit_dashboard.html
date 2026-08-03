@@ -522,7 +522,7 @@ function exportPDF(){
   w.document.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><title>지점 점검표</title><style>
     *{box-sizing:border-box}
     body{font-family:'맑은 고딕','Malgun Gothic',sans-serif;margin:0;color:#1e2733;background:#fff}
-    .page{padding:15mm 13mm}
+    .page{padding:0}   /* 여백은 @page 가 준다 — 넘어간 장에도 적용되게 */
     .brk{page-break-before:always}
     .phead{display:flex;align-items:baseline;justify-content:space-between;border-bottom:3px solid #3a6f78;padding-bottom:7px}
     .phead.amber{border-color:#c07d10}
@@ -566,7 +566,7 @@ function exportPDF(){
     /* 한 항목은 한 페이지 안에 들어간다(항목과 페이지 일치) — 통째로 다음 장으로 넘긴다.
        그래도 항목 자체가 한 페이지보다 길면 어쩔 수 없이 넘어가는데, 그때는 thead 가
        다음 장 맨 위에 다시 그려져 번호·항목명이 앞에 온다. */
-    table.crit{width:100%;border-collapse:collapse;margin:0 0 11px;
+    table.crit{width:100%;border-collapse:collapse;margin:0 0 11px;display:table;
                border:1px solid #cfe2e6;border-radius:6px;overflow:hidden;
                break-inside:avoid;page-break-inside:avoid}
     table.crit > thead{display:table-header-group}
@@ -579,7 +579,7 @@ function exportPDF(){
     .crit .cbody{padding:7px 9px;font-size:10px;line-height:1.65;color:#3c4a58;white-space:pre-wrap}
     .grid.mini{font-size:9.5px}
     .grid.mini th,.grid.mini td{padding:3px 6px}
-    @page{size:A4;margin:0}
+    @page{size:A4;margin:14mm 12mm}
   </style></head><body>${body}
   <script>window.onload=()=>setTimeout(()=>window.print(),350);<\/script></body></html>`);
   w.document.close();
