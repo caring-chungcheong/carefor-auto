@@ -465,9 +465,9 @@ function critText(t){
   }).join('');
 }
 // 점검표 표들의 열 폭 — 항목별로 표를 나눠 그리므로 colgroup 으로 폭을 맞춘다
-const PDF_COLS = '<colgroup><col style="width:30px"><col style="width:26px"><col>'
-  + '<col style="width:38px"><col style="width:70px"><col style="width:52px">'
-  + '<col style="width:66px"><col style="width:38px"></colgroup>';
+const PDF_COLS = '<colgroup><col style="width:38px"><col style="width:34px"><col>'
+  + '<col style="width:44px"><col style="width:70px"><col style="width:52px">'
+  + '<col style="width:66px"><col style="width:42px"></colgroup>';
 function exportPDF(){
   const brs = expBranches();
   const pages = [];
@@ -530,7 +530,7 @@ function exportPDF(){
       return `<table class="crit"><thead><tr><th class="ch"><span class="cno">${it.no}</span> ${it.name}
           <span class="cpt">배점 ${it.total||'-'}점</span></th></tr></thead><tbody>
         <tr><td class="cbody">${critText(it.criteria)}</td></tr>
-        <tr><td class="cwrap"><table class="grid mini"><thead><tr><th style="width:26px">기준</th><th class="l">내용</th><th style="width:38px">배점</th><th style="width:74px">점수 단계</th></tr></thead><tbody>${subs}</tbody></table></td></tr>
+        <tr><td class="cwrap"><table class="grid mini"><thead><tr><th style="width:34px">기준</th><th class="l">내용</th><th style="width:44px">배점</th><th style="width:74px">점수 단계</th></tr></thead><tbody>${subs}</tbody></table></td></tr>
         </tbody></table>`;
     }).join('');
     pages.push(`
@@ -555,7 +555,7 @@ function exportPDF(){
     table.grid{border-collapse:collapse;width:100%;font-size:11.5px}
     /* 세로 가운데 — '부분충족'처럼 두 줄이 되는 셀이 있어도 나머지 칸이 위로 쏠리지 않게 */
     .grid th,.grid td{border:1px solid #b3d8df;padding:5px 7px;text-align:center;vertical-align:middle}
-    .grid thead th{background:#3a6f78;color:#fff;font-weight:700;border-color:#2f5c64;font-size:11px}
+    .grid thead th{background:#3a6f78;color:#fff;font-weight:700;border-color:#2f5c64;font-size:11px;white-space:nowrap}
     .grid.amber thead th{background:#b57a00;border-color:#9c690a}
     .grid td.l{text-align:left}
     .grid tbody tr:nth-child(even){background:#eef5f7}
@@ -602,7 +602,10 @@ function exportPDF(){
     .crit .cbody .ci{display:flex;gap:6px;margin:0 0 7px}
     .crit .cbody .ci:last-child{margin-bottom:0}
     .crit .cbody .ci > span{flex:1;min-width:0}
-    .crit .cbody .cn{color:#1f4d55;font-weight:800;font-size:13.5px;flex-shrink:0}
+    .crit .cbody .cn{color:#3a6f78;font-weight:800;font-size:13.5px;flex-shrink:0}
+    /* 기준 내용에도 표와 같은 색감을 준다 — 원문이 검정 일색이라 구분이 안 됐다 */
+    .crit .cbody .ci > span{color:#16202a}
+    .crit .cbody .ci > span b{color:#2f5c64}
     .grid.mini{font-size:11.5px}
     .grid.mini th,.grid.mini td{padding:6px 8px}
     @page{size:A4;margin:14mm 12mm}
