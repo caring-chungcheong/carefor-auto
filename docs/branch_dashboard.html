@@ -384,9 +384,7 @@ function branchRows(b){
       }
       const r = d && d.item_results && d.item_results[String(it.no)];
       const m = manual[it.no] || {};
-      // 점수 단계(평가 매뉴얼) — 예 "2 / 1.75 / 0". 어떤 조건에 몇 점인지는 '기준 내용'에 있다.
-      const steps = (s.steps && s.steps.length) ? s.steps.join(' / ') : String(s.score);
-      rows.push([si===0 ? it.no : '', si===0 ? it.name : '', s.label, s.text, s.score, steps,
+      rows.push([si===0 ? it.no : '', si===0 ? it.name : '', s.label, s.text, s.score,
                  scoreCell, subStatusOf(e.v, s), e.v===undefined?'':(e.auto?'자동':'수기'),
                  r ? r.status : '', si===0 ? (m.memo||'') : '']);
     });
@@ -423,7 +421,7 @@ function exportExcel(){
   wsSum['!cols'] = [{wch:14},{wch:12},{wch:10},{wch:12},{wch:17},{wch:12}];
   XLSX.utils.book_append_sheet(wb, wsSum, '요약');
   brs.forEach(b=>{
-    const aoa = [["번호","항목","기준","기준 내용","배점","점수 단계","점수","판정","채점","자동판정","메모"], ...packs[b].rows];
+    const aoa = [["번호","항목","기준","기준 내용","배점","점수","판정","채점","자동판정","메모"], ...packs[b].rows];
     const chk = branchChecks(b);
     if(chk.length){
       aoa.push([], ["── 현장 확인 포인트 (2026 보완) — 배점 무관 ──"],
@@ -431,7 +429,7 @@ function exportExcel(){
       chk.forEach(r=>aoa.push([r[0], r[1], r[2], r[3] ? 'O' : '']));
     }
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws['!cols'] = [{wch:6},{wch:16},{wch:5},{wch:55},{wch:6},{wch:13},{wch:8},{wch:9},{wch:6},{wch:9},{wch:24}];
+    ws['!cols'] = [{wch:6},{wch:16},{wch:5},{wch:55},{wch:6},{wch:8},{wch:9},{wch:6},{wch:9},{wch:24}];
     XLSX.utils.book_append_sheet(wb, ws, b);
   });
   // 평가 매뉴얼 기준 시트 — 배점·점수 단계의 근거 원문
@@ -487,10 +485,8 @@ function exportPDF(){
           if(e.v==='NA'){ itNa+=s.score; naPts+=s.score; got='해당없음'; }
           else { itE+=parseFloat(e.v); earned+=parseFloat(e.v); got=fmt(parseFloat(e.v)); }
         }
-        // 기준별 판정 — 배점을 다 받았으면 충족, 0점이면 미충족, 그 사이는 부분충족
         const st = subStatusOf(e.v, s);
         const scls = st==='충족' ? 'ok' : (st==='미충족' ? 'bad' : (st==='부분충족' ? 'part' : 'na'));
-        // 점수 부여 단계(평가 매뉴얼) — 예 2 / 1.75 / 0
         const steps = (s.steps && s.steps.length) ? s.steps.map(x=>fmt(x)).join(' / ') : fmt(s.score);
         subRows.push(`<tr class="sub"><td></td><td class="k">${s.label}</td>
           <td class="l">${s.text}</td><td>${fmt(s.score)}</td><td class="st">${steps}</td>
