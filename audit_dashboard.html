@@ -440,6 +440,15 @@ function exportExcel(){
   const ymd = dt.getFullYear() + String(dt.getMonth()+1).padStart(2,'0') + String(dt.getDate()).padStart(2,'0');
   XLSX.writeFile(wb, `지점점검표_${tag}${ymd}.xlsx`);
 }
+// 매뉴얼 원문의 기준번호(①②③…)를 줄머리로 내린다 — 한 문단으로 붙어 읽기 어려웠다.
+// 괄호 안 참조('(① 불인정 시 연동 불인정)')는 줄을 바꾸지 않는다.
+function critText(t){
+  return String(t||'').replace(/(?<![(（])\s+([①-⑩])\s/g, '\n$1 ').trim();
+}
+// 점검표 표들의 열 폭 — 항목별로 표를 나눠 그리므로 colgroup 으로 폭을 맞춘다
+const PDF_COLS = '<colgroup><col style="width:30px"><col style="width:26px"><col>'
+  + '<col style="width:38px"><col style="width:70px"><col style="width:52px">'
+  + '<col style="width:66px"><col style="width:38px"></colgroup>';
 function exportPDF(){
   const brs = expBranches();
   const pages = [];
@@ -471,17 +480,17 @@ function exportPDF(){
       const verdict = itF===0 ? '미입력' : (possible<=0 ? '해당없음' : (itE>=possible ? '충족' : '미달'));
       const cls = verdict==='충족' ? 'ok' : (verdict==='미달' ? 'bad' : 'na');
       const r = d && d.item_results && d.item_results[String(it.no)];
-      // 항목 하나(제목행+기준행)를 한 tbody 로 묶는다 — 인쇄에서 항목이 쪼개져 넘어가지 않게
-      rows += `<tbody class="grp"><tr class="item"><td>${it.no}</td><td class="l" colspan="2"><b>${it.name}</b></td>
+      rows += `<table class="grid grp">${PDF_COLS}
+        <thead><tr class="item"><td>${it.no}</td><td class="l" colspan="2"><b>${it.name}</b></td>
         <td><b>${it.total||'-'}</b></td><td class="st"></td><td><b>${itF===0?'-':fmt(itE)}</b></td>
-        <td><span class="v ${cls}">${verdict}</span></td><td class="auto">${r?r.status:''}</td></tr>`;
-      rows += subRows.join('') + `</tbody>`;
+        <td><span class="v ${cls}">${verdict}</span></td><td class="auto">${r?r.status:''}</td></tr></thead>
+        <tbody>${subRows.join('')}</tbody></table>`;
     });
     // 1) 점검표 — 한 페이지
     pages.push(`
       <div class="phead"><div class="ttl">지점 점검표</div><div class="br">${b}</div></div>
       <div class="meta">생성 ${new Date().toLocaleDateString('ko-KR')} · 총점 <b>${fmt(earned)}점</b> / 만점 ${fmt(100-naPts)}점 <span class="dim">(해당없음 ${fmt(naPts)}점 제외)</span> · 기준 입력 ${filled}/${total} · 자동수집 ${(d||{}).run_at||'-'} · 기관 지정일 ${(d||{}).opened||'-'}</div>
-      <table class="grid"><thead><tr><th style="width:30px">번호</th><th style="width:26px">기준</th><th>항목 · 기준 내용</th><th style="width:38px">배점</th><th style="width:70px">점수 단계</th><th style="width:52px">득점</th><th style="width:66px">판정</th><th style="width:38px">채점</th></tr></thead>${rows}</table>`);
+      <table class="grid hdr">${PDF_COLS}<thead><tr><th>번호</th><th>기준</th><th>항목 · 기준 내용</th><th>배점</th><th>점수 단계</th><th>득점</th><th>판정</th><th>채점</th></tr></thead></table>${rows}`);
     // 2) 현장 확인 포인트 — 아예 다른 페이지(있을 때만)
     const chk = branchChecks(b);
     if(chk.length){
@@ -499,7 +508,7 @@ function exportPDF(){
       }).join('');
       return `<table class="crit"><thead><tr><th class="ch"><span class="cno">${it.no}</span> ${it.name}
           <span class="cpt">배점 ${it.total||'-'}점</span></th></tr></thead><tbody>
-        <tr><td class="cbody">${it.criteria}</td></tr>
+        <tr><td class="cbody">${critText(it.criteria)}</td></tr>
         <tr><td class="cwrap"><table class="grid mini"><thead><tr><th style="width:26px">기준</th><th class="l">내용</th><th style="width:38px">배점</th><th style="width:74px">점수 단계</th></tr></thead><tbody>${subs}</tbody></table></td></tr>
         </tbody></table>`;
     }).join('');
@@ -533,8 +542,13 @@ function exportPDF(){
     .grid td.auto{color:#7a8698;font-size:9.5px}
     .grid td.cbox{font-size:14px}
     .grid tbody tr{break-inside:avoid}
-    /* 항목 묶음(제목행+기준행)이 페이지 경계에서 쪼개지지 않게 */
-    .grid tbody.grp{break-inside:avoid;page-break-inside:avoid}
+    /* 항목마다 독립 표 — 표 단위 avoid 라야 Chrome 인쇄에서 실제로 지켜진다.
+       열 폭은 colgroup + table-layout:fixed 로 표끼리 맞춘다. */
+    table.grid{table-layout:fixed}
+    table.grid.grp{break-inside:avoid;page-break-inside:avoid;margin:0}
+    table.grid.grp + table.grid.grp{border-top:0}
+    table.grid.hdr{margin-bottom:0}
+    table.grid.grp > thead{display:table-header-group}
     /* '미입력'(세 글자)이 두 줄로 접히던 문제 — 배지·셀 여백을 줄여 한 줄에 들어가게 한다.
        '해당없음'(네 글자)은 그대로 두 줄로 접힌다(폭을 더 넓히면 표가 밀린다) */
     .grid td:nth-child(7){padding-left:2px;padding-right:2px}
