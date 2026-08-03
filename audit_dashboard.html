@@ -504,7 +504,7 @@ function exportPDF(){
       pages.push(`
         <div class="phead amber"><div class="ttl">✅ 현장 확인 포인트</div><div class="br">${b}</div></div>
         <div class="meta">배점과 무관 · 현장에서 눈으로 확인하는 체크리스트 (2026 보완)</div>
-        <table class="grid amber"><thead><tr><th style="width:34px">#</th><th style="width:150px">항목</th><th class="l">확인 포인트</th><th style="width:46px">확인</th></tr></thead><tbody>
+        <table class="grid amber"><thead><tr><th style="width:34px">#</th><th style="width:186px">항목</th><th class="l">확인 포인트</th><th style="width:46px">확인</th></tr></thead><tbody>
         ${chk.map(r=>`<tr><td>${r[0]}</td><td class="l">${r[1]}</td><td class="l">${r[2]}</td><td class="cbox">${r[3]?'☑':'☐'}</td></tr>`).join('')}</tbody></table>`);
     }
     // 3) 평가 매뉴얼 기준 전문 — 점수를 왜 그렇게 줬는지 근거가 되는 원문
@@ -546,6 +546,7 @@ function exportPDF(){
     .grid td.l{text-align:left}
     .grid tbody tr:nth-child(even){background:#eef5f7}
     .grid.amber tbody tr:nth-child(even){background:#fbf4e7}
+    .grid.amber tbody td:nth-child(2){white-space:nowrap;text-align:left}
     .grid td.auto{color:#5b6b7c;font-size:10px}
     .grid td.cbox{font-size:14px}
     .grid tbody tr{break-inside:avoid}
