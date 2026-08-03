@@ -455,8 +455,14 @@ function exportExcel(){
 // 매뉴얼 원문의 기준번호(①②③…)를 줄머리로 내린다 — 한 문단으로 붙어 읽기 어려웠다.
 // 괄호 안 참조('(① 불인정 시 연동 불인정)')는 줄을 바꾸지 않는다.
 function critText(t){
-  return String(t||'').replace(/(?<![(（])\s+([①-⑩])\s/g, '\n$1 ').trim()
-           .replace(/^([①-⑩])/gm, '<b class="cn">$1</b>');
+  // 기준(①②③…)마다 문단을 나눈다 — 한 덩어리 pre-wrap 이면 줄이 뭉쳐 읽기 어렵다.
+  // 문장 안 참조 '(① 불인정 시…)' 는 (앞 괄호 lookbehind) 나누지 않는다.
+  const s = String(t||'').replace(/(?<![(（])\s+([①-⑩])\s/g, '$1 ').trim();
+  return s.split('').filter(x=>x.trim()).map(x=>{
+    const m = x.match(/^([①-⑩])\s*([\s\S]*)$/);
+    return m ? `<div class="ci"><b class="cn">${m[1]}</b><span>${m[2].trim()}</span></div>`
+             : `<div class="ci">${x.trim()}</div>`;
+  }).join('');
 }
 // 점검표 표들의 열 폭 — 항목별로 표를 나눠 그리므로 colgroup 으로 폭을 맞춘다
 const PDF_COLS = '<colgroup><col style="width:30px"><col style="width:26px"><col>'
@@ -586,16 +592,19 @@ function exportPDF(){
                break-inside:avoid;page-break-inside:avoid}
     table.crit > thead{display:table-header-group}
     table.crit > tbody > tr{break-inside:avoid}
-    .crit .ch{background:#eef5f7;padding:7px 11px;font-size:13px;font-weight:700;color:#23424a;
+    .crit .ch{background:#eef5f7;padding:9px 13px;font-size:14.5px;font-weight:700;color:#23424a;
               border-bottom:1px solid #cfe2e6;text-align:left}
     .crit td.cwrap{padding:0;border:0}
     .crit .cno{display:inline-block;background:#3a6f78;color:#fff;border-radius:4px;padding:0 6px;margin-right:5px}
-    .crit .cpt{float:right;font-weight:700;color:#3a6f78;font-size:11.5px}
-    .crit .cbody{padding:9px 11px;font-size:11.5px;line-height:1.85;color:#1e2733;
-                 white-space:pre-wrap;letter-spacing:-.1px}
-    .crit .cbody .cn{color:#2f5c64;font-weight:800;margin-right:2px}
-    .grid.mini{font-size:10.5px}
-    .grid.mini th,.grid.mini td{padding:5px 7px}
+    .crit .cpt{float:right;font-weight:700;color:#3a6f78;font-size:12.5px}
+    .crit .cbody{padding:11px 13px;font-size:12.5px;line-height:1.7;color:#000;font-weight:500;
+                 letter-spacing:0}
+    .crit .cbody .ci{display:flex;gap:6px;margin:0 0 7px}
+    .crit .cbody .ci:last-child{margin-bottom:0}
+    .crit .cbody .ci > span{flex:1;min-width:0}
+    .crit .cbody .cn{color:#1f4d55;font-weight:800;font-size:13.5px;flex-shrink:0}
+    .grid.mini{font-size:11.5px}
+    .grid.mini th,.grid.mini td{padding:6px 8px}
     @page{size:A4;margin:14mm 12mm}
   </style></head><body>${body}
   <script>window.onload=()=>setTimeout(()=>window.print(),350);<\/script></body></html>`);
