@@ -552,9 +552,10 @@ function exportPDF(){
     /* 항목마다 독립 표 — 표 단위 avoid 라야 Chrome 인쇄에서 실제로 지켜진다.
        열 폭은 colgroup + table-layout:fixed 로 표끼리 맞춘다. */
     table.grid{table-layout:fixed}
-    table.grid.grp{break-inside:avoid;page-break-inside:avoid;margin:0}
-    table.grid.grp + table.grid.grp{border-top:0}
-    table.grid.hdr{margin-bottom:0}
+    /* 항목 사이를 살짝 띄워 한 페이지에 여러 항목이 와도 구분되게.
+       page-break 시 하단 margin 은 브라우저가 잘라내므로 페이지가 밀리지 않는다. */
+    table.grid.grp{break-inside:avoid;page-break-inside:avoid;margin:0 0 5px}
+    table.grid.hdr{margin-bottom:5px}
     table.grid.grp > thead{display:table-header-group}
     /* '미입력'(세 글자)이 두 줄로 접히던 문제 — 배지·셀 여백을 줄여 한 줄에 들어가게 한다.
        '해당없음'(네 글자)은 그대로 두 줄로 접힌다(폭을 더 넓히면 표가 밀린다) */
