@@ -161,9 +161,13 @@ def scrape_program_slots(page, g_pammgno, sdate, edate, progress=print) -> list[
         while i + 11 < len(c):
             m = PDT.search(c[i + 3] or "")
             if c[i].isdigit() and NM.fullmatch(c[i + 1] or "") and m:
-                slots.append({"name": _strip(c[i + 1]), "date": m.group(1),
+                # 열: 연번·수급자명·등급·제공일시·유형구분·프로그램유형·프로그램·참여도·
+                #     만족도·수행도·반응 및 특이사항·진행자 (실측 2026-08-05)
+                slots.append({"name": _strip(c[i + 1]), "grade": c[i + 2], "date": m.group(1),
                               "s": m.group(2) or "", "e": m.group(3) or "",
-                              "prog": c[i + 6], "join": c[i + 7]})
+                              "kind": c[i + 4], "ptype": c[i + 5],
+                              "prog": c[i + 6], "join": c[i + 7],
+                              "note": c[i + 10], "staff": c[i + 11]})
                 i += 12
             else:
                 i += 1
@@ -171,6 +175,47 @@ def scrape_program_slots(page, g_pammgno, sdate, edate, progress=print) -> list[
     except Exception as e:
         progress(f"  5-7 프로그램 시각 수집 실패: {e}")
     return slots
+
+
+def judge_program_quality(slots: list[dict]) -> dict:
+    """프로그램 기록 품질 — 5-7 한 번 읽은 걸로 볼 수 있는 것만 본다(추가 수집 없음).
+
+    ① 5등급인데 인지활동 프로그램이 한 번도 없는 수급자 (회원님 지시 항목)
+    ② 참여도 미기재 — 결석이 아닌데 체크가 빠진 건
+    ③ 반응 및 특이사항 미작성
+
+    ★모두 '주의'까지만. 퇴소·중도 입소로 기간이 짧은 사람이 섞이므로 미흡 확정은 위험하다.
+    """
+    if not slots:
+        return {"status": None, "detail": "", "g5_missing": [], "no_join": [], "no_note": []}
+
+    by_person: dict[str, dict] = {}
+    for s in slots:
+        p = by_person.setdefault(s["name"], {"grade": "", "cog": 0, "n": 0})
+        p["n"] += 1
+        if s.get("grade"):
+            p["grade"] = s["grade"]
+        if "인지" in f"{s.get('kind')}{s.get('ptype')}":
+            p["cog"] += 1
+
+    g5 = sorted(n for n, p in by_person.items() if "5등급" in p["grade"] and p["cog"] == 0)
+    no_join = [s for s in slots if not (s.get("join") or "").strip()]
+    no_note = [s for s in slots if not (s.get("note") or "").strip()]
+
+    parts = [f"프로그램 기록 {len(slots)}건 / {len(by_person)}명"]
+    if g5:
+        parts.append(f"⚠5등급인데 인지활동 기록 0건 {len(g5)}명({', '.join(g5[:6])}"
+                     f"{'…' if len(g5) > 6 else ''})")
+    if no_join:
+        parts.append(f"⚠참여도 미기재 {len(no_join)}건")
+    if no_note:
+        parts.append(f"⚠반응·특이사항 미작성 {len(no_note)}건")
+    if not (g5 or no_join or no_note):
+        parts.append("5등급 인지활동·참여도·특이사항 누락 없음")
+    return {"status": ("주의" if (g5 or no_join or no_note) else "양호"),
+            "detail": " · ".join(parts), "g5_missing": g5,
+            "no_join": no_join[:200], "no_note": no_note[:200],
+            "no_join_n": len(no_join), "no_note_n": len(no_note)}
 
 
 BAD_JOB = re.compile(r"사무원|운전|조리|위생|영양")

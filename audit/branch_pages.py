@@ -2118,6 +2118,17 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None,
                       + ("; ".join(prog_miss[t] + prog_note[t]) or f"연간계획·{freq} 실시·의견수렴/반영 충족")
                       + ("" if has_exec else f" (②{freq} 실시는 다음 단계)"),
         }
+    # 프로그램 기록 품질(5-7 한 번 읽은 것으로 판정) — 5등급 인지활동 0건 / 참여도·특이사항 미작성.
+    #   상태는 건드리지 않는다(퇴소·중도입소로 기간 짧은 사람이 섞여 미흡 확정이 위험). 근거만 붙인다.
+    _pq = ((data or {}).get("outing") or {}).get("progq") or {}
+    if _pq.get("detail"):
+        for no in ("24", "25", "26"):
+            if no in item_results:
+                item_results[no]["detail"] += " / [기록품질] " + _pq["detail"]
+        if _pq.get("g5_missing") and "25" in item_results:
+            item_results["25"]["cols"] = ["수급자", "구분"]
+            item_results["25"]["rows"] = [[n, "5등급인데 인지활동 프로그램 기록 0건"]
+                                          for n in _pq["g5_missing"]]
 
     return {
         "item_results": item_results,

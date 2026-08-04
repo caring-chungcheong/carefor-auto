@@ -158,13 +158,14 @@ def run_branch_audit(
                 #   외출·복귀 시각과 '동행 보호자'가 있어 실제 시간 충돌과 동행자 자격을 볼 수 있다.
                 try:
                     from .collect_outing import (scrape_outings, scrape_program_slots,
-                                                 judge_outing)
+                                                 judge_outing, judge_program_quality)
                     progress_cb(f"[{branch_name}] 30① 외출 시각↔프로그램 충돌·동행자 자격 확인...")
                     _outs = scrape_outings(page, g_pammgno, _s, _e, progress_cb)
                     _slots = scrape_program_slots(page, g_pammgno, _s, _e, progress_cb)
                     # 5만 건짜리 slots 는 저장하지 않는다(결과 JSON 비대). 판정 결과만 남긴다.
                     bp_raw["outing"] = {"outings_n": len(_outs), "slots_n": len(_slots),
-                                        "judge": judge_outing(_outs, _slots, jobs)}
+                                        "judge": judge_outing(_outs, _slots, jobs),
+                                        "progq": judge_program_quality(_slots)}
                 except Exception as e:
                     progress_cb(f"[{branch_name}] 30① 외출 대조 건너뜀: {e}")
                 # 연계기록지(1-10) 작성일 ↔ 상담일지(1-4) same-day 대조(수기확인 지원)
