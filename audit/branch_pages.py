@@ -1958,15 +1958,23 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None,
         else:
             # 확인 0·미확인 0 인데 대상은 있었다 = 전부 조회불가. '확인됨'으로 쓰면 안 본 걸 양호로 두는 것.
             csd_note = f" · [연계-상담 same-day]{_cov} 전건 조회불가 — 상담 확인 못 함(수기확인)"
+        # 30① 보강(2026-08-05): 2-9 외출 리포트의 **시각**과 **동행 보호자**로 실제 충돌·동행자
+        #   자격을 본다. 4-4는 진료 시각 열이 없어 '같은 날'까지가 한계였고, 그 수치는 근거가
+        #   못 됐다. 작성자는 입력자일 뿐이라 판정에 쓰지 않는다.
+        og = ((data or {}).get("outing") or {}).get("judge") or {}
+        if og.get("status"):
+            sub["①"] = "주의" if og["status"] == "주의" else sub.get("①", "주의")
         m30_bad = ["30①"] if (m30 and m30["status"] == "미흡") else []
         overall = ("미흡" if (conn_miss or m30_bad)
-                   else ("주의" if (m30 and m30["status"] == "주의") else "양호"))
+                   else ("주의" if ((m30 and m30["status"] == "주의")
+                                  or og.get("status") == "주의") else "양호"))
         item_results["30"] = {
             "status": overall,
             "sub_status": sub,
             "detail": (f"[②연계기록지] 작성 {connect['total'] or 0}건 · 발송완료 {connect['sent'] or 0}건 — "
                        + ("; ".join(conn_miss) or "전건 기한 내 발송 완료")
                        + (" / " + m30["detail"] if m30 else " (①동행진료 기록은 수기 확인)")
+                       + (" / [①외출시각 대조] " + og["detail"] if og.get("detail") else "")
                        + csd_note),
         }
         # 30번 특이사항 전건(하단 drill-down용) — 연계-상담 작성일 미확인 + 진료-프로그램 겹침(둘 다 수기확인)
@@ -1975,6 +1983,15 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None,
         for o in ((m30 or {}).get("overlap") or []):
             nm, _, dt = o.rpartition(" ")
             rows30.append([nm or o, dt, "진료일에 프로그램 참여(모순)"])
+        # 외출 시각 기준 실제 충돌·자격 외 동행 — '같은 날'보다 근거가 세다
+        for h in (og.get("conflicts") or []):
+            rows30.append([h["name"], h["date"],
+                           f"외출 {h['start']}~{h['end']} 중 프로그램 참여도 '{h.get('join')}' 기재"
+                           f"({h.get('overlap_min')}분 겹침)"])
+        for bmr in (og.get("badjob") or []):
+            rows30.append([bmr["name"], bmr["date"],
+                           f"동행자 {str(bmr.get('escort')).splitlines()[0]} [{bmr.get('job')}] "
+                           "— 자격 외 직종 병원 동행(수기확인)"])
         if rows30:
             item_results["30"]["cols"] = ["수급자", "날짜", "구분"]
             item_results["30"]["rows"] = rows30
