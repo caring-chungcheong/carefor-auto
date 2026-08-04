@@ -81,13 +81,36 @@ def _hdr(tok: str) -> dict:
     return {"Authorization": f"Bearer {tok}", "Accept": "application/vnd.github+json"}
 
 
+def _audit_jobs_ok(tok: str, run_id: int) -> bool:
+    """그 런에서 '지점 스캔' job 이 전부 성공했는지. merge 뒤쪽(구글시트 업로드 등)이
+    실패해도 지점 아티팩트는 멀쩡하다."""
+    try:
+        j = requests.get(f"{API}/repos/{REPO}/actions/runs/{run_id}/jobs",
+                         headers=_hdr(tok), params={"per_page": 50}, timeout=30).json()
+    except Exception:
+        return False
+    jobs = [x for x in j.get("jobs", []) if x.get("name", "").startswith("audit ")]
+    return bool(jobs) and all(x.get("conclusion") == "success" for x in jobs)
+
+
 def _latest_run(tok: str) -> dict | None:
-    """가장 최근의 '성공한' 지점점검 런. 실패한 런의 아티팩트는 불완전할 수 있어 제외한다."""
+    """가장 최근의 쓸 수 있는 지점점검 런.
+
+    ★2026-08-05 수정: 예전에는 conclusion == success 만 골랐다. 그런데 08-04 런이
+      '구글시트 업로드'만 실패해 런 전체가 failure 로 끝났고, 지점 스캔·대시보드는 멀쩡한데
+      로컬 동기화가 그 런을 통째로 건너뛰어 로컬이 하루 묵었다(둔산·서구·천안 08-03).
+      부수 작업 실패로 멀쩡한 스캔을 버리지 않도록, 지점 job 이 전부 성공한 런도 받는다.
+    """
     r = requests.get(f"{API}/repos/{REPO}/actions/workflows/{WORKFLOW}/runs",
                      headers=_hdr(tok), params={"per_page": 20}, timeout=30)
     r.raise_for_status()
-    for run in r.json().get("workflow_runs", []):
-        if run.get("status") == "completed" and run.get("conclusion") == "success":
+    runs = [x for x in r.json().get("workflow_runs", []) if x.get("status") == "completed"]
+    for run in runs:
+        if run.get("conclusion") == "success":
+            return run
+        if run.get("conclusion") == "failure" and _audit_jobs_ok(tok, run["id"]):
+            print(f"  ※ 런 {run['id']} 은 전체 결과가 failure 지만 지점 스캔은 전부 성공 "
+                  "— 그 결과를 씁니다(뒤쪽 부수 작업만 실패).")
             return run
     return None
 
