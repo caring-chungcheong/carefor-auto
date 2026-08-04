@@ -125,8 +125,12 @@ if not test_mode and not skip_upload:
         from audit.sheet_upload import upload
         upload()
     except Exception as e:
-        print(f"구글시트 업로드 실패: {e}")
-        failed.append("시트업로드")
+        # ★런을 실패로 만들지 않는다(2026-08-05). 이 업로드는 '본부 공유용 시트 탭'에만
+        #   쓰이고 스캔·대시보드·요약페이지·리포트와는 무관하다. 그런데 여기서 exit 1 을
+        #   내는 바람에 08-04 런이 통째로 failure 가 됐고, 로컬 동기화가 '성공한 런만'
+        #   받도록 돼 있어 멀쩡한 지점 스캔이 하루 통으로 버려졌다.
+        #   업로드가 다시 필요해지면 웹훅 URL(AUDIT_WEBHOOK_URL) 재발급만 하면 된다.
+        print(f"⚠ 구글시트 업로드 실패(런은 계속 진행): {e}")
 
 if failed:
     print(f"\n일부 실패: {failed}")
