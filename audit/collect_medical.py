@@ -54,11 +54,30 @@ def scrape_program(page, g_pammgno, sdate, edate, progress=print) -> dict:
     try:
         _spa(page, g_pammgno, "left_sub5", PROG_VIEW, "5-7.수급자 참여프로그램 리포트")
         _set_period(page, sdate, edate)
+        # ★_set_period 의 4초로는 모자란다 — 청주 2년치가 g-td 68만 개라 그 안에 안 그려진다.
+        #   그래서 늘 0건으로 읽혔고, 30①이 "진료-프로그램 겹침 없음"이라는 허위 문구를 달았다
+        #   (실측 2026-08-04: 6.5초 기다리니 54,543건). 셀 수가 멎을 때까지 기다린다.
+        prev, stable = -1, 0
+        for _ in range(20):                     # 최대 ~20초
+            n = page.evaluate("()=>document.querySelectorAll('g-td').length")
+            if n and n == prev:
+                stable += 1
+                if stable >= 2:
+                    break
+            else:
+                stable = 0
+            prev = n
+            page.wait_for_timeout(1000)
         cells = page.evaluate("()=>[...document.querySelectorAll('g-td')].map(x=>x.innerText.trim())")
         by_person, i = {}, 0
         dtm = re.compile(r"(\d{4}\.\d{2}\.\d{2})")
+        # ★이름 앞에 동명이인 표기가 붙는다: '(각)김경자', '(여)김경자'.
+        #   `[가-힣]{2,5}` 로만 받으면 **전건이 걸러져 0건**이 된다(실측 2026-08-04 청주: 68만 셀인데 0건).
+        #   0건은 '자료 없음'이 아니라 '못 읽음'이었고, 그 탓에 30① 판정이
+        #   "진료-프로그램 겹침 없음"이라는 근거 없는 문구를 달고 있었다.
+        nm_re = re.compile(r"(?:\([^)]{1,4}\))?[가-힣]{2,5}")
         while i + 3 < len(cells):
-            if cells[i].isdigit() and re.fullmatch(r"[가-힣]{2,5}", cells[i + 1] or "") and dtm.search(cells[i + 3] or ""):
+            if cells[i].isdigit() and nm_re.fullmatch(cells[i + 1] or "") and dtm.search(cells[i + 3] or ""):
                 name = cells[i + 1]
                 d = dtm.search(cells[i + 3]).group(1)
                 by_person.setdefault(name, set()).add(d)

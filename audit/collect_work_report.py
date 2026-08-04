@@ -47,7 +47,7 @@ TARGET_JOB_RE = re.compile(r"시설장|관리책임자|사무원|간호|사회�
 # 대상에서 뺄 직종(위 정규식에 걸릴 수 있는 것 방어)
 SKIP_JOB_RE = re.compile(r"요양보호사|운전|조리|위생|대표자")
 # 기관 점검용 가상 계정
-EXCLUDE_STAFF = {"관리팀", "평가자"}
+EXCLUDE_STAFF = {"관리팀", "평가자", "관리자"}   # 점검용·본사 계정(회원님 확정 2026-08-04)
 
 STAFF_JS = """
 (() => [...document.querySelectorAll('#staff_list_table tr.cr')].map(tr => {

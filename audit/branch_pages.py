@@ -20,7 +20,8 @@ from src.carefor_client import build_spa_hash, _navigate_spa
 DN_BASE = "https://dn.carefor.co.kr/"
 
 # 기관 점검용 가상 계정 — 직원 판정에서 제외 (사용자 확정 2026-07-06)
-EXCLUDE_STAFF = {"관리팀", "평가자"}
+# 점검용·본사 계정 — 지점 직원이 아니라 평가 대상이 아니다(회원님 확정 2026-08-04 '관리자' 추가).
+EXCLUDE_STAFF = {"관리팀", "평가자", "관리자"}
 
 # 항목 19(노인인권 안전관리 설명) 대상 아님으로 지점이 확정한 수급자 — 미흡에서 제외.
 #   보류·퇴소예정·재입소보류 등은 상태 데이터로 자동 판별이 안 되는 경우가 있어(재입소 후
@@ -2114,6 +2115,17 @@ def analyze_branch_pages(data: dict, cutoff: str, today: date | None = None,
             "consult": consult_detail,
             "case": case_parsed,
             "connect": connect,
+            # ★30① 근거를 남긴다 — 지금까지 medical 이 detail 에 없어서 판정 뒤에 확인할 길이 없었다
+            #   ("작성자 정현서 5건"이 어느 날짜인지 결과 파일만 보고는 못 찾았다, 2026-08-04).
+            #   진료 원자료는 크므로 판정에 쓰는 것만: 날짜·수급자·작성자·병원.
+            "medical": {
+                "records": [{"date": r.get("date"), "name": r.get("name") or r.get("pamname"),
+                             "writer": r.get("writer"), "hospital": r.get("hospital") or r.get("place")}
+                            for r in ((data.get("medical") or {}).get("records") or [])],
+                "staff_jobs": (data.get("medical") or {}).get("staff_jobs") or {},
+                "prog_days": {k: len(v) for k, v in
+                              (((data.get("medical") or {}).get("prog")) or {}).items()},
+            },
             "status": {"weeks": len(status_weeks), "miss_weeks": n_status_miss},
             "result_eval": data.get("result_eval"),
             "welfare": welfare_parsed,

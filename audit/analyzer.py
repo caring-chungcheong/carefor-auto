@@ -262,6 +262,14 @@ def analyze(results: list[dict], cutoff: str, branch_name: str | None = None) ->
 
         plan_prob = []
         for pl in p.get("plans", []):
+            # ★점검기간(개소일=cutoff) 이전 계획서는 평가 대상이 아니다.
+            #   지금까지 이 루프에만 기간 필터가 없어 개소 전 건까지 지적했다
+            #   (청주 오창점 cutoff 2024.07.31 인데 2024.01~06 건 8개가 잡혔다 — 회원님 지적 2026-08-04).
+            #   기준은 **작성일**이다(회원님 확정: "점검은 2024.07.31부터").
+            #   적용 종료일로 걸렀더니 개소 전 작성분이 그대로 남았다(적용기간이 이듬해까지라).
+            _wd = (pl.get("wd") or "").strip()
+            if _wd and _d(_wd) < cut_d:
+                continue
             st = pl.get("st") or ""
             is_gongdan = (pl.get("key") or "").strip().startswith("공단")
             sent = "발송완료" in st
