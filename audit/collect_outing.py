@@ -77,7 +77,8 @@ def overlaps(outings: list[dict], programs: list[dict]) -> list[dict]:
             if ov <= 0:
                 continue
             hits.append({**o, "prog": p.get("prog"), "pstart": p.get("s"), "pend": p.get("e"),
-                         "join": p.get("join"), "overlap_min": ov})
+                         "join": p.get("join"), "grade": p.get("grade", ""),
+                         "ptype": p.get("ptype", ""), "overlap_min": ov})
     return hits
 
 

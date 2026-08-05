@@ -277,7 +277,7 @@
         if (await clickTab('표준약관')) { await sleep(400); contracts = parseContracts(); }
 
         const evals = { fall: [], sore: [], cog: [] };
-        const falls = [], needsArr = [], plans = [], sores = [], cogs = [];
+        const falls = [], needsArr = [], plans = [], sores = [], cogs = [], reasonMiss = [];
         if (await clickTab('기초평가')) {
           for (const yr of yearTabs) {
             const tabs = Array.from(document.querySelectorAll('span.btn_month, span.btn_month_on'));
@@ -298,6 +298,15 @@
               //   세션이므로, 인지도 날짜만 있으면 캡처한다. 내용 유효성은 아래 done 게이트가 재확인(빈폼 과탐 방지).
               // evals.cog(실시 인정)는 아래 팝업 파싱 후 '내용 있는 것만' 넣는다(총점0·비고공란=미실시).
               const cd = (/재사정|신규|상태변화/.test(rd.cog) || fd || sd) ? dateOf(rd.cog) : '';
+              // ★조사사유 미체크 기록(2026-08-05, 회원님 지시). 날짜는 적혀 있는데 조사사유
+              //   (신규·재사정·상태변화)를 안 고른 칸은 위 필터에서 통째로 빠진다. 빠지면
+              //   '없는 것'이 되어 점검에서 영영 안 보이므로, 판정은 그대로 두고 목록만 남긴다.
+              [['낙상', rd.fall], ['욕창', rd.sore], ['인지', rd.cog]].forEach(([k, cell]) => {
+                const dt = dateOf(cell || '');
+                if (dt && !/재사정|신규|상태변화/.test(cell || '')) {
+                  reasonMiss.push({ kind: k, date: dt, text: String(cell || '').replace(/\s+/g, ' ').slice(0, 40) });
+                }
+              });
               if (fd && !evals.fall.includes(fd)) evals.fall.push(fd);
               if (sd && !evals.sore.includes(sd)) evals.sore.push(sd);
               if (fd && !falls.some(f => f.date === fd)) {
@@ -393,7 +402,7 @@
             }
           }
         }
-        window.__AUDIT.results.push({ name, status, enroll, contracts, evals, falls, sores, cogs, needs: needsArr, plans });
+        window.__AUDIT.results.push({ name, status, enroll, contracts, evals, falls, sores, cogs, needs: needsArr, plans, reasonMiss });
       }
       closeModalSync();
       window.__AUDIT.progress = 'DONE';

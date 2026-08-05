@@ -143,6 +143,28 @@
     return cells;
   }
 
+  // 조사사유 미체크만 빠르게 훑는다(팝업 상세는 안 연다 — 그리드 텍스트만 보면 된다).
+  // 정식 스캔은 사유가 없는 칸을 통째로 건너뛰어서, 안 고른 건이 '없는 것'이 되어 안 보인다.
+  window.__reasonScan = async (pammgno, pamname, opt) => {
+    opt = opt || {};
+    const years = opt.years || [''];
+    const out = [];
+    const seen = new Set();
+    for (const yy of years) {
+      const body = `pammgno=${pammgno}&tab_num=3` + (yy ? `&yy=${yy}` : '');
+      const gh = await post('/share/patient/html/info.patient_case_tab.php', body);
+      for (const c of parseGridCells(gh)) {
+        if (!c.date || c.isResess) continue;          // 사유가 적힌 건 정상
+        if (c.kind === 'plan') continue;              // 계획은 사유 개념이 없다
+        const k = c.kind + '|' + c.date;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        out.push({ name: pamname, kind: c.kind, date: c.date, text: c.text });
+      }
+    }
+    return out;
+  };
+
   window.__directCollect = async (pammgno, pamname, opt) => {
     opt = opt || {};
     const years = opt.years || [];  // 예: ['2026','2025','2024'] (그리드 연도 로드용)
