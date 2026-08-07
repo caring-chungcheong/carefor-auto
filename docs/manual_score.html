@@ -1,156 +1,732 @@
-<!doctype html><html lang="ko"><meta charset="utf-8">
-<title>수기 점수표 — 지점점검</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>수기 점수표 — 지점관리 점검 대시보드</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<script>/* 캐시 무력화: 매번 최신 데이터를 읽어 로컬↔허브 불일치 방지 */
+document.write('<sc'+'ript src="dashboard_data.js?_='+Date.now()+'" onerror="window.AUDIT_DATA={};window.AUDIT_ITEMS=null;"><\/sc'+'ript>');</script>
+<!-- ★수기 점수표: 자동 판정만 끈다. 항목 정의(AUDIT_ITEMS)는 그대로 두어야
+     36항목·배점·판정기준이 대시보드와 어긋나지 않는다. -->
+<script>window.AUDIT_DATA = {};</script>
+<script src="vendor/xlsx.full.min.js"></script>
 <style>
-:root{color-scheme:light dark}
-*{box-sizing:border-box}
-body{font:14px/1.55 'Pretendard Variable',Pretendard,'Malgun Gothic',sans-serif;
-margin:0;padding:16px;background:#f6f7f8;color:#1a1a1a}
-h1{font-size:19px;margin:0 0 3px}
-.sub{color:#666;font-size:12px;margin-bottom:12px}
-.bar{position:sticky;top:0;z-index:20;background:#2f5c64;color:#fff;border-radius:10px;
-padding:10px 14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
-.bar select,.bar button{font:600 13px inherit;border-radius:6px;border:0;padding:6px 11px;cursor:pointer}
-.bar select{background:#fff;color:#1a1a1a}
-.bar button{background:#5f9ea8;color:#fff}
-.bar button:hover{background:#7cbcc6}
-.score{margin-left:auto;font-weight:800;font-size:16px}
-.score small{font-weight:400;opacity:.8;font-size:12px}
-table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e3e5e8;border-radius:10px;overflow:hidden}
-th,td{padding:7px 9px;border-bottom:1px solid #eef0f1;text-align:left;vertical-align:top;font-size:13px}
-th{background:#eef2f3;font-size:12px;position:sticky;top:52px;z-index:10}
-tr.item td{background:#fafbfb;font-weight:700}
-td.no{width:38px;color:#888;font-weight:600}
-td.pt{width:64px;text-align:right;white-space:nowrap}
-.tag{font-size:10px;border-radius:4px;padding:1px 5px;margin-left:5px;font-weight:600}
-.auto{background:#e5f0e8;color:#2b6b3f} .man{background:#fdeee0;color:#9a5b12}
-.opt{display:inline-flex;gap:4px;flex-wrap:wrap}
-.opt label{border:1px solid #d7dadd;border-radius:6px;padding:2px 9px;cursor:pointer;font-size:12px;background:#fff}
-.opt input{display:none}
-.opt input:checked+span{font-weight:800}
-.opt label:has(input:checked){background:#2f5c64;color:#fff;border-color:#2f5c64}
-.memo{width:100%;border:1px solid #dfe2e4;border-radius:6px;padding:4px 7px;font:12px inherit;background:#fff}
-details.cri{margin-top:3px} details.cri summary{font-size:11px;color:#7a8288;cursor:pointer}
-details.cri div{font-size:11px;color:#666;line-height:1.5;margin-top:3px;white-space:normal}
-.warn{background:#fff4e5;border:1px solid #f0c992;border-radius:8px;padding:9px 12px;
-font-size:12px;color:#7a4a00;margin-bottom:12px}
-@media(prefers-color-scheme:dark){
-body{background:#16181a;color:#e6e6e6} table{background:#1e2124;border-color:#2e3236}
-th{background:#24282b} tr.item td{background:#212528} td,th{border-color:#2a2d30}
-.opt label,.memo{background:#1a1d20;border-color:#3a3f44;color:#e6e6e6}
-.warn{background:#2e2415;border-color:#5a4523;color:#e0b877} }
-/* 인쇄: 조작용 UI(버튼·안내)는 빼고 지점·합계·점수·메모만 남긴다.
-   항목이 쪽 경계에서 잘리면 채점표로 못 쓰므로 세부행 단위로 안 쪼갠다. */
-@media print{
-  body{padding:0;background:#fff}
-  .bar{position:static;background:#fff;color:#000;padding:0 0 6px;border-bottom:2px solid #000;
-  border-radius:0;margin-bottom:8px}
-  .bar button{display:none}
-  .bar select{border:0;background:transparent;font-weight:800;font-size:15px;padding:0;
-  appearance:none;-webkit-appearance:none}
-  .score{color:#000}
-  .warn{display:none}
-  details.cri{display:none}
-  th{position:static;background:#eee !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  table{border-radius:0}
-  tr{break-inside:avoid}
-  .opt label{border-color:#999}
-  .opt label:has(input:checked){background:#000 !important;color:#fff !important;
-  -webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .memo{border:0;border-bottom:1px solid #bbb;border-radius:0}
-  .memo::placeholder{color:transparent}
-}
+  * { box-sizing: border-box; }
+  body { font-family: 'Pretendard Variable', Pretendard, '맑은 고딕', 'Malgun Gothic', sans-serif; margin: 0; background: linear-gradient(180deg, #fbf1f4 0%, #f8f5f7 220px, #f7f9fb 560px) no-repeat, #f7f9fb; color: #1e293b; }
+  header { background: #fff8fa; color: #1e293b; padding: 14px 24px; display: flex; align-items: center; gap: 16px; border-bottom: 1px solid #f5e1e7; }
+  header h1 { font-size: 19px; margin: 0; color: #3a6f78; }
+  header .sub { font-size: 12px; opacity: .85; }
+  .tabs { display: flex; gap: 6px; padding: 12px 24px 0; position: sticky; top: 0; z-index: 31; background: #f7f9fb; }
+  .tab { padding: 9px 22px; border-radius: 8px 8px 0 0; background: #d8e9ed; cursor: pointer; font-weight: bold; font-size: 14px; }
+  .tab.on { background: #fff; color: #3a6f78; box-shadow: 0 -2px 6px rgba(0,0,0,.06); }
+  .hqtab { display: inline-flex; align-items: center; background: #3a6f78; color: #fff; padding: 9px 14px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 13px; white-space: nowrap; margin-right: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
+  .hqtab:hover { background: #2f5c64; }
+  .wrap { background: #fff; margin: 0 24px 24px; padding: 18px; border-radius: 0 8px 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,.07); }
+  .meta { font-size: 13px; color: #666; margin-bottom: 12px; display:flex; gap:18px; flex-wrap:wrap; }
+  .summary { display: flex; gap: 12px; flex-wrap: wrap; position: sticky; top: 50px; z-index: 30; background: #fff; margin: 0 -18px 14px; padding: 12px 18px; box-shadow: 0 3px 8px rgba(0,0,0,.10); }
+  .flagged-box { margin-top: 18px; border: 1px solid #f0c9c9; border-radius: 8px; background: #fdf7f7; padding: 6px 12px; }
+  .flagged-box > summary { font-weight: bold; color: #c02020; cursor: pointer; padding: 6px 0; }
+  .flag-item { border-top: 1px solid #eedede; padding: 8px 0; }
+  .flag-item .st-bad { color: #c02020; font-weight: bold; }
+  .flag-item .st-warn { color: #b57a00; font-weight: bold; }
+  .flag-item .st-ok { color: #2c8a41; font-weight: bold; }
+  .flag-item .fdet { font-size: 12px; color: #555; margin: 3px 0 5px; line-height: 1.5; }
+  .card { background: #eef5f7; border: 1px solid #b3d8df; border-radius: 8px; padding: 10px 18px; text-align: center; min-width: 90px; }
+  .card b { display: block; font-size: 22px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { border: 1px solid #b3d8df; padding: 7px 9px; vertical-align: top; }
+  th { background: #eef5f7; }
+  td.center { text-align: center; white-space: nowrap; }
+  .light { display: inline-block; width: 14px; height: 14px; border-radius: 50%; vertical-align: -2px; margin-right: 5px; }
+  .g-ok   { background: #35a94e; } .t-ok   { color: #2c8a41; font-weight: bold; }
+  .g-bad  { background: #d93a3a; } .t-bad  { color: #c02020; font-weight: bold; }
+  .g-na   { background: #b9b9b9; } .t-na   { color: #888; }
+  .g-warn { background: #e8a01f; } .t-warn { color: #b57a00; font-weight: bold; }
+  .g-man  { background: #52909c; } .t-man  { color: #3a6f78; font-weight: bold; }
+  select.mstat { padding: 3px 6px; border: 1px solid #ccc; border-radius: 4px; }
+  input.memo { width: 100%; border: 1px solid #ddd; border-radius: 4px; padding: 4px 6px; font-size: 12px; }
+  .criteria { color: #555; font-size: 12px; line-height: 1.45; }
+  .subrow { display: flex; gap: 8px; align-items: flex-start; padding: 5px 0; border-top: 1px dashed #b3d8df; }
+  .subrow:first-child { border-top: 0; }
+  .sublabel { font-weight: bold; color: #3a6f78; min-width: 28px; }
+  .subtext { flex: 1; color: #555; font-size: 12px; line-height: 1.4; }
+  .subscore { min-width: 108px; }
+  select.sc { padding: 2px 5px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; }
+  select.sc.filled { background: #eaf6ec; border-color: #8fc79a; }
+  select.sc.zero { background: #fdecec; border-color: #e5a0a0; }
+  .itemscore { font-weight: bold; font-size: 13px; white-space: nowrap; }
+  .scorecard b { font-size: 26px !important; }
+  .loc { color: #888; font-size: 11px; }
+  .btnrow { margin: 12px 0; display: flex; gap: 8px; }
+  button { background: #3a6f78; color: #fff; border: 0; border-radius: 6px; padding: 8px 16px; cursor: pointer; font-weight: bold; }
+  button.gray { background: #7a869a; }
+  .detail-detail { font-size: 12px; color:#444; }
+  .nodata { padding: 40px; text-align: center; color: #999; }
+  details { margin-top: 16px; }
+  details summary { cursor: pointer; font-weight: bold; color: #3a6f78; padding: 6px 0; }
+  .small-table th, .small-table td { font-size: 12px; padding: 4px 7px; }
+  .checks { margin-top: 8px; background: #fff8e6; border: 1px solid #f0d98c; border-radius: 6px; padding: 8px 10px; }
+  .checks-h { font-weight: bold; color: #b57a00; font-size: 12px; margin-bottom: 5px; }
+  .checkrow { display: flex; gap: 7px; align-items: flex-start; font-size: 12px; color: #5a4a1a; padding: 3px 0; cursor: pointer; line-height: 1.45; }
+  .checkrow input { margin-top: 2px; flex-shrink: 0; }
+  .checkrow.done span { color: #2c8a41; text-decoration: line-through; }
 </style>
-<h1>✍️ 수기 점수표 — 지점점검</h1>
-<div class="sub">자동 판정과 같은 36항목 · 총 100점 · items.py 기준 2026-08-07 23:01 생성</div>
-<div class="warn">💾 점수는 <b>이 브라우저에만</b> 저장됩니다(서버 전송 없음). 다른 PC와 나누려면 <b>CSV 내려받기</b>를 쓰세요.</div>
-
-<div class="bar">
-  <select id="br"></select>
-  <button onclick="csv()">📥 CSV 내려받기</button>
-  <button onclick="print()">🖨️ 인쇄</button>
-  <button onclick="clr()">↺ 이 지점 초기화</button>
-  <span class="score">합계 <b id="sum">0</b><small> / 100점</small></span>
+</head>
+<body><div style="background:#fff4e5;border:1px solid #f0c992;border-radius:8px;
+padding:9px 12px;font-size:13px;color:#7a4a00;margin:10px 0">
+✍️ <b>수기 전용</b> — 자동 판정을 끈 화면입니다. 모든 항목이 '미판정'으로 떠 있으니 직접 점수를 넣으세요.
+항목·배점·판정기준은 지점점검 대시보드와 같습니다. 점수는 대시보드와 <b>따로</b> 저장됩니다.
 </div>
-<table id="t"><thead><tr>
-<th class="no">번호</th><th>항목 · 세부</th><th class="pt">배점</th><th style="width:210px">점수</th><th style="width:22%">메모</th>
-</tr></thead><tbody id="tb"></tbody></table>
+<header>
+  <h1>📋 지점관리 점검 대시보드</h1>
+  <div class="sub">평가 매뉴얼 36개 항목 — 자동수집(run_audit.py) + 수기입력 / 데이터: audit_results/</div>
+  <a href="https://caring-chungcheong.github.io/carefor-auto/audit_summary.html" target="_blank"
+     style="margin-left:auto;background:#3a6f78;color:#fff;font-weight:bold;font-size:13px;
+            padding:8px 14px;border-radius:8px;text-decoration:none;white-space:nowrap">🌐 본부 공유 페이지</a>
+</header>
+<div class="tabs" id="tabs"></div>
+<div class="wrap" id="content"></div>
 
 <script>
-const ITEMS = [{"no": 1, "name": "운영규정", "method": "manual", "loc": "-", "total": 1.0, "criteria": "① 운영규정 11개 항목 구비·비치 (이용정원·모집, 이용계약(계약기간·월이용료·신원인수인 권리의무·해제), 비용변경 방법·절차, 서비스내용·비용부담, 배상책임·면책, 규정개정 절차, 인력관리(채용·복무·승진·상벌), 보수(임금·퇴직금·상여금), 복리후생(포상·휴가), 안전·보건(근골격계·감염예방·건강검진), 고충처리 절차) — 직원 열람 가능 장소에 비치 (2023년 평가지표1 기준① 직전 정기평가 '충족(Y)' 기관은 전산연계로 충족 인정) 〔적용기간: 평가일〕", "auto_subs": [], "subs": [{"label": "①", "score": 1.0, "steps": [1.0, 0], "text": "운영규정 11개 항목 비치·내용 충실"}]}, {"no": 2, "name": "사업계획", "method": "manual", "loc": "-", "total": 1.0, "criteria": "① 연도별 사업계획서 수립 — 세부사업명·사업목표·사업내용·사업대상·사업예산·추진일정 확인, 예산수립내역(총수입·총지출) 포함 필수 (기관운영·서비스제공·직원관리 3개 분야 포함은 2026.1월부터 확인, 단순 프로그램 사업계획만 작성한 경우 불인정, 평가 당일 기록 미확인 시 불인정) 〔적용기간: 2024.1월 ~ 평가일〕", "auto_subs": [], "subs": [{"label": "①", "score": 1.0, "steps": [1.0, 0], "text": "연도별 사업계획 수립(3개 분야 포함)"}]}, {"no": 3, "name": "인력기준", "method": "manual", "loc": "-", "total": 1.0, "criteria": "① 법적 인력배치기준 준수 — 신고 직원현황·수가감액 내용으로 평가, 기간 중 인력배치기준 위반 감액 또는 허위신고 확인 시 불인정 (0.5점) ② 인력을 법적기준보다 추가 배치하여 인력추가배치 가산 적용 (0.5점, 허위신고 시 불인정, 휴업·업무정지 기간 제외하되 해당 월 청구내역 있으면 포함) 〔적용기간: 2023.1월 ~ 2025.12월〕", "auto_subs": [], "subs": [{"label": "①", "score": 0.5, "steps": [0.5, 0], "text": "법적 인력배치기준 준수"}, {"label": "②", "score": 0.5, "steps": [0.5, 0], "text": "인력 법적기준 초과 추가배치(가산)"}]}, {"no": 4, "name": "경력직", "method": "manual", "loc": "-", "total": 1.0, "criteria": "① 2년 이상 운영기관: 기간 중 근무직원 중 연속 24개월 이상 근무자 비율 / 2년 미만 운영기관: 연속 12개월 이상 비율 (50% 이상 1점, 30~50% 0.75점; 대표자 겸 시설장 제외·대표자 겸 직원 포함, 정년퇴직·사망·대체직원·기간제 퇴직은 산정 제외, 동일법인·동일대표 기관 간 인사이동은 근무기간 합산 인정) 〔적용기간: 2024.1월 ~ 평가일〕", "auto_subs": [], "subs": [{"label": "①", "score": 1.0, "steps": [1.0, 0.75, 0], "text": "연속근무자 비율 50%이상(1점), 30~50%(0.75점)"}]}, {"no": 5, "name": "보수교육", "method": "auto", "loc": "8-7-1", "total": 1.0, "criteria": "① 요양보호사 보수교육 이수율(이수자/대상자×100) — 대상자는 25.12.31. 기준 인력신고된 요양보호사 중 홀수년도 출생자, 면제자 제외 (95% 이상 1점, 75% 이상 0.75점; 대상자가 한 명도 없으면 '해당없음'으로 총점 100점 환산, 전산 미확인 시 이수증 등 현장 확인, 사전 이수도 충족 인정) 〔적용기간: 2025.1월 ~ 2025.12월〕", "auto_subs": ["①"], "subs": [{"label": "①", "score": 1.0, "steps": [1.0, 0.75, 0], "text": "보수교육 이수 95%이상(1점), 75%이상(0.75점)"}]}, {"no": 6, "name": "직원교육", "method": "auto", "loc": "8-7 운영규정 교육란", "total": 2.0, "criteria": "① 급여제공지침 등 12개 항목 비치 — 지침 10종(종사자윤리·성폭력예방·응급대응·감염·치매·욕창·낙상·노인인권·근골격계·개인정보) + 직원 인권침해대응지침·고충처리지침(고충처리함 포함) ② 모든 직원 연 1회 이상 운영규정 교육(교육일자·방법·강사명·참석자 서명, 2026.1월부터 적용) ③ 직원이 연 1회 급여제공지침 교육 이수·내용 숙지, 감염예방·욕창예방 지침 면담 확인 (신규직원 7일 이내 교육은 2026.1월부터, ① 불인정 시 ③ 연동 불인정, 직전 평가 급여제공역량관리 충족 시 지침 10종 전산연계 인정) 〔적용기간: 2024.1월 ~ 평가일〕", "auto_subs": ["②", "③"], "subs": [{"label": "①", "score": 0.5, "steps": [0.5, 0], "text": "급여제공지침 등 12개 항목 비치"}, {"label": "②", "score": 1.0, "steps": [1.0, 0], "text": "모든 직원 연1회 운영규정 교육"}, {"label": "③", "score": 0.5, "steps": [0.5, 0], "text": "직원 연1회 지침교육·내용 숙지(면담)"}]}, {"no": 7, "name": "직원인권보호", "method": "auto", "loc": "1-6 직원인권 보호지침(연1회) 탭", "total": 2.0, "criteria": "① 직원 인권보호 노력 확인 — 상호존중·성희롱예방 포스터 부착, 프로그램 운영, 자체교육 등 (다른 평가기준과 중복 인정 불가) ② 모든 수급자(보호자)에게 연 1회 이상 폭언·폭행·성희롱 예방 및 상호존중 안내 — 안내일자·방법·내용·수급자명·보호자명(관계) 기록, 신규수급자는 급여제공 시작일까지 ③ 직원이 「직원」 인권침해대응지침(폭언·폭행·성희롱 대응, 급여 외 행위 요구 대응, 기관 조치사항) 내용 숙지 면담 〔적용기간: 평가시행세칙 공고월의 다음 해(2026.1월) ~ 평가일〕 〔자동확인: 1-6 직원인권 보호지침 탭 — 2026년 급여개시자 안내일=개시일, 그 외 연1회, 안내 전 퇴소자 제외〕", "auto_subs": ["②"], "subs": [{"label": "①", "score": 0.4, "steps": [0.4, 0], "text": "직원 인권보호 기관 노력"}, {"label": "②", "score": 0.8, "steps": [0.8, 0], "text": "수급자에 연1회 폭언·성희롱 예방 안내"}, {"label": "③", "score": 0.8, "steps": [0.8, 0], "text": "직원 인권침해대응지침 숙지(면담)"}]}, {"no": 8, "name": "직원권익향상", "method": "auto", "loc": "8-1-1 복지(포상) 제공대장", "total": 4.0, "criteria": "① 5대 보험 가입·보험료 완납(사업개시월~평가일 체납내역 없음, 평가일 이후 완납 불인정) ② 직전 정기평가 가산금의 80% 이상 직원 처우개선 사용 — 영수증 등 증빙 확인(80% 기준은 2026년 평가종료월 다음 해부터, 가산금 미지급 기관은 충족 처리, 기관환경개선·대표자 사용분 불인정) ③ 분기별 1회 이상 복지(포상) 제공 — 제공대장(제공일자·수령인 서명)·증빙, 인건비 외 수당만 인정(회식·상장만 수여 불인정) ④ 직원이 고충처리절차 숙지·적절한 조치(면담) ⑤ 퇴직금 제도 운영(퇴직연금 또는 기관명의 퇴직금통장·이체확인증) 〔적용기간: 2024.1월 ~ 평가일〕 〔자동확인③: 8-1-1 대장 매월 입력 + 노션 생일쿠폰(cc/ccc) 대조(클라우드 실행 시, 미지급 의심은 주의로만 표기) · ①②·퇴직금(8-5)은 수기〕", "auto_subs": ["②", "③"], "subs": [{"label": "①", "score": 0.5, "steps": [0.5, 0], "text": "5대보험 가입·보험료 완납"}, {"label": "②", "score": 0.5, "steps": [0.5, 0], "text": "평가 가산금 80%이상 직원 처우개선 사용 — 80% 기준은 2026 평가종료월 다음 해부터, 현 평가 미적용+미지급 기관 충족 → 자동 충족(Y)"}, {"label": "③", "score": 1.0, "steps": [1.0, 0], "text": "분기별 1회 이상 직원 복지(포상) 제공"}, {"label": "④", "score": 1.0, "steps": [1.0, 0], "text": "직원 고충처리절차 숙지·조치(면담)"}, {"label": "⑤", "score": 1.0, "steps": [1.0, 0], "text": "퇴직금 제도 운영"}]}, {"no": 9, "name": "안전하고 쾌적한 환경조성", "method": "manual", "loc": "-", "total": 2.0, "criteria": "① 안전한 실내환경 — 모든 외부·계단출입구 잠금장치(비상시 자동열림), 주방 잠금장치(위험물품 수납·가스밸브), 유리문 충돌방지 표시(눈높이 150cm 이내) ② 환기수칙(1일 3회 이상, 회당 10분 이상)에 따른 환기 실시, 실내환기 일일점검표(날짜·환기시간) 층마다 비치 (급·배기 기계 환기 시 충족·점검표 예외, 공기청정기·환풍기 불인정) ③ 쾌적한 환경 — 기저귀교체·식사 후 환기, 온도조치, 채광·냄새 현장·면담 확인 ④ 개인정보 자료 보관함 잠금장치 〔적용기간: 평가일〕", "auto_subs": [], "subs": [{"label": "①", "score": 0.5, "steps": [0.5, 0], "text": "출입구·주방 잠금, 유리 충돌방지 표시"}, {"label": "②", "score": 0.5, "steps": [0.5, 0], "text": "환기수칙 환기·일일점검표 비치"}, {"label": "③", "score": 0.5, "steps": [0.5, 0], "text": "수급자 쾌적한 환경 생활(면담)"}, {"label": "④", "score": 0.5, "steps": [0.5, 0], "text": "개인정보 보관함 잠금장치"}]}, {"no": 10, "name": "낙상예방환경조성", "method": "manual", "loc": "-", "total": 4.0, "criteria": "① 기관 내부 안전손잡이 설치 — 복도(양쪽벽면)·목욕실·프로그램실·세면대·변기 주위·싱크대·샤워기마다(접착·압착·흡착식 불인정) ② 목욕실·화장실 바닥 전체 미끄럼방지 처리 + 낙상주의 안내표지 부착 ③ 턱(2cm 이하 또는 완만한 경사 처리)·적재물 제거(이동식 경사로 불인정, 신고 평면도와 다르게 운영 시 불인정) ④ 직원이 낙상 고위험 대상 기준·예방방법 숙지(면담) ⑤ 직원의 이동 도움 및 보조도구(워커·지팡이) 사용법 안내(수급자 면담) ⑥ 직원의 수급자 이동방법 시연 — 의자(침대)↔휠체어, 바닥↔휠체어 (2명 시연, 1.5점) 〔적용기간: 평가일〕", "auto_subs": [], "subs": [{"label": "①", "score": 0.5, "steps": [0.5, 0], "text": "기관 내부 안전손잡이 설치"}, {"label": "②", "score": 0.5, "steps": [0.5, 0], "text": "미끄럼방지 처리·낙상주의 표지 부착"}, {"label": "③", "score": 0.5, "steps": [0.5, 0], "text": "주 이용공간 턱·적재물 제거"}, {"label": "④", "score": 0.5, "steps": [0.5, 0], "text": "직원 낙상 고위험 기준·예방법 숙지"}, {"label": "⑤", "score": 0.5, "steps": [0.5, 0], "text": "이동도움·보조도구 사용법 안내(수급자)"}, {"label": "⑥", "score": 1.5, "steps": [1.5, 0], "text": "수급자 이동방법 숙지(시연)"}]}, {"no": 11, "name": "재난상황대응", "method": "auto", "loc": "8-7", "total": 2.0, "criteria": "① 재난상황 대응매뉴얼(대응방법·비상연락체계 포함) 구비 + 재난대응훈련(화재 등)을 수급자·직원 대상 반기별 1회 이상 실시 — 일시·장소·참가자명·훈련내용·훈련사진(대피훈련 포함 필수, 교육·소화기 시연만 실시는 불인정) ② 직원이 재난상황 대응방법·담당역할·소화설비 위치·대피경로 숙지(면담) 및 소화설비 작동방법 시연 〔적용기간: 2024.1월 ~ 평가일〕 〔자동확인: 8-7 재난훈련 반기(5/1·11/1 기준)〕", "auto_subs": ["①"], "subs": [{"label": "①", "score": 1.0, "steps": [1.0, 0], "text": "재난대응 매뉴얼·반기별 대응훈련 실시"}, {"label": "②", "score": 1.0, "steps": [1.0, 0], "text": "재난대응·소화기 작동 숙지(면담·시연)"}]}, {"no": 12, "name": "응급상황대응", "method": "auto", "loc": "-", "total": 3.0, "criteria": "① 응급상황 매뉴얼·비상연락체계 구비 — 심정지·질식·경련·화상·낙상 대처법, 담당역할(담당역할은 2026.1월부터 확인) ② 응급상황 알림장치(위치파악 가능한 응급벨·인터폰)를 생활실·화장실 칸마다·목욕실에 각 1개 이상 설치, 정상 작동 ③ 직원이 응급상황 종류(심정지·질식·경련·화상·낙상 등) 숙지(면담, 0.5점) ④ 상황별 대응방법 숙지·대처 가능(면담, 0.5점) 〔적용기간: 2024.1월 ~ 평가일〕 〔자동확인①: 응급 매뉴얼·비상연락체계는 기본 비치항목 → 전지점 충족(Y) 자동 처리(사용자 확정 2026-07-18). ②알림장치·③④면담은 수기〕", "auto_subs": ["①"], "subs": [{"label": "①", "score": 1.0, "steps": [1.0, 0], "text": "응급상황 매뉴얼·비상연락체계 구비"}, {"label": "②", "score": 1.0, "steps": [1.0, 0], "text": "응급상황 알림장치 설치·정상작동"}, {"label": "③", "score": 0.5, "steps": [0.5, 0], "text": "직원 응급상황 종류 숙지(면담)"}, {"label": "④", "score": 0.5, "steps": [0.5, 0], "text": "응급상황 대응방법 숙지·대처(면담)"}]}, {"no": 13, "name": "시설안전", "method": "auto", "loc": "6-3 정기점검", "total": 2.0, "criteria": "① 소화설비·경보설비(필수: 소화기·(간이)스프링클러·자동화재탐지설비·자동화재속보설비) 구비, 매월 점검(점검일자·점검내용·점검자명, 자체점검·외부업체 모두 인정), 화재위험요인(부탄가스·라이터 등 방치) 제거 ② 화재 대비 피난안내도 각 층별 부착 〔적용기간: 2024.1월 ~ 평가일〕 〔자동확인: 6-3 소방점검 매월 28일 기준〕", "auto_subs": ["①", "②"], "subs": [{"label": "①", "score": 1.0, "steps": [1.0, 0], "text": "소화·경보설비 매월 점검, 화재위험 제거"}, {"label": "②", "score": 1.0, "steps": [1.0, 0], "text": "피난안내도 층별 부착 — 본사 부착으로 전지점 충족(Y) 자동 처리"}]}, {"no": 14, "name": "질향상노력", "method": "manual", "loc": "-", "total": 1.0, "criteria": "① 연간 인건비 지출비율 준수 — 장기요양기관포털 등록 내역 전산 확인 (적용기간 2025.1~12월, 0.4점) ② 제도발전·품질향상 사업 참여 — 치매전담실 운영·통합재가서비스·청구상담전문가·평가멘토링 중 1가지 이상 (0.4점) ③ 경영실태조사 참여·자료 제출로 최종 패널 선정 (적용기간 2023.1월~2025.12월, 0.2점) 〔적용기간: 2024.1월 ~ 평가일〕", "auto_subs": [], "subs": [{"label": "①", "score": 0.4, "steps": [0.4, 0], "text": "연간 인건비 지출비율 준수"}, {"label": "②", "score": 0.4, "steps": [0.4, 0], "text": "제도발전·품질향상 사업 참여"}, {"label": "③", "score": 0.2, "steps": [0.2, 0], "text": "경영실태조사 참여·자료 제출"}]}, {"no": 15, "name": "건강검진", "method": "auto", "loc": "8-10", "total": 3.0, "criteria": "① 모든 직원(대표자 겸 직원·가족요양보호사 포함) 매년 결핵검진 포함 건강검진 — 5개 영역(계측·요검사·혈액검사·영상검사·결과판정) 충족, 신규직원은 근무 시작일까지 입사 전 1년 이내 결과통보서 제출 (표본 모두 충족 3점, 75% 이상 2.25점; 보건소 전염성질병 한정검진 불인정, EDI 확인 시 종이기록 생략, 사무직은 2년마다, 임신부 X-ray 예외) 〔적용기간: 2024.1월 ~ 평가일〕", "auto_subs": ["①"], "subs": [{"label": "①", "score": 3.0, "steps": [3.0, 2.25, 0], "text": "표본 전원 충족(3점), 75%이상(2.25점)"}]}, {"no": 16, "name": "감염관리", "method": "auto", "loc": "6-2 일일점검 / 6-3 정기소독", "total": 4.0, "criteria": "① 간호비품 소독·멸균 및 청결관리 — 소독·멸균일자·비품명·소독방법·소독자명, 일회용 간호비품은 구입일자·수량·사용기한 관리대장(2026.1월부터) ② 분기별 1회 이상 실내·외 전문업체 소독 — 계약서·소독증명서·지출내역, 살균·살충·살서 모두 실시해야 인정 ③ 감염병 유행·발생 대비 대응체계(국가 위기상황용 + 기관 내 발생·확산용 각각) 수립·운영, 발생 시 적절한 조치(기록·면담) ④ 식품·식당·조리실 위생관리 — 모든 식품 소비기한 준수, 주방·주방집기류 주 1회 이상 소독(일자·점검내용·소독방법·점검자명) 〔적용기간: 2024.1월 ~ 평가일〕 〔자동확인: 6-2 위생·간호비품 매일(휴무 제외) + 6-3 정기소독 분기〕", "auto_subs": ["①", "②", "④"], "subs": [{"label": "①", "score": 1.0, "steps": [1.0, 0], "text": "간호비품 소독·청결 관리"}, {"label": "②", "score": 1.0, "steps": [1.0, 0], "text": "분기별 1회 실내·외 전문소독"}, {"label": "③", "score": 1.0, "steps": [1.0, 0], "text": "감염병 대응체계 수립·적절 조치"}, {"label": "④", "score": 1.0, "steps": [1.0, 0], "text": "식품·식당·조리실 위생관리"}]}, {"no": 17, "name": "소통노력", "method": "auto", "loc": "1-4 상담일지 / 1-5 가정통신문", "total": 4.0, "criteria": "① 모든 수급자(보호자)와 분기별 1회 이상 상담 — 상담일자·수급자명·상담직원명·상담대상자명(관계)·상담내용(직원명·대상자명은 2026.1월부터), 내방·방문·전화 인정, 일방향 SNS 불인정 ② 상담결과를 연 1회 이상 급여에 반영 — 상담일로부터 30일 이내 급여제공계획서·기록지 등에서 변경 확인(프로그램 의견수렴 반영과 중복 불인정) ③ 월간 프로그램 계획표·식단표·기관소식을 월 1회 이상 온라인(카페·블로그·SNS·홈페이지) 또는 오프라인(인편·우편) 제공 (③ 채점: 모두 충족 2점, 75% 이상 1.75점, 50% 이상 1.5점) 〔적용기간: 2024.1월 ~ 평가일〕", "auto_subs": ["①", "②", "③"], "subs": [{"label": "①", "score": 1.0, "steps": [1.0, 0], "text": "모든 수급자 분기별 1회 상담"}, {"label": "②", "score": 1.0, "steps": [1.0, 0], "text": "상담결과 연1회 급여 반영"}, {"label": "③", "score": 2.0, "steps": [2.0, 1.75, 1.5, 0], "text": "월1회 계획표·식단표·소식 제공(75%: 1.75, 50%: 1.5)"}]}, {"no": 18, "name": "정보제공", "method": "auto", "loc": "롱텀 공개조회", "total": 1.0, "criteria": "① 노인장기요양보험 홈페이지에 기관 정보 게시, 변경 시 수정 — 지자체 신고항목(주소·전화번호·인력현황·시설현황·급여종류) 및 홈페이지 등록항목(장기요양급여 이용계약 사항, 사진, 홈페이지 주소, 비급여대상 항목별 비용, 교통편, 주차시설, 전문인·화재/영업 배상책임보험 가입여부 등) 모두 게시해야 인정 〔적용기간: 평가일〕 〔자동확인: longtermcare.or.kr 공개조회(로그인 불필요)가 노출하는 '정보 게시율'(주야간보호 B03)과 게시항목별 게시여부를 대조 — audit.collect_ltc_public. ★게시율 산정 항목은 홈페이지 등록항목 10개뿐이고 지자체 신고항목(인력현황·시설현황·주소·전화번호)과 '변경 시 수정'(현행성)은 빠져 있어 매뉴얼 항목집합의 부분집합 → 100%여도 '양호' 아닌 '주의(현장 확인요망)'. 매뉴얼 명시항목이 미게시(N)일 때만 미흡〕", "auto_subs": ["①"], "subs": [{"label": "①", "score": 1.0, "steps": [1.0, 0], "text": "홈페이지 기관정보 게시·변경 수정"}]}, {"no": 19, "name": "노인인권보호", "method": "auto", "loc": "8-7 / 1-6 / 3-1", "total": 6.0, "criteria": "① 모든 직원 반기별 1회 이상 노인인권교육(교육일시·내용·방법·강사명·참석자 서명; 노인권리보호·학대유형·예방·대응방법, 반기별 기준은 2026.1월부터) ② 직원이 교육 주요내용 숙지(면담, ① 불인정 시 연동 불인정) ③ 노인학대신고 안내문 게시 등 인권·학대예방 활동 ④ 모든 수급자(보호자)에 8가지 지침(욕창·낙상·탈수예방·배변도움·관절구축·치매·감염예방·노인인권보호) 연 1회 이상 설명(감염예방은 2026.1월부터, 신규수급자는 급여시작일부터 14일 이내) ⑤ 수급자가 전 과정에서 직원으로부터 존중받음(면담) 〔적용기간: 2024.1월 ~ 평가일〕", "auto_subs": ["①", "④"], "subs": [{"label": "①", "score": 2.0, "steps": [2.0, 0], "text": "모든 직원 반기별 노인인권교육"}, {"label": "②", "score": 1.0, "steps": [1.0, 0], "text": "직원 인권교육 내용 숙지(면담)"}, {"label": "③", "score": 1.0, "steps": [1.0, 0], "text": "인권·학대예방 활동, 신고안내문 게시"}, {"label": "④", "score": 1.0, "steps": [1.0, 0], "text": "수급자에 8가지 지침 연1회 설명"}, {"label": "⑤", "score": 1.0, "steps": [1.0, 0], "text": "수급자 존중받음(면담)"}]}, {"no": 20, "name": "욕구사정", "method": "auto", "loc": "1-2 전체 기초평가 현황", "total": 2.0, "criteria": "① 모든 수급자 종합 욕구사정 연 1회 이상 정기 실시 — 필수: 수급자명·일자·작성자명, 세부 9개 항목(신체상태·질병상태·인지상태·의사소통·구강상태·영양상태(기피식품 파악)·가족환경·주관적 욕구·자원이용 욕구) + 서술형 총평 (구강상태·기피식품은 2026.1월부터 확인, 대면 원칙·해당급여직원 작성, 신규는 급여제공 시작일까지, 단순 체크리스트는 판단근거 작성 시만 인정) 〔적용기간: 2024.1월 ~ 평가일〕", "auto_subs": ["①"], "subs": [{"label": "①", "score": 2.0, "steps": [2.0, 0], "text": "종합 욕구사정(9항목+총평) 연1회 실시"}]}, {"no": 21, "name": "위험도평가", "method": "auto", "loc": "1-2", "total": 6.0, "criteria": "① 모든 수급자 낙상위험도 평가 반기별 1회 이상(Morse Fall Scale 등 검증도구, 2점) ② 욕창위험도 평가 반기별 1회 이상(Braden scale 등, 2점) ③ 인지기능 평가 반기별 1회 이상(CIST·K-MMSE 등, 평가도구의 모든 기록 확인, 치매진단 객관자료(처방전 등) 있으면 충족, 2점) — 공통: 수급자명·일자·작성자명 필수, 대면·해당급여직원 실시(인지평가는 병원·보건소·치매안심센터도 인정), 신규는 급여제공 시작일까지 ('반기별 1회'는 2026.1월부터 적용) 〔적용기간: 2024.1월 ~ 평가일〕 〔조사사유 미체크(2026-08-05 추가): 날짜는 적혀 있는데 조사사유(신규·재사정·상태변화)를 안 고른 칸은 기존 필터에서 통째로 빠져 '없는 것'이 된다 → 판정은 그대로 두고 **목록만** reasonMiss 로 남긴다〕", "auto_subs": ["①", "②", "③"], "subs": [{"label": "①", "score": 2.0, "steps": [2.0, 0], "text": "낙상위험도 평가 반기별 1회"}, {"label": "②", "score": 2.0, "steps": [2.0, 0], "text": "욕창위험도 평가 반기별 1회"}, {"label": "③", "score": 2.0, "steps": [2.0, 0], "text": "인지기능 평가 반기별 1회"}]}, {"no": 22, "name": "급여제공계획 수립 및 제공", "method": "auto", "loc": "3-1", "total": 4.0, "criteria": "① 욕구사정·낙상·욕창·인지기능 평가 및 개별욕구 반영한 수급자별 급여제공계획 연 1회 이상 수립 — 급여종류·수급자명·작성일자·작성자명·장기요양 세부목표·필요내용·세부제공내용·횟수·시간·종합의견, 신규는 급여시작일까지 ② 수급자(보호자)에게 설명·확인서명 받아 급여제공 시작일까지 공단 통보(전자서명 인정, '시작일까지'는 2026.1월부터, ① 불인정 시 연동 불인정) ③ 계획에 따라 급여 제공·기록(변경 사유 건별 기록) ④ 기능상태 변화 시 변경사유 기록 후 변경된 계획에 따라 제공 〔적용기간: 2024.1월 ~ 평가일〕", "auto_subs": ["②"], "subs": [{"label": "①", "score": 1.0, "steps": [1.0, 0], "text": "사정결과 반영 급여제공계획 연1회 수립"}, {"label": "②", "score": 1.0, "steps": [1.0, 0], "text": "설명·확인서명 후 시작일까지 공단 통보"}, {"label": "③", "score": 1.0, "steps": [1.0, 0], "text": "계획에 따라 급여 제공·기록"}, {"label": "④", "score": 1.0, "steps": [1.0, 0], "text": "변경사유 기록·변경계획에 따라 제공"}]}, {"no": 23, "name": "투약 및 약품관리", "method": "auto", "loc": "6-2 일일점검", "total": 2.0, "criteria": "① 약품보관함 잠금장치(냉장보관 시 냉장고 잠금, 수급자가 열 수 없어야 함, 0.5점) ② 일반 의약품 사용기한·보관상태 분기별 1회 이상 점검 — 일자·의약품명·효능·사용기한·점검자명·폐기일자(사용기한·폐기일자는 2026.1월부터), 기한경과 약품 보관 시 불인정, 해당급여제공직원 작성 (1점) ③ 투약 6원칙(정확한 약물·용량·대상자·경로·시간·기록) 숙지 — 간호(조무)사 면담, 미배치 기관은 시설장 면담 (0.5점) 〔적용기간: 2024.1월 ~ 평가일〕 〔자동확인②: 6-3 약품점검 분기〕", "auto_subs": ["②"], "subs": [{"label": "①", "score": 0.5, "steps": [0.5, 0], "text": "약품보관함 잠금장치"}, {"label": "②", "score": 1.0, "steps": [1.0, 0], "text": "의약품 사용기한·보관 분기별 점검"}, {"label": "③", "score": 0.5, "steps": [0.5, 0], "text": "적정 투약(6원칙) 숙지(면담)"}]}, {"no": 24, "name": "신체기능 프로그램", "method": "auto", "loc": "4-1", "total": 4.0, "criteria": "① 신체기능 프로그램 연간계획 수립 — 프로그램명·목표·내용·일정·횟수·작성일자(연간계획·작성일자는 2026.1월부터, 해당 회계연도 내 작성, 전년 12월 작성 예외 인정) ② 계획에 따라 주 3회 이상 실시 — 일시·장소·진행자명·참석자명·내용(① 불인정 시 연동 불인정) ③ 수급자(보호자) 의견 반기별 1회 이상 수렴, 연 1회 이상 프로그램 반영(변경 전후 계획서 비교 확인) (한 프로그램을 여러 지표에 중복 사용 불인정) 〔적용기간: 2024.1월 ~ 평가일〕 〔기록품질(2026-08-05 추가, 5-7 재사용·추가수집 없음): 참여도 미기재·반응및특이사항 미작성 건을 detail 에 '[기록품질]' 로 붙인다. 퇴소·중도입소로 기간이 짧은 사람이 섞여 **주의까지만** 낸다〕", "auto_subs": ["①", "②", "③"], "subs": [{"label": "①", "score": 1.5, "steps": [1.5, 0], "text": "신체기능 프로그램 연간계획 수립"}, {"label": "②", "score": 1.5, "steps": [1.5, 0], "text": "계획에 따라 주3회 이상 실시"}, {"label": "③", "score": 1.0, "steps": [1.0, 0], "text": "반기별 의견수렴·연1회 반영"}]}, {"no": 25, "name": "인지기능 프로그램", "method": "auto", "loc": "4-2", "total": 4.0, "criteria": "① 인지기능 프로그램 연간계획 수립 — 프로그램명·목표·내용·일정·횟수·작성일자(연간계획·작성일자는 2026.1월부터, 전년 12월 작성 예외 인정) ② 계획에 따라 주 3회 이상 실시 — 일시·장소·진행자명·참석자명·내용(인지활동형 프로그램 인정, ① 불인정 시 연동 불인정) ③ 수급자(보호자) 의견 반기별 1회 이상 수렴, 연 1회 이상 반영 (한 프로그램을 여러 지표에 중복 사용 불인정) 〔적용기간: 2024.1월 ~ 평가일〕 〔기록품질(2026-08-05 추가): 참여도 미기재·반응및특이사항 미작성 + **5등급인데 인지활동 프로그램 기록 0건**인 수급자 명단(회원님 지시, 25번 표에 수급자별로 뜬다). 주의까지만 낸다〕", "auto_subs": ["①", "②", "③"], "subs": [{"label": "①", "score": 1.5, "steps": [1.5, 0], "text": "인지기능 프로그램 연간계획 수립"}, {"label": "②", "score": 1.5, "steps": [1.5, 0], "text": "계획에 따라 주3회 이상 실시"}, {"label": "③", "score": 1.0, "steps": [1.0, 0], "text": "반기별 의견수렴·연1회 반영"}]}, {"no": 26, "name": "사회적응 프로그램", "method": "auto", "loc": "4-3", "total": 4.0, "criteria": "① 사회적응 프로그램 연간계획 수립 — 프로그램명·목표·내용·일정·횟수·작성일자(연간계획·작성일자는 2026.1월부터) ② 계획에 따라 월 1회 이상 실시 — 일시·장소·진행자명·참석자명·내용('월 1회 이상'은 2026.1월부터 확인, 실내·실외활동 모두 가능, ① 불인정 시 연동 불인정) ③ 수급자(보호자) 의견 반기별 1회 이상 수렴, 연 1회 이상 반영 (한 프로그램을 여러 지표에 중복 사용 불인정) 〔적용기간: 2024.1월 ~ 평가일〕 〔기록품질(2026-08-05 추가): 참여도 미기재·반응및특이사항 미작성 건을 detail 에 붙인다. 주의까지만 낸다〕", "auto_subs": ["①", "②", "③"], "subs": [{"label": "①", "score": 1.5, "steps": [1.5, 0], "text": "사회적응 프로그램 연간계획 수립"}, {"label": "②", "score": 1.5, "steps": [1.5, 0], "text": "계획에 따라 월1회 이상 실시"}, {"label": "③", "score": 1.0, "steps": [1.0, 0], "text": "반기별 의견수렴·연1회 반영"}]}, {"no": 27, "name": "기능회복훈련", "method": "auto", "loc": "3-1 급여제공기록지", "total": 3.0, "criteria": "① 모든 수급자의 잔존능력 유지를 위한 개인별 맞춤형 기능회복훈련 계획을 연 1회 이상 급여제공계획서에 수립 — 신체기능·기본동작·일상생활동작훈련 중 1개 이상 세부제공내용 작성(기본동작훈련 세부내용 필수 기재, 신규는 급여시작일까지, 전년 12월 작성 예외) (표본 모두 충족 2점, 75% 이상 1.75점) ② 직원이 수급자 건강상태에 맞는 기능회복훈련(신체기능·기본동작·일상생활동작) 내용 숙지·제공(면담, 1점) 〔적용기간: 평가시행세칙 공고월의 다음 해(2026.1월) ~ 평가일〕", "auto_subs": ["①"], "subs": [{"label": "①", "score": 2.0, "steps": [2.0, 1.75, 0], "text": "개인별 기능회복훈련계획 연1회(표본 전원 2점, 75% 1.75점)"}, {"label": "②", "score": 1.0, "steps": [1.0, 0], "text": "직원 기능회복훈련 내용 숙지(면담)"}]}, {"no": 28, "name": "이동서비스 수칙", "method": "auto", "loc": "2-4 차량관리", "total": 4.0, "criteria": "① 이동서비스 수칙 구비 — 운전자 자격요건·동승자 역할·차량안전수칙·사고 시 조치사항, 수급자(보호자)에게 대면·비대면 실제 제공, 변경 시 재제공 ② 차량운행표를 수급자(보호자)에게 제공 — 차량송영시간(승하차·이동시간) 문자·SNS 등으로 안내 ③ 자동차종합보험 증서 가입기간 유효 ④ 직원이 이동서비스 수칙 준수·안전 제공 노력(면담, ① 불인정 시 연동 불인정) 〔적용기간: 2024.1월 ~ 평가일〕 〔③ 보험기간은 케어포 미지원 → 노션 차량현황(소속·보험사·보험증서 만기)으로 자동판정(2026-07-22). 만기경과=미흡, 증서·보험사 누락=주의, 전차량 유효=양호. 노션 토큰 없으면 수기〕", "auto_subs": ["①", "②", "③"], "subs": [{"label": "①", "score": 1.0, "steps": [1.0, 0], "text": "이동서비스 수칙 구비·제공"}, {"label": "②", "score": 1.0, "steps": [1.0, 0], "text": "차량운행표 수급자(보호자) 제공"}, {"label": "③", "score": 1.0, "steps": [1.0, 0], "text": "자동차종합보험 가입기간 유효"}, {"label": "④", "score": 1.0, "steps": [1.0, 0], "text": "직원 수칙 준수·안전서비스(면담)"}]}, {"no": 29, "name": "사례관리", "method": "auto", "loc": "1-4 상담일지", "total": 4.0, "criteria": "① 사례관리 회의 반기별 1회 이상 — 일자·수급자명·선정사유·회의내용(참가 직원별 의견 필수)·사례관리 계획·참석자명(서명), 시설장·사회복지사 필수 포함 총 3인 이상(각 직종별 1인, 조리원·운전사 제외) 참여(직원별 의견·서명·3인 참여는 2026.1월부터) ② 회의 다음날부터 30일 이내 급여 등에 반영하고 평가 — 평가일자·작성자명·선정사유 해결여부·미해결 시 추가조치 계획('평가'는 2026.1월 이후 회의부터) (단순 보고회의, 병원입원지원·등급변경신청 등 불인정, 지역사회 자원연계 선정도 반영 인정) 〔적용기간: 2024.1월 ~ 평가일〕", "auto_subs": ["①", "②"], "subs": [{"label": "①", "score": 2.0, "steps": [2.0, 0], "text": "사례관리 회의 반기별 1회(3인 이상)"}, {"label": "②", "score": 2.0, "steps": [2.0, 0], "text": "회의 후 30일 이내 급여 반영·평가"}]}, {"no": 30, "name": "외부기관연계", "method": "auto", "loc": "1-4 상담일지", "total": 1.0, "criteria": "① 급여제공 시간 내 종사자 동행 의료기관 진료내용을 급여제공기록지·간호일지·상담일지 등에 기록 (0.5점) 〔외출 시각 대조(2026-08-05 추가, 2-1-1 외출관리 × 5-7 프로그램): ⓐ 외출 시간대에 프로그램 참여도까지 기재된 건 ⓑ 병원 동행자가 사무원·운전·조리·위생·영양 직종인 건. ★판정은 **동행자** 기준 — 작성자는 입력자일 뿐 자격과 무관(회원님 확인 2026-08-05). 기록만으로 사실 단정 불가라 **둘 다 주의까지만**〕 ② 계약 종료일까지 연계기록지 작성·제공 — 사본(작성일자·수급자명·등급·심신기능상태·제공급여·퇴소 후 서비스 이용계획) + 제공대장(수급자명·제공일자·제공방법·제공자명·수령자명, 제공자명은 2026.1월부터) (0.5점; 기간 중 퇴소자 없으면 충족 처리, 사망·퇴소 없는 입원은 작성 불요) 〔적용기간: 2024.1월 ~ 평가일〕", "auto_subs": ["①", "②"], "subs": [{"label": "①", "score": 0.5, "steps": [0.5, 0], "text": "의료기관 진료내용 기록"}, {"label": "②", "score": 0.5, "steps": [0.5, 0], "text": "계약종료까지 연계기록지 작성·제공"}]}, {"no": 31, "name": "등급현황", "method": "auto", "loc": "1-9 수급자 등급 변동 현황", "total": 1.0, "criteria": "① 등급 유지·호전율 = 6개월 이상 연속 급여제공 후 기간 내 갱신 등급판정을 받은 수급자 중, 최근 갱신 등급과 직전 등급 비교 시 유지·호전된 수급자 비율×100(소수점 첫째자리 반올림) (75% 이상 1점, 50~75% 미만 0.75점; 해당 수급자 없으면 '해당없음' 제외 처리, 전산 평가) 〔적용기간: 2024.1월 ~ 2025.12월〕 〔자동확인: 1-9 하단 '유지·호전율' 산출값을 적용기간으로 조회 — 75% 이상만 자동 만점, 50~75%는 0.75점이라 채점 시 직접 입력〕", "auto_subs": ["①"], "subs": [{"label": "①", "score": 1.0, "steps": [1.0, 0.75, 0], "text": "등급 유지·호전율 75%이상(1점), 50~75%(0.75점)"}]}, {"no": 32, "name": "백신접종률", "method": "manual", "loc": "-", "total": 1.0, "criteria": "① 인플루엔자(독감) 예방접종 매년 실시 — 접종률 = 평가 전전년도 12.31. 기준 입소 유지 수급자 중 전년도 접종 수급자 비율×100 (100% 1점, 90% 이상 0.75점, 80% 이상 0.5점; 수급자(보호자) 접종 거부는 간호일지 등 기록 확인 시 분자·분모 제외; 2026·2027년 재가급여 정기평가는 충족(Y) 처리) 〔적용기간: 2026년 평가종료월 다음 해부터〕 〔자동확인: 주간보호=재가급여라 2026·2027 정기평가는 특례로 충족(Y) 자동 처리. 2028~는 실제 접종률 수기 확인 필요 — collector.py〕", "auto_subs": ["①"], "subs": [{"label": "①", "score": 1.0, "steps": [1.0, 0.75, 0.5, 0], "text": "독감 접종률 100%(1점), 90%↑(0.75), 80%↑(0.5)"}]}, {"no": 33, "name": "식사(간식)제공결과", "method": "auto", "loc": "3-1-4 식사만족도조사 / 6-1 주간식단표", "total": 4.0, "criteria": "① 신규 수급자 기피식품(종교·건강·비선호)을 급여제공 시작일까지 파악, 대체식품 제공 — 기피식품 없으면 '없음' 기재 필수(공란 불인정), 기간 내 신규 없으면 예외 ② 모든 수급자 식사 만족도 반기별 1회 이상 파악(면담·설문·상담, 신규는 입소 반기 제외, 파악 불가 시 보호자·직원 관찰 대체 가능) ③ 만족도 결과 반영 식사를 월 1회 이상 제공(식단표·사진·기록 확인) ④ 식사(간식) 만족도 향상 노력(수급자 면담, 0.5점) ⑤ 영양사 작성 1식 4찬 이상 식단표 게시 — 위탁 시 위탁업체 영양사 인정, 임의수정 불인정, 제공 끼니별 게시 (0.5점) 〔적용기간: 평가시행세칙 공고월의 다음 해(2026.1월) ~ 평가일〕 〔자동확인: ②=3-1-4 상/하반기 만족도조사, ⑤=6-1 주간식단표 점심 1식4찬 게시(하드 판정). ③결과반영은 3-1-4 결과반영칸 미기재라도 실무상 상담일지(1-4)+요양기록지(3-1)에 매달 작성하므로 '주의(확인요망)'로 표시(자동 미흡 아님). ①기피식품(1-2/1-3 기초평가 자유기재)·④면담은 수기 — audit.collect_item33〕", "auto_subs": ["①", "②", "③", "⑤"], "subs": [{"label": "①", "score": 1.0, "steps": [1.0, 0], "text": "신규수급자 기피식품 파악·대체식품 제공"}, {"label": "②", "score": 1.0, "steps": [1.0, 0], "text": "식사 만족도 반기별 1회 파악"}, {"label": "③", "score": 1.0, "steps": [1.0, 0], "text": "욕구 반영 식사 월1회 이상 제공"}, {"label": "④", "score": 0.5, "steps": [0.5, 0], "text": "식사(간식) 만족도 향상 노력(면담)"}, {"label": "⑤", "score": 0.5, "steps": [0.5, 0], "text": "영양사 작성 1식4찬 식단표 게시"}]}, {"no": 34, "name": "급여제공 결과평가", "method": "auto", "loc": "3-1 급여제공기록지", "total": 7.0, "criteria": "① 수급자별 급여제공계획에 따른 급여제공결과를 반기별 1회 이상 평가 — 일자·총평(종합소견)·작성자명(반기별 기준 및 신규수급자 입소 반기 예외는 2026.1월부터) (2점) ② 결과평가 반영한 급여제공계획 30일 이내 재작성 — 상태변화 없으면 판단근거 작성 시 재작성 예외(① 불인정 시 연동 불인정) (1점) ③ 장기요양급여제공기록지 월 1회 이상 수급자(보호자) 제공 — 제공대장·서명부·증빙 확인 (표본 모두 2점, 75% 이상 1.75점) ④ 급여제공직원이 수급자 상태변화를 주 1회 이상 충실히 기록 — '특이사항없음'·'양호함'·단순 급여제공내용만 기록 시 불인정 (표본 모두 2점, 75% 이상 1.75점) 〔적용기간: 2024.1월 ~ 평가일〕", "auto_subs": ["①", "②", "③", "④"], "subs": [{"label": "①", "score": 2.0, "steps": [2.0, 0], "text": "급여제공결과 반기별 1회 평가"}, {"label": "②", "score": 1.0, "steps": [1.0, 0], "text": "결과평가 반영 계획 30일 내 재작성"}, {"label": "③", "score": 2.0, "steps": [2.0, 1.75, 0], "text": "기록지 월1회 제공(표본 전원 2점, 75% 1.75점)"}, {"label": "④", "score": 2.0, "steps": [2.0, 1.75, 0], "text": "상태변화 주1회 충실기록(전원 2점, 75% 1.75점)"}]}, {"no": 35, "name": "제도안내", "method": "manual", "loc": "-", "total": 1.0, "criteria": "① 보호자(수급자) 대상 연명의료결정 제도 안내 — 제도 목적, 사전연명의료의향서 신청기관(장소) 등을 안내하는지 시설장 면담으로 확인 (참고: 국립연명의료관리기관 lst.go.kr) 〔적용기간: 평가일〕", "auto_subs": [], "subs": [{"label": "①", "score": 1.0, "steps": [1.0, 0], "text": "연명의료결정제도 안내(면담)"}]}, {"no": 36, "name": "급여만족도", "method": "manual", "loc": "-", "total": 3.0, "criteria": "① 기관 제공 식사에 만족 — 양·맛·식사시간 전반(수급자 면담, 1점) ② 기관 제공 프로그램에 만족 — 강사·시간·내용 전반(수급자 면담, 1점) ③ 기관 제공 이동서비스에 만족 — 소요시간·승하차 시간 변경 시 안내유무·편안함 전반(수급자 면담, 1점) 〔적용기간: 평가일〕", "auto_subs": [], "subs": [{"label": "①", "score": 1.0, "steps": [1.0, 0], "text": "식사 만족(수급자 면담)"}, {"label": "②", "score": 1.0, "steps": [1.0, 0], "text": "프로그램 만족(수급자 면담)"}, {"label": "③", "score": 1.0, "steps": [1.0, 0], "text": "이동서비스 만족(수급자 면담)"}]}];
-const BRANCHES = ["둔산점", "서구점", "천안점", "청주 오창점"];
-const key = () => 'manualscore-' + br.value;
-let state = {};
+const BRANCHES = ['둔산점','서구점','천안점','청주 오창점'];
+const DATA = window.AUDIT_DATA || {};
+const ITEMS = window.AUDIT_ITEMS || [];
+let cur = localStorage.getItem('audit_tab') || BRANCHES[0];
 
-const br = document.getElementById('br');
-br.innerHTML = BRANCHES.map(b => `<option>${b}</option>`).join('');
+function manualKey(branch){ return 'audit_manualonly_' + branch; }
+function loadManual(branch){ try { return JSON.parse(localStorage.getItem(manualKey(branch))||'{}'); } catch(e){ return {}; } }
+function saveManual(branch, obj){ localStorage.setItem(manualKey(branch), JSON.stringify(obj)); }
 
-function load() {
-  try { state = JSON.parse(localStorage.getItem(key()) || '{}'); } catch (e) { state = {}; }
+function light(status){
+  if(status==='양호') return '<span class="light g-ok"></span><span class="t-ok">양호</span>';
+  if(status==='미흡') return '<span class="light g-bad"></span><span class="t-bad">미흡</span>';
+  if(status==='주의') return '<span class="light g-warn"></span><span class="t-warn">주의</span>';
+  if(status==='해당없음') return '<span class="light g-na"></span><span class="t-na">해당없음</span>';
+  return '<span class="light g-na"></span><span class="t-na">수집전</span>';
+}
+
+// ---- 점수 계산 (기준별 배점, 자동판정 양호 시 자동 만점) ----
+function subVal(manual, no, label){
+  const m = manual[no];
+  return m && m.subs ? m.subs[label] : undefined;
+}
+function autoVal(it, s, d){
+  // 자동판정 결과로 점수 부여.
+  //  1) auto_score: 판정기가 점수를 직접 지정한 경우(부분점수 항목 — 예 31번 0.75점).
+  //     수집 실패 시엔 판정기가 auto_score 를 아예 넣지 않으므로 빈칸이 유지된다.
+  //  2) 없으면 기존 규칙 — 기준(sub) 단위 판정(sub_status) 우선, 없으면 항목 status.
+  if(!d || !it.auto_subs || !it.auto_subs.includes(s.label)) return undefined;
+  const r = d.item_results && d.item_results[String(it.no)];
+  if(!r) return undefined;
+  if(r.auto_score && r.auto_score[s.label] !== undefined && r.auto_score[s.label] !== null){
+    return r.auto_score[s.label];
+  }
+  if(r.sub_status && r.sub_status[s.label] !== undefined){
+    return r.sub_status[s.label] === '양호' ? s.score : undefined;
+  }
+  return r.status === '양호' ? s.score : undefined;
+}
+function effVal(it, s, manual, d){
+  const v = subVal(manual, it.no, s.label);
+  if(v !== undefined && v !== '') return {v: String(v), auto: false};
+  const a = autoVal(it, s, d);
+  if(a !== undefined) return {v: String(a), auto: true};
+  return {v: undefined, auto: false};
+}
+function itemScore(it, manual, d){
+  if(!it.subs || !it.subs.length) return null;
+  let earned=0, denom=0, filled=0, total=it.subs.length;
+  it.subs.forEach(s=>{
+    const e = effVal(it, s, manual, d);
+    if(e.v === undefined) return;
+    filled++;
+    if(e.v === 'NA') return;         // 해당없음: 분모 제외
+    earned += parseFloat(e.v); denom += s.score;
+  });
+  return {earned, denom, filled, total};
+}
+function fmt(n){ return (Math.round(n*100)/100).toString(); }
+
+function render(){
+  document.getElementById('tabs').innerHTML =
+    (window.HQ_BACK ? `<a href="${window.HQ_BACK}" class="hqtab">← 🏢 본부 허브</a>` : '') +
+    BRANCHES.map(b=>
+    `<div class="tab ${b===cur?'on':''}" onclick="switchTab('${b}')">${b}</div>`).join('');
+  const d = DATA[cur];
+  const manual = loadManual(cur);
+  let html = '';
+
+  html += `<div class="meta">`;
+  if(d){
+    html += `<span>🕐 자동수집: <b>${d.run_at}</b></span><span>기준일: <b>${d.cutoff}</b></span>`
+      + (d.opened ? `<span>기관 지정일: <b>${d.opened}</b> (이전 기간 자동 제외)</span>` : '')
+      + `<span>수급자: <b>${d.people}명</b> (퇴소자 포함)</span>`;
+    const st = (d.analysis||{}).stats;
+    if(st) html += `<span>낙상↔욕구 대조: <b>${st.total_rounds}</b>회차 / 불일치 <b class="t-bad">${st.disc}</b>건</span>`;
+  } else {
+    html += `<span class="t-na">아직 자동수집 데이터가 없습니다 — <b>py run_audit.py --branch ${cur}</b> 실행 후 새로고침</span>`;
+  }
+  html += `</div>`;
+
+  // 요약 카드 (자동판정 신호등 + 점수)
+  let nOk=0, nBad=0, nWait=0;
+  let sumEarned=0, sumDenom=0, sumFilled=0, sumSubs=0;
+  const hasScoring = ITEMS.some(it=>it.subs && it.subs.length);
+  ITEMS.forEach(it=>{
+    if(it.method!=='manual'){
+      const r = d && d.item_results && d.item_results[String(it.no)];
+      if(r){ if(r.status==='양호') nOk++; else nBad++; }
+      else nWait++;
+    }
+    const sc = itemScore(it, manual, d);
+    if(sc){ sumEarned+=sc.earned; sumDenom+=sc.denom; sumFilled+=sc.filled; sumSubs+=sc.total; }
+  });
+  html += `<div class="summary">`;
+  if(hasScoring){
+    // 총점 = 득점 누적 합계 (만점 100, 해당없음 배점은 만점에서 차감)
+    const possible = sumDenom;  // 입력된 기준 중 해당없음 제외 배점 합
+    const pct = possible>0 ? sumEarned/possible*100 : null;
+    html += `<div class="card scorecard"><b class="${sumFilled===0?'t-na':(pct>=90?'t-ok':(pct>=70?'t-warn':'t-bad'))}">${sumFilled===0?'-':fmt(sumEarned)}</b>총점 (100점 만점)</div>
+      <div class="card"><b class="${sumFilled===sumSubs?'t-ok':'t-man'}">${sumFilled} / ${sumSubs}</b>기준 입력</div>`;
+  }
+  html += `<div class="card"><b class="t-ok">${nOk}</b>자동 양호</div>
+    <div class="card"><b class="t-bad">${nBad}</b>자동 미흡</div>
+    <div class="card"><b class="t-na">${nWait}</b>수집전</div>
+  </div>`;
+
+  html += `<div class="btnrow">
+    <button onclick="uploadScores()">📤 본부 공유 (점수 업로드)</button>
+    <select id="expScope" class="mstat" style="align-self:center">
+      <option value="cur">현재 지점 (${cur})</option>
+      <option value="all">전체 지점</option>
+    </select>
+    <button onclick="exportExcel()">📗 엑셀 내보내기</button>
+    <button onclick="exportPDF()">📕 PDF 내보내기</button>
+    <button class="gray" onclick="location.reload()">🔄 새로고침</button>
+    <span id="upmsg" style="align-self:center;font-size:12px;color:#2c8a41"></span>
+  </div>`;
+
+  // 36개 항목 테이블 (기준별 점수 입력)
+  html += `<table><tr><th style="width:36px">#</th><th style="width:150px">항목</th><th style="width:64px">방식</th><th style="width:96px">자동판정</th><th>평가기준 (기준별 점수 선택)</th><th style="width:92px">점수</th><th style="width:180px">메모</th></tr>`;
+  ITEMS.forEach(it=>{
+    const m = manual[it.no] || {};
+    const r = d && d.item_results && d.item_results[String(it.no)];
+    const autoHtml = it.method==='manual'
+      ? '<span class="t-man">수기</span>'
+      : (r ? light(r.status) : light(null));
+
+    let bodyHtml = '';
+    if(r) bodyHtml += `<div class="detail-detail">▶ ${r.detail}</div>`;
+    if(it.subs && it.subs.length){
+      bodyHtml += it.subs.map(s=>{
+        const e = effVal(it, s, manual, d);
+        const v = e.v;
+        const opts = ['<option value="">미입력</option>']
+          .concat(s.steps.map(st=>`<option value="${st}" ${String(v)===String(st)?'selected':''}>${fmt(st)}점${st===s.score?' (충족)':(st===0?' (미충족)':'')}</option>`))
+          .concat([`<option value="NA" ${v==='NA'?'selected':''}>해당없음</option>`]);
+        const cls = v===undefined||v==='' ? '' : (v==='NA' ? '' : (parseFloat(v)===s.score ? 'filled' : 'zero'));
+        const badge = e.auto ? ' <span style="font-size:10px;color:#2c8a41;font-weight:bold">🤖자동</span>' : '';
+        return `<div class="subrow">
+          <span class="sublabel">${s.label}</span>
+          <span class="subtext">${s.text} <span class="loc">(배점 ${fmt(s.score)})</span></span>
+          <span class="subscore"><select class="sc ${cls}" onchange="setSub(${it.no},'${s.label}',this.value)">${opts.join('')}</select>${badge}</span>
+        </div>`;
+      }).join('');
+      bodyHtml += `<details style="margin-top:4px"><summary style="font-size:11px;color:#888">기준 전문 보기</summary><div class="criteria">${it.criteria}</div></details>`;
+    } else {
+      bodyHtml += `<div class="criteria">${it.criteria}</div>`;
+    }
+    if(it.checks && it.checks.length){
+      bodyHtml += `<div class="checks"><div class="checks-h">✅ 현장 확인 포인트 (2026 보완)</div>`
+        + it.checks.map((c,i)=>{
+            const on = m.checks && m.checks[i];
+            return `<label class="checkrow ${on?'done':''}">
+              <input type="checkbox" ${on?'checked':''} onchange="setCheck(${it.no},${i},this.checked)">
+              <span>${c}</span></label>`;
+          }).join('')
+        + `</div>`;
+    }
+    bodyHtml += `<div class="loc">${it.method==='manual'?'수기 확인 항목':'케어포 '+it.loc}</div>`;
+
+    const sc = itemScore(it, manual, d);
+    let scoreHtml = '-';
+    if(sc){
+      if(sc.filled===0) scoreHtml = `<span class="t-na">미입력</span>`;
+      else if(sc.denom===0) scoreHtml = `<span class="t-na">해당없음</span>`;
+      else scoreHtml = `<span class="itemscore ${sc.earned>=sc.denom?'t-ok':'t-bad'}">${fmt(sc.earned)} / ${fmt(sc.denom)}</span>`
+        + (sc.filled<sc.total?`<div class="loc">${sc.filled}/${sc.total} 입력</div>`:'');
+    }
+
+    const memoHtml = `<input class="memo" value="${(m.memo||'').replace(/"/g,'&quot;')}" placeholder="메모"
+      onchange="setManual(${it.no},'memo',this.value)">`;
+
+    html += `<tr>
+      <td class="center">${it.no}</td>
+      <td><b>${it.name}</b></td>
+      <td class="center">${it.method==='manual'?'<span class="t-man">수기</span>':'자동'}</td>
+      <td class="center">${it.method==='manual'?'-':(r?light(r.status):light(null))}</td>
+      <td>${bodyHtml}</td>
+      <td class="center">${scoreHtml}</td>
+      <td>${memoHtml}</td>
+    </tr>`;
+  });
+  html += `</table>`;
+
+  // 상세 리스트 (자동수집 있을 때)
+  if(d){
+    const an = d.analysis || {};
+    if(d.rows_match && d.rows_match.length){
+      const disc = d.rows_match.filter(r=>r[8]==='불일치'||String(r[8]).startsWith('확인'));
+      html += `<details><summary>🔎 낙상↔욕구사정 불일치·확인필요 (${disc.length}건)</summary>
+        <table class="small-table"><tr><th>수급자</th><th>현황</th><th>낙상평가일</th><th>활동</th><th>걸음걸이</th><th>욕구사정일</th><th>일어나앉기</th><th>옮겨앉기</th><th>판정</th></tr>
+        ${disc.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table></details>`;
+    }
+    if(an.halfyear_miss && an.halfyear_miss.length){
+      html += `<details><summary>🔎 반기별 평가 누락 (${an.halfyear_miss.length}건)</summary>
+        <table class="small-table"><tr><th>수급자</th><th>현황</th><th>반기</th><th>평가</th><th>재적기간</th></tr>
+        ${an.halfyear_miss.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table></details>`;
+    }
+    if(an.order_issues && an.order_issues.length){
+      html += `<details><summary>🔎 계획-기초평가 순서 확인 (${an.order_issues.length}건)</summary>
+        <table class="small-table"><tr><th>수급자</th><th>계획 작성일</th><th>내용</th></tr>
+        ${an.order_issues.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table></details>`;
+    }
+    if(an.plan_issues && an.plan_issues.length){
+      html += `<details><summary>🔎 급여제공계획 발송·서명 문제 (${an.plan_issues.length}건)</summary>
+        <table class="small-table"><tr><th>수급자</th><th>작성일</th><th>적용기간</th><th>발송상태</th><th>동의일</th><th>문제</th></tr>
+        ${an.plan_issues.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table></details>`;
+    }
+    if(an.rows_check && an.rows_check.length){
+      html += `<details><summary>🔎 수급자별 연간작성·계약 점검 (${an.rows_check.length}명)</summary>
+        <table class="small-table"><tr><th>수급자</th><th>현황</th><th>수급기간</th><th>누락①</th><th>누락②</th><th>누락③</th><th>표준약관</th><th>계약연속</th><th>계획점검</th></tr>
+        ${an.rows_check.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table></details>`;
+    }
+    // ⚠️ 자동 지적(미흡·주의) 항목 상세를 하단에 모아 표시 — 점수 미부여된 빨간/주황 항목을 한눈에.
+    //    항목에 전건 표(rows)가 있으면 표까지 펼친다(30 연계·34 상태변화 등).
+    // 항목별 '건별 명단' 소스: item_results.rows 가 없는 항목은 analysis.* 의 건별 표를 붙인다
+    // (누가·뭐가 문제인지 항목 바로 아래에서 확인 → 조치 가능). [analysis키, 라벨, 헤더]
+    const AN_MAP = {
+      '20': [['rows_check', '수급자별 연간작성·계약 점검', ['수급자','현황','수급기간','누락①','누락②','누락③','표준약관','계약연속','계획점검'], true]],
+      '21': [['halfyear_miss', '반기별 평가 누락', ['수급자','현황','반기','평가','재적기간'], false]],
+      '22': [['plan_issues', '발송·서명 문제', ['수급자','작성일','적용기간','발송상태','동의일','문제'], false],
+             ['order_issues', '계획-기초평가 순서', ['수급자','계획작성일','내용'], false]],
+    };
+    const flagged = ITEMS.filter(it=>{
+      const r = d.item_results && d.item_results[String(it.no)];
+      // 미흡·주의는 물론, 양호라도 특이사항(rows: 수기확인 명단)이 있으면 하단에 표시 — 30 연계 등
+      return r && (r.status==='미흡' || r.status==='주의' || (Array.isArray(r.rows) && r.rows.length));
+    });
+    if(flagged.length){
+      html += `<details open class="flagged-box"><summary>⚠️ 자동 지적·특이사항 상세 (${flagged.length}개 — 미흡·주의·수기확인)</summary>`;
+      const tbl = (cols, rows)=> `<table class="small-table">`
+        + (cols.length ? `<tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr>` : '')
+        + rows.map(row=>`<tr>${row.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('') + `</table>`;
+      flagged.forEach(it=>{
+        const r = d.item_results[String(it.no)];
+        const cls = r.status==='미흡' ? 'st-bad' : (r.status==='주의' ? 'st-warn' : 'st-ok');
+        html += `<div class="flag-item"><div><b>${it.no}. ${it.name}</b> <span class="${cls}">● ${r.status}</span></div>`
+          + `<div class="fdet">${r.detail||''}</div>`;
+        // 1) 항목 자체 rows(30 연계·34 상태변화)
+        if(Array.isArray(r.rows) && r.rows.length) html += tbl(Array.isArray(r.cols)?r.cols:[], r.rows);
+        // 2) analysis.* 건별 명단(20 계약점검·21 반기누락·22 발송서명 등)
+        (AN_MAP[String(it.no)] || []).forEach(([akey, label, acols, onlyProblem])=>{
+          let arr = (an && an[akey]) || [];
+          if(onlyProblem) arr = arr.filter(row=>!/정상/.test(String(row[row.length-1]||'')));  // 20: 문제 행만
+          if(!arr.length) return;
+          html += `<div class="loc" style="margin-top:5px">↳ ${label} (${arr.length}건)</div>` + tbl(acols, arr);
+        });
+        html += `</div>`;
+      });
+      html += `</details>`;
+    }
+  }
+
+  document.getElementById('content').innerHTML = html;
+}
+
+function switchTab(b){ cur=b; localStorage.setItem('audit_tab', b); render(); }
+function setManual(no, key, val){
+  const m = loadManual(cur);
+  m[no] = m[no] || {};
+  m[no][key] = val;
+  saveManual(cur, m);
   render();
 }
-function save() {
-  try { localStorage.setItem(key(), JSON.stringify(state)); } catch (e) {}
-  total();
+// ---- 사이트 내 점검표 내보내기 (엑셀/PDF) ----
+function expBranches(){
+  const sc = document.getElementById('expScope');
+  return (sc && sc.value === 'all') ? BRANCHES.slice() : [cur];
 }
-function total() {
-  let s = 0;
-  ITEMS.forEach(it => it.subs.forEach(sb => {
-    const v = state[it.no + sb.label];
-    if (v && v.p !== '' && v.p != null) s += Number(v.p);
-  }));
-  document.getElementById('sum').textContent = Math.round(s * 100) / 100;
+function subStatusOf(v, sub){
+  if(v === undefined || v === '') return '미입력';
+  if(v === 'NA') return '해당없음';
+  const x = parseFloat(v);
+  if(x >= sub.score) return '충족';
+  return x === 0 ? '미충족' : '부분충족';
 }
-function render() {
+function branchRows(b){
+  const manual = loadManual(b);
+  const d = DATA[b];
   const rows = [];
-  ITEMS.forEach(it => {
-    const tag = it.method === 'auto'
-      ? '<span class="tag auto">자동</span>' : '<span class="tag man">수기</span>';
-    rows.push(`<tr class="item"><td class="no">${it.no}</td>`
-      + `<td colspan="4">${esc(it.name)}${tag}`
-      + `<span style="font-weight:400;color:#8a9096;font-size:11px"> · ${esc(it.loc)} · ${it.total}점</span>`
-      + `<details class="cri"><summary>판정기준 펼치기</summary><div>${esc(it.criteria)}</div></details></td></tr>`);
-    it.subs.forEach(sb => {
-      const k = it.no + sb.label;
-      const cur = state[k] || {};
-      const opts = sb.steps.map(v =>
-        `<label><input type="radio" name="r${k}" value="${v}"`
-        + `${String(cur.p) === String(v) ? ' checked' : ''} onchange="pick('${k}',this.value)">`
-        + `<span>${v}</span></label>`).join('')
-        + `<label><input type="radio" name="r${k}" value=""`
-        + `${cur.p == null || cur.p === '' ? ' checked' : ''} onchange="pick('${k}','')">`
-        + `<span>미평가</span></label>`;
-      rows.push(`<tr><td class="no"></td><td>${sb.label} ${esc(sb.text)}</td>`
-        + `<td class="pt">${sb.score}</td><td><div class="opt">${opts}</div></td>`
-        + `<td><input class="memo" value="${esc(cur.m || '')}" `
-        + `oninput="memo('${k}',this.value)" placeholder="근거·비고"></td></tr>`);
+  let earned = 0, filled = 0, total = 0, naPts = 0;
+  ITEMS.forEach(it=>{
+    (it.subs||[]).forEach((s, si)=>{
+      const e = effVal(it, s, manual, d);
+      total++;
+      let scoreCell = '';
+      if(e.v !== undefined){
+        filled++;
+        if(e.v === 'NA'){ naPts += s.score; scoreCell = '해당없음'; }
+        else { earned += parseFloat(e.v); scoreCell = parseFloat(e.v); }
+      }
+      const r = d && d.item_results && d.item_results[String(it.no)];
+      const m = manual[it.no] || {};
+      rows.push([si===0 ? it.no : '', si===0 ? it.name : '', s.label, s.text, s.score,
+                 scoreCell, subStatusOf(e.v, s), e.v===undefined?'':(e.auto?'자동':'수기'),
+                 r ? r.status : '', si===0 ? (m.memo||'') : '']);
     });
   });
-  document.getElementById('tb').innerHTML = rows.join('');
-  total();
+  return {rows, earned: Math.round(earned*100)/100, filled, total, naPts: Math.round(naPts*100)/100};
 }
-function pick(k, v) { (state[k] = state[k] || {}).p = v; save(); }
-function memo(k, v) { (state[k] = state[k] || {}).m = v; save(); }
-function clr() {
-  if (!confirm(br.value + ' 점수를 모두 지울까요?')) return;
-  state = {}; localStorage.removeItem(key()); render();
+// 현장 확인 포인트 (2026 보완) — 지점별 체크상태 포함
+function branchChecks(b){
+  const manual = loadManual(b);
+  const rows = [];
+  ITEMS.forEach(it=>{
+    if(!it.checks || !it.checks.length) return;
+    const m = manual[it.no] || {};
+    it.checks.forEach((c,i)=>{
+      const on = !!(m.checks && m.checks[i]);
+      rows.push([it.no, it.name, c, on]);
+    });
+  });
+  return rows;
 }
-function esc(s) { return String(s == null ? '' : s)
-  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
-function csv() {
-  const L = [['지점', '번호', '항목', '세부', '내용', '배점', '점수', '메모']];
-  ITEMS.forEach(it => it.subs.forEach(sb => {
-    const c = state[it.no + sb.label] || {};
-    L.push([br.value, it.no, it.name, sb.label, sb.text, sb.score,
-            c.p == null || c.p === '' ? '' : c.p, c.m || '']);
-  }));
-  const body = L.map(r => r.map(x => `"${String(x).replace(/"/g, '""')}"`).join(',')).join('\r\n');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob(['\ufeff' + body], {type: 'text/csv;charset=utf-8'}));
-  a.download = `수기점수_${br.value}_${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
+function exportExcel(){
+  if(typeof XLSX === 'undefined'){ alert('엑셀 라이브러리(vendor/xlsx.full.min.js)를 찾을 수 없습니다.'); return; }
+  const brs = expBranches();
+  const wb = XLSX.utils.book_new();
+  const sum = [["지점","총점(100점)","기준 입력","해당없음 배점","자동수집 시각","기관 지정일"]];
+  const packs = {};
+  brs.forEach(b=>{
+    const p = branchRows(b);
+    packs[b] = p;
+    const d = DATA[b] || {};
+    sum.push([b, p.earned, `${p.filled}/${p.total}`, p.naPts, d.run_at||'-', d.opened||'-']);
+  });
+  const wsSum = XLSX.utils.aoa_to_sheet(sum);
+  wsSum['!cols'] = [{wch:14},{wch:12},{wch:10},{wch:12},{wch:17},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, wsSum, '요약');
+  brs.forEach(b=>{
+    const aoa = [["번호","항목","기준","기준 내용","배점","점수","판정","채점","자동판정","메모"], ...packs[b].rows];
+    const chk = branchChecks(b);
+    if(chk.length){
+      aoa.push([], ["── 현장 확인 포인트 (2026 보완) — 배점 무관 ──"],
+               ["번호","항목","확인 포인트","확인"]);
+      chk.forEach(r=>aoa.push([r[0], r[1], r[2], r[3] ? 'O' : '']));
+    }
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{wch:6},{wch:16},{wch:5},{wch:55},{wch:6},{wch:8},{wch:9},{wch:6},{wch:9},{wch:24}];
+    XLSX.utils.book_append_sheet(wb, ws, b);
+  });
+  // 평가 매뉴얼 기준 시트 — 배점·점수 단계의 근거 원문
+  const crit = [["번호","항목","총배점","기준","기준 내용","배점","점수 단계","평가 매뉴얼 기준(원문)"]];
+  ITEMS.forEach(it=>{
+    (it.subs||[]).forEach((x,i)=>{
+      const steps = (x.steps && x.steps.length) ? x.steps.join(' / ') : String(x.score);
+      crit.push([i===0?it.no:'', i===0?it.name:'', i===0?(it.total||''):'',
+                 x.label, x.text, x.score, steps, i===0?(it.criteria||''):'']);
+    });
+  });
+  const wsCrit = XLSX.utils.aoa_to_sheet(crit);
+  wsCrit['!cols'] = [{wch:6},{wch:18},{wch:8},{wch:5},{wch:50},{wch:6},{wch:13},{wch:100}];
+  XLSX.utils.book_append_sheet(wb, wsCrit, '평가기준(매뉴얼)');
+
+  const tag = brs.length===1 ? brs[0]+'_' : '';
+  const dt = new Date();
+  const ymd = dt.getFullYear() + String(dt.getMonth()+1).padStart(2,'0') + String(dt.getDate()).padStart(2,'0');
+  XLSX.writeFile(wb, `지점점검표_${tag}${ymd}.xlsx`);
 }
-br.onchange = load;
-load();
+// 매뉴얼 원문의 기준번호(①②③…)를 줄머리로 내린다 — 한 문단으로 붙어 읽기 어려웠다.
+// 괄호 안 참조('(① 불인정 시 연동 불인정)')는 줄을 바꾸지 않는다.
+function critText(t){
+  // 기준(①②③…)마다 문단을 나눈다 — 한 덩어리 pre-wrap 이면 줄이 뭉쳐 읽기 어렵다.
+  // 문장 안 참조 '(① 불인정 시…)' 는 (앞 괄호 lookbehind) 나누지 않는다.
+  const s = String(t||'').replace(/(?<![(（])\s+([①-⑩])\s/g, '$1 ').trim();
+  return s.split('').filter(x=>x.trim()).map(x=>{
+    const m = x.match(/^([①-⑩])\s*([\s\S]*)$/);
+    return m ? `<div class="ci"><b class="cn">${m[1]}</b><span>${m[2].trim()}</span></div>`
+             : `<div class="ci">${x.trim()}</div>`;
+  }).join('');
+}
+// 점검표 표들의 열 폭 — 항목별로 표를 나눠 그리므로 colgroup 으로 폭을 맞춘다
+const PDF_COLS = '<colgroup><col style="width:38px"><col style="width:34px"><col>'
+  + '<col style="width:44px"><col style="width:70px"><col style="width:52px">'
+  + '<col style="width:66px"><col style="width:42px"></colgroup>';
+function exportPDF(){
+  const brs = expBranches();
+  const pages = [];
+  brs.forEach((b)=>{
+    const manual = loadManual(b);
+    const d = DATA[b];
+    let earned=0, naPts=0, filled=0, total=0, rows='';
+    ITEMS.forEach(it=>{
+      let itE=0, itNa=0, itF=0;
+      const subRows = [];
+      (it.subs||[]).forEach(s=>{
+        const e = effVal(it, s, manual, d);
+        total++;
+        let got = '-';
+        if(e.v !== undefined){
+          filled++; itF++;
+          if(e.v==='NA'){ itNa+=s.score; naPts+=s.score; got='해당없음'; }
+          else { itE+=parseFloat(e.v); earned+=parseFloat(e.v); got=fmt(parseFloat(e.v)); }
+        }
+        const st = subStatusOf(e.v, s);
+        const scls = st==='충족' ? 'ok' : (st==='미충족' ? 'bad' : (st==='부분충족' ? 'part' : 'na'));
+        const steps = (s.steps && s.steps.length) ? s.steps.map(x=>fmt(x)).join(' / ') : fmt(s.score);
+        subRows.push(`<tr class="sub"><td></td><td class="k">${s.label}</td>
+          <td class="l">${s.text}</td><td>${fmt(s.score)}</td><td class="st">${steps}</td>
+          <td>${got}</td><td><span class="v ${scls}">${st}</span></td>
+          <td class="auto">${e.v===undefined?'':(e.auto?'자동':'수기')}</td></tr>`);
+      });
+      const possible = (it.total||0) - itNa;
+      const verdict = itF===0 ? '미입력' : (possible<=0 ? '해당없음' : (itE>=possible ? '충족' : '미달'));
+      const cls = verdict==='충족' ? 'ok' : (verdict==='미달' ? 'bad' : 'na');
+      const r = d && d.item_results && d.item_results[String(it.no)];
+      rows += `<table class="grid grp">${PDF_COLS}
+        <thead><tr class="item"><td>${it.no}</td><td class="l" colspan="2"><b>${it.name}</b></td>
+        <td><b>${it.total||'-'}</b></td><td class="st"></td><td><b>${itF===0?'-':fmt(itE)}</b></td>
+        <td><span class="v ${cls}">${verdict}</span></td><td class="auto">${r?r.status:''}</td></tr></thead>
+        <tbody>${subRows.join('')}</tbody></table>`;
+    });
+    // 1) 점검표 — 한 페이지
+    pages.push(`
+      <div class="phead"><div class="ttl">지점 점검표</div><div class="br">${b}</div></div>
+      <div class="meta">생성 ${new Date().toLocaleDateString('ko-KR')} · 총점 <b>${fmt(earned)}점</b> / 만점 ${fmt(100-naPts)}점 <span class="dim">(해당없음 ${fmt(naPts)}점 제외)</span> · 기준 입력 ${filled}/${total} · 자동수집 ${(d||{}).run_at||'-'} · 기관 지정일 ${(d||{}).opened||'-'}</div>
+      <table class="grid hdr">${PDF_COLS}<thead><tr><th>번호</th><th>기준</th><th>항목 · 기준 내용</th><th>배점</th><th>점수 단계</th><th>득점</th><th>판정</th><th>채점</th></tr></thead></table>${rows}`);
+    // 2) 현장 확인 포인트 — 아예 다른 페이지(있을 때만)
+    const chk = branchChecks(b);
+    if(chk.length){
+      pages.push(`
+        <div class="phead amber"><div class="ttl">✅ 현장 확인 포인트</div><div class="br">${b}</div></div>
+        <div class="meta">배점과 무관 · 현장에서 눈으로 확인하는 체크리스트 (2026 보완)</div>
+        <table class="grid amber"><thead><tr><th style="width:34px">#</th><th style="width:186px">항목</th><th class="l">확인 포인트</th><th style="width:46px">확인</th></tr></thead><tbody>
+        ${chk.map(r=>`<tr><td>${r[0]}</td><td class="l">${r[1]}</td><td class="l">${r[2]}</td><td class="cbox">${r[3]?'☑':'☐'}</td></tr>`).join('')}</tbody></table>`);
+    }
+    // 3) 평가 매뉴얼 기준 전문 — 점수를 왜 그렇게 줬는지 근거가 되는 원문
+    const crit = ITEMS.filter(it=>it.criteria).map(it=>{
+      const subs = (it.subs||[]).map(x=>{
+        const steps = (x.steps&&x.steps.length) ? x.steps.map(v=>fmt(v)).join(' / ') : fmt(x.score);
+        return `<tr><td class="k">${x.label}</td><td class="l">${x.text}</td><td>${fmt(x.score)}</td><td class="st">${steps}</td></tr>`;
+      }).join('');
+      return `<table class="crit"><thead><tr><th class="ch"><span class="cno">${it.no}</span> ${it.name}
+          <span class="cpt">배점 ${it.total||'-'}점</span></th></tr></thead><tbody>
+        <tr><td class="cbody">${critText(it.criteria)}</td></tr>
+        <tr><td class="cwrap"><table class="grid mini"><thead><tr><th style="width:34px">기준</th><th class="l">내용</th><th style="width:44px">배점</th><th style="width:74px">점수 단계</th></tr></thead><tbody>${subs}</tbody></table></td></tr>
+        </tbody></table>`;
+    }).join('');
+    pages.push(`
+      <div class="phead teal"><div class="ttl">📘 평가 기준 (매뉴얼 원문)</div><div class="br">${b}</div></div>
+      <div class="meta">위 점검표의 배점·점수 단계가 어디서 나왔는지 근거 · 2026 주간보호 평가 매뉴얼</div>
+      ${crit}`);
+  });
+  const body = pages.map((pg,i)=>`<section class="page${i?' brk':''}">${pg}</section>`).join('');
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><title>지점 점검표</title><style>
+    *{box-sizing:border-box}
+    body{font-family:'맑은 고딕','Malgun Gothic',sans-serif;margin:0;color:#1e2733;background:#fff}
+    .page{padding:0}   /* 여백은 @page 가 준다 — 넘어간 장에도 적용되게 */
+    .brk{page-break-before:always}
+    .phead{display:flex;align-items:baseline;justify-content:space-between;border-bottom:3px solid #3a6f78;padding-bottom:7px}
+    .phead.amber{border-color:#c07d10}
+    .phead .ttl{font-size:18px;font-weight:800;color:#3a6f78;letter-spacing:-.3px}
+    .phead.amber .ttl{color:#b57a00}
+    .phead .br{font-size:15px;font-weight:700;color:#33445c}
+    .meta{font-size:11px;color:#5b6b7c;margin:7px 0 11px}
+    .meta .dim{color:#9aa6b5}
+    table.grid{border-collapse:collapse;width:100%;font-size:11.5px}
+    /* 세로 가운데 — '부분충족'처럼 두 줄이 되는 셀이 있어도 나머지 칸이 위로 쏠리지 않게 */
+    .grid th,.grid td{border:1px solid #b3d8df;padding:5px 7px;text-align:center;vertical-align:middle}
+    .grid thead th{background:#3a6f78;color:#fff;font-weight:700;border-color:#2f5c64;font-size:11px;white-space:nowrap}
+    .grid.amber thead th{background:#b57a00;border-color:#9c690a}
+    .grid td.l{text-align:left}
+    .grid tbody tr:nth-child(even){background:#eef5f7}
+    .grid.amber tbody tr:nth-child(even){background:#fbf4e7}
+    .grid.amber tbody td:nth-child(2){white-space:nowrap;text-align:left}
+    .grid td.auto{color:#5b6b7c;font-size:10px}
+    .grid td.cbox{font-size:14px}
+    .grid tbody tr{break-inside:avoid}
+    /* 항목마다 독립 표 — 표 단위 avoid 라야 Chrome 인쇄에서 실제로 지켜진다.
+       열 폭은 colgroup + table-layout:fixed 로 표끼리 맞춘다. */
+    table.grid{table-layout:fixed}
+    /* 항목 사이를 살짝 띄워 한 페이지에 여러 항목이 와도 구분되게.
+       page-break 시 하단 margin 은 브라우저가 잘라내므로 페이지가 밀리지 않는다. */
+    table.grid.grp{break-inside:avoid;page-break-inside:avoid;margin:0 0 5px}
+    table.grid.hdr{margin-bottom:5px}
+    table.grid.grp > thead{display:table-header-group}
+    /* '미입력'(세 글자)이 두 줄로 접히던 문제 — 배지·셀 여백을 줄여 한 줄에 들어가게 한다.
+       '해당없음'(네 글자)은 그대로 두 줄로 접힌다(폭을 더 넓히면 표가 밀린다) */
+    .grid td:nth-child(7){padding-left:2px;padding-right:2px}
+    .v{display:inline-block;border-radius:9px;padding:1px 5px;font-weight:700;font-size:10.5px;line-height:1.35}
+    .v.ok{background:#e4f4e8;color:#1f7a37}
+    .v.bad{background:#fbe6e6;color:#bb2020}
+    .v.na{background:#eef1f5;color:#7a8698}
+    .v.part{background:#fff4e0;color:#a86400}
+    .grid tr.item td{background:#dcecef;font-size:12.5px}
+    .grid tr.item td b{color:#23424a}
+    .grid tr.sub td{font-size:11px;color:#1e2733}
+    .grid td.k{font-weight:700;color:#3a6f78}
+    .grid td.st{font-size:10.5px;color:#3c4a58;white-space:nowrap}
+    .phead.teal{border-color:#3a6f78}
+    /* 한 항목은 한 페이지 안에 들어간다(항목과 페이지 일치) — 통째로 다음 장으로 넘긴다.
+       그래도 항목 자체가 한 페이지보다 길면 어쩔 수 없이 넘어가는데, 그때는 thead 가
+       다음 장 맨 위에 다시 그려져 번호·항목명이 앞에 온다. */
+    table.crit{width:100%;border-collapse:collapse;margin:0 0 11px;display:table;
+               border:1px solid #cfe2e6;border-radius:6px;overflow:hidden;
+               break-inside:avoid;page-break-inside:avoid}
+    table.crit > thead{display:table-header-group}
+    table.crit > tbody > tr{break-inside:avoid}
+    .crit .ch{background:#eef5f7;padding:9px 13px;font-size:14.5px;font-weight:700;color:#23424a;
+              border-bottom:1px solid #cfe2e6;text-align:left}
+    .crit td.cwrap{padding:0;border:0}
+    .crit .cno{display:inline-block;background:#3a6f78;color:#fff;border-radius:4px;padding:0 6px;margin-right:5px}
+    .crit .cpt{float:right;font-weight:700;color:#3a6f78;font-size:12.5px}
+    .crit .cbody{padding:11px 13px;font-size:12.5px;line-height:1.7;color:#000;font-weight:500;
+                 letter-spacing:0}
+    .crit .cbody .ci{display:flex;gap:6px;margin:0 0 7px}
+    .crit .cbody .ci:last-child{margin-bottom:0}
+    .crit .cbody .ci > span{flex:1;min-width:0}
+    .crit .cbody .cn{color:#3a6f78;font-weight:800;font-size:13.5px;flex-shrink:0}
+    /* 기준 내용에도 표와 같은 색감을 준다 — 원문이 검정 일색이라 구분이 안 됐다 */
+    .crit .cbody .ci > span{color:#16202a}
+    .crit .cbody .ci > span b{color:#2f5c64}
+    .grid.mini{font-size:11.5px}
+    .grid.mini th,.grid.mini td{padding:6px 8px}
+    @page{size:A4;margin:14mm 12mm}
+  </style></head><body>${body}
+  <script>window.onload=()=>setTimeout(()=>window.print(),350);<\/script></body><!-- 생성: build_manual_score.py 2026-08-07 23:10 -->
+</html>`);
+  w.document.close();
+}
+function setSub(no, label, val){
+  const m = loadManual(cur);
+  m[no] = m[no] || {};
+  m[no].subs = m[no].subs || {};
+  if(val === '') delete m[no].subs[label];
+  else m[no].subs[label] = val;
+  saveManual(cur, m);
+  render();
+}
+// ---- 현장 확인 포인트 체크 (배점과 무관, 체크상태만 저장) ----
+function setCheck(no, idx, on){
+  const m = loadManual(cur);
+  m[no] = m[no] || {};
+  m[no].checks = m[no].checks || {};
+  if(on) m[no].checks[idx] = true;
+  else delete m[no].checks[idx];
+  saveManual(cur, m);
+  render();
+}
+// ---- 점수 본부 공유 (Apps Script 웹훅) ----
+const SCORES_HOOK = '';
+const SCORES_TOKEN = 'audit-scores-2026-cheongju';
+function buildScoreData(branch){
+  const manual = loadManual(branch);
+  const d = DATA[branch];
+  let earned=0, denom=0, filled=0, total=0, naPts=0;
+  const per_item = {};
+  ITEMS.forEach(it=>{
+    const sc = itemScore(it, manual, d);
+    if(!sc) return;
+    total += it.subs.length; filled += sc.filled;
+    earned += sc.earned; denom += sc.denom;
+    it.subs.forEach(s=>{
+      const e = effVal(it, s, manual, d);
+      if(e.v==='NA') naPts += s.score;
+    });
+    per_item[it.no] = {earned: sc.earned, denom: sc.denom, filled: sc.filled, subs: it.subs.length};
+  });
+  const memos = {};
+  Object.keys(manual).forEach(no=>{ if(manual[no] && manual[no].memo) memos[no] = manual[no].memo; });
+  // 기준별 선택값 (자동 부여 포함) — 점검표 엑셀/PDF 내보내기용
+  const sub_values = {};
+  ITEMS.forEach(it=>{
+    if(!it.subs) return;
+    it.subs.forEach(s=>{
+      const e = effVal(it, s, manual, d);
+      if(e.v !== undefined){
+        sub_values[it.no] = sub_values[it.no] || {};
+        sub_values[it.no][s.label] = {v: e.v, auto: e.auto};
+      }
+    });
+  });
+  return {total_earned: Math.round(earned*100)/100, filled, total_subs: total,
+          na_points: Math.round(naPts*100)/100, per_item, memos, sub_values};
+}
+async function postScores(branch, data){
+  const body = JSON.stringify({token: SCORES_TOKEN, branch, data});
+  try{
+    const res = await fetch(SCORES_HOOK, {method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'}, body});
+    const out = await res.json();
+    return out.ok;
+  }catch(e){
+    await fetch(SCORES_HOOK, {method:'POST', mode:'no-cors',
+      headers:{'Content-Type':'text/plain;charset=utf-8'}, body});
+    return true;  // no-cors: 응답 확인 불가하지만 전송됨
+  }
+}
+async function uploadScores(){
+  const msg = document.getElementById('upmsg');
+  msg.textContent = '전체 지점 업로드 중...';
+  const done = [], skipped = [];
+  for(const b of BRANCHES){
+    const data = buildScoreData(b);
+    if(data.filled === 0){ skipped.push(b); continue; }
+    try{
+      const ok = await postScores(b, data);
+      done.push(`${b} ${data.total_earned}점(${data.filled}/${data.total_subs})`);
+      if(!ok) done[done.length-1] += '⚠️';
+    }catch(e){ done.push(`${b} ❌`); }
+  }
+  msg.textContent = (done.length ? '✅ 공유 완료: ' + done.join(' · ') : '입력된 점수가 없습니다')
+    + (skipped.length && done.length ? ` (미입력 제외: ${skipped.join(', ')})` : '');
+}
+
+if(!ITEMS.length){
+  document.getElementById('content').innerHTML =
+    '<div class="nodata">audit_results/dashboard_data.js 가 없습니다.<br>먼저 <b>py run_audit.py</b> 를 한 번 실행하세요 (항목 정의가 함께 생성됩니다).</div>';
+  document.getElementById('tabs').innerHTML = '';
+} else if(document.getElementById('hqgate')){
+  render();   // 허브(본부 공유): 읽기전용 — 자동동기화 안 함(_HQ_SCRIPT가 업로드값을 불러옴)
+} else {
+  // ★로컬↔허브 점수 자동 일치 (로컬 대시보드 전용):
+  //   1) 공유 저장소(업로드값)를 먼저 불러와, 로컬에 수기 입력이 '없는' 지점은 그 값으로 표시
+  //      (로컬이 비었다고 공유값을 덮지 않음 — 허브와 같은 화면).
+  //   2) 로컬에 수기 입력이 '있는' 지점은 그게 원본이므로 공유로 자동 업로드 → 허브가 로컬과 같아짐.
+  //   버튼 안 눌러도 열기만 하면 양방향으로 맞춰진다.
+  var _hasManual = function(b){ var m=loadManual(b); return m && Object.keys(m).length>0; };
+  fetch(SCORES_HOOK+(SCORES_HOOK.indexOf('?')>=0?'&':'?')+'token='+encodeURIComponent(SCORES_TOKEN))
+    .then(function(r){return r.json();})
+    .then(function(j){
+      var scores = (j && j.ok && j.scores) ? j.scores : {};
+      BRANCHES.forEach(function(b){
+        if(_hasManual(b) || !scores[b]) return;   // 로컬 수기 있으면 그대로, 없고 공유값 있으면 내려받아 표시
+        var sc=scores[b], m={};
+        if(sc.sub_values) Object.keys(sc.sub_values).forEach(function(no){ m[no]={subs:{}}; Object.keys(sc.sub_values[no]).forEach(function(lab){ m[no].subs[lab]=sc.sub_values[no][lab].v; }); });
+        if(sc.memos) Object.keys(sc.memos).forEach(function(no){ m[no]=m[no]||{subs:{}}; m[no].memo=sc.memos[no]; });
+        saveManual(b, m);
+      });
+      render();
+      BRANCHES.forEach(async function(b){     // 로컬 수기 있는 지점은 공유로 올림(로컬이 원본)
+        if(!_hasManual(b)) return;
+        try{ var data=buildScoreData(b); if(data.filled>0) await postScores(b, data); }catch(e){}
+      });
+    })
+    .catch(function(){ render(); });   // 오프라인이면 로컬 값으로만 표시
+}
 </script>
+</body>
+<!-- 생성: build_manual_score.py 2026-08-07 23:10 -->
 </html>
