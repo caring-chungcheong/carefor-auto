@@ -31,20 +31,44 @@ OUT = ROOT / "docs" / "manual_score.html"
 _LOADER = re.compile(r"document\.write\('<sc'\+'ript src=\"audit_results/dashboard_data\.js.*?</script>",
                      re.S)
 
-_NEW_LOADER = """document.write('<sc'+'ript src="dashboard_data.js?_='+Date.now()+'" \
-onerror="window.AUDIT_DATA={};window.AUDIT_ITEMS=null;"><\\/sc'+'ript>');</script>
-<!-- ★수기 점수표: 자동 판정만 끈다. 항목 정의(AUDIT_ITEMS)는 그대로 두어야
-     36항목·배점·판정기준이 대시보드와 어긋나지 않는다. -->
-<script>window.AUDIT_DATA = {};</script>"""
+ITEMS_SRC = ROOT / "docs" / "dashboard_data.js"
+
+
+def _items_js() -> str:
+    """docs/dashboard_data.js 에서 **항목 정의만** 떼어 온다(지점별 판정·명단은 안 가져온다).
+
+    ★외부 파일로 두면 안 된다 — 허브(Apps Script)는 HTML 파일만 서빙해서
+      `<script src="dashboard_data.js">` 가 404 로 죽는다(실측: 허브에서 화면이 깨졌다).
+      그래서 항목 정의를 페이지 안에 박아 넣는다. 개인정보는 항목 정의에 없다.
+    """
+    s = ITEMS_SRC.read_text(encoding="utf-8")
+    i = s.find("window.AUDIT_ITEMS")
+    if i < 0:
+        raise SystemExit(f"AUDIT_ITEMS 를 못 찾았습니다 — {ITEMS_SRC}. 먼저 run_audit 를 돌리세요.")
+    body = s[i:].strip()
+    if "AUDIT_DATA" in body:                     # 지점 데이터가 섞여 들어오면 자동판정이 살아난다
+        raise SystemExit("AUDIT_ITEMS 뒤에 지점 데이터가 붙어 있습니다 — 중단.")
+    return body
 
 
 def build() -> str:
     s = SRC.read_text(encoding="utf-8")
 
-    s, n = _LOADER.subn(_NEW_LOADER, s, count=1)
+    new_loader = ("</script>\n"
+                  "<!-- ★수기 점수표: 항목 정의는 페이지에 박아 넣고(허브는 외부 .js 를 못 준다),\n"
+                  "     자동 판정 데이터(AUDIT_DATA)는 비운다. -->\n"
+                  "<script>\n" + _items_js() + "\nwindow.AUDIT_DATA = {};\n</script>")
+    s, n = _LOADER.subn(lambda _m: new_loader, s, count=1)
     if n != 1:
         raise SystemExit("데이터 로더를 못 찾았습니다 — audit_dashboard.html 구조가 바뀐 듯합니다. "
                          "확인 없이 만들면 자동 판정이 섞여 들어갑니다.")
+
+    # 엑셀 라이브러리 — 허브(Apps Script)는 vendor/*.js 를 서빙하지 못해 404 로 죽는다
+    # (실측: '엑셀 내보내기'가 라이브러리 없음 경고만 내고 끝났다). CDN 으로 바꾼다.
+    if 'src="vendor/xlsx.full.min.js"' not in s:
+        raise SystemExit("xlsx 로더를 못 찾았습니다 — 엑셀 내보내기가 허브에서 죽습니다. 중단.")
+    s = s.replace('src="vendor/xlsx.full.min.js"',
+                  'src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"')
 
     # 제목 — 대시보드와 헷갈리지 않게
     s = re.sub(r"<title>[^<]*</title>", "<title>지점점검 대시보드(수기점검표)</title>", s, count=1)
