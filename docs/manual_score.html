@@ -39,10 +39,30 @@ body{background:#16181a;color:#e6e6e6} table{background:#1e2124;border-color:#2e
 th{background:#24282b} tr.item td{background:#212528} td,th{border-color:#2a2d30}
 .opt label,.memo{background:#1a1d20;border-color:#3a3f44;color:#e6e6e6}
 .warn{background:#2e2415;border-color:#5a4523;color:#e0b877} }
-@media print{.bar{position:static} th{position:static} .warn{display:none}}
+/* 인쇄: 조작용 UI(버튼·안내)는 빼고 지점·합계·점수·메모만 남긴다.
+   항목이 쪽 경계에서 잘리면 채점표로 못 쓰므로 세부행 단위로 안 쪼갠다. */
+@media print{
+  body{padding:0;background:#fff}
+  .bar{position:static;background:#fff;color:#000;padding:0 0 6px;border-bottom:2px solid #000;
+  border-radius:0;margin-bottom:8px}
+  .bar button{display:none}
+  .bar select{border:0;background:transparent;font-weight:800;font-size:15px;padding:0;
+  appearance:none;-webkit-appearance:none}
+  .score{color:#000}
+  .warn{display:none}
+  details.cri{display:none}
+  th{position:static;background:#eee !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  table{border-radius:0}
+  tr{break-inside:avoid}
+  .opt label{border-color:#999}
+  .opt label:has(input:checked){background:#000 !important;color:#fff !important;
+  -webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .memo{border:0;border-bottom:1px solid #bbb;border-radius:0}
+  .memo::placeholder{color:transparent}
+}
 </style>
 <h1>✍️ 수기 점수표 — 지점점검</h1>
-<div class="sub">자동 판정과 같은 36항목 · 총 100점 · items.py 기준 2026-08-07 22:55 생성</div>
+<div class="sub">자동 판정과 같은 36항목 · 총 100점 · items.py 기준 2026-08-07 23:01 생성</div>
 <div class="warn">💾 점수는 <b>이 브라우저에만</b> 저장됩니다(서버 전송 없음). 다른 PC와 나누려면 <b>CSV 내려받기</b>를 쓰세요.</div>
 
 <div class="bar">
