@@ -40,7 +40,10 @@ from audit.deploy_hub import (CODE, MANIFEST, SCRIPT_ID, DEPLOY_ID, build_html, 
 #   SONGYEONG_KEY 에서 끌어와 지점이 늘어도 자동으로 보존된다.
 # ★본인부담금 미납(nonpay)도 원본이 저장소 밖(클로드코드/미납관리/)이다 — 여기 없으면 CI 재배포마다 사라진다.
 PRESERVE = ("revenue", "carcost", "runbook", "sysmap", "workreport", "nonpay",
-            "dunsan", "cheonan", "cheongju", "djhome") + tuple(SONGYEONG_KEY.values())
+            "dunsan", "cheonan", "cheongju", "djhome",
+            # 수기 점수표 — 원본은 저장소 안(docs/manual_score.html)이지만 CI 는 PRESERVE 밖 페이지를
+            # 아예 안 올린다. 빠지면 허브에서 사라진다(2026-07-27 리포트 4개 삭제와 같은 함정).
+            "manualscore") + tuple(SONGYEONG_KEY.values())
 
 
 def workreport_page_from(path: str) -> str:
@@ -123,7 +126,19 @@ def main():
         keep["nonpay"] = {"name": "nonpay", "type": "HTML", "source": _page_html("nonpay")}
         print(f"  갱신: nonpay ← 로컬 미납관리 허브본 ({len(keep['nonpay']['source'])}자, 이름 마스킹 확인)")
 
+    # 수기 점수표 — 원본이 저장소 안(docs/manual_score.html)이라 CI 가 매번 새로 만든다.
+    # PRESERVE 로만 두면 '현재 배포본에 없으면 영영 안 올라가는' 상태가 된다(최초 배포 불가).
+    try:
+        from audit.deploy_hub import page_html as _page_html
+        keep["manualscore"] = {"name": "manualscore", "type": "HTML",
+                               "source": _page_html("manualscore")}
+        print(f"  갱신: manualscore ← docs/manual_score.html ({len(keep['manualscore']['source'])}자)")
+    except Exception as ex:
+        print(f"  ⚠️ manualscore 원본을 못 읽어 보존합니다: {ex}")
+
     _updated = {"revenue"} if src_revenue else set()
+    if "manualscore" in keep:
+        _updated.add("manualscore")
     if src_workreport:
         _updated.add("workreport")
     if want_carcost and "carcost" in keep:
