@@ -64,7 +64,8 @@ function doGet(e) {
               djhome: '대전 방문요양 홍보 리포트',
               songyeong_dunsan: '송영 코스 · 둔산점', songyeong_seogu: '송영 코스 · 서구점',
               songyeong_cheonan: '송영 코스 · 천안점', songyeong_cheongju: '송영 코스 · 청주 오창점',
-              songyeong_bongmyeong: '송영 코스 · 청주 봉명동점' };  // 도메인(caring.co.kr) 로그인해야 열림
+              songyeong_bongmyeong: '송영 코스 · 케어링 청주점',
+              manualscore: '수기 점수표(지점점검)' };  // 도메인(caring.co.kr) 로그인해야 열림
   // ★로깅을 여기서 하면 시트 열기·쓰기(0.5~1.5초)가 끝나야 화면이 뜬다.
   //   실측 2026-07-29: 로깅 없는 허브 첫 화면 1.16초 vs 로깅 있는 개별 페이지 1.70초.
   //   → 페이지가 뜬 뒤 google.script.run.logItem 으로 기록한다(_inject_topbar 가 넣는다).
@@ -376,6 +377,10 @@ PAGE_SRC = {
     "songyeong_cheonan": CC / "송영코스" / "천안" / "송영코스_천안.html",
     "songyeong_cheongju": CC / "송영코스" / "청주" / "송영코스_청주.html",
     "songyeong_bongmyeong": CC / "송영코스" / "봉명" / "송영코스_봉명.html",
+    # 수기 점수표 — 자동 판정과 같은 36항목·같은 배점으로 사람이 직접 채점한다.
+    # items.py 를 읽어 build_manual_score.py 가 만든다(손으로 배점 박지 말 것 — 기준이 갈린다).
+    # 개인정보 없음. 점수는 브라우저 localStorage 에만 남고 서버로 안 간다.
+    "manualscore": ROOT / "docs" / "manual_score.html",
 }
 
 # 송영코스 페이지끼리의 지점 전환 링크(파일 상대경로) → 허브 주소로 바꾸기 위한 대응표
@@ -542,7 +547,7 @@ def _inject_logging(s: str, kind: str) -> str:
         "cheongju": "청주 오창점 홍보 리포트", "djhome": "대전 방문요양 홍보 리포트",
         "songyeong_dunsan": "송영 코스 · 둔산점", "songyeong_seogu": "송영 코스 · 서구점",
         "songyeong_cheonan": "송영 코스 · 천안점", "songyeong_cheongju": "송영 코스 · 청주 오창점",
-        "songyeong_bongmyeong": "송영 코스 · 청주 봉명동점",
+        "songyeong_bongmyeong": "송영 코스 · 케어링 청주점",
     }.get(kind, kind)
     tag = _LOG_JS % json.dumps(label, ensure_ascii=False)
     return s.replace("</body>", tag + "</body>", 1) if "</body>" in s else s + tag
