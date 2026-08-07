@@ -65,7 +65,7 @@ function doGet(e) {
               songyeong_dunsan: '송영 코스 · 둔산점', songyeong_seogu: '송영 코스 · 서구점',
               songyeong_cheonan: '송영 코스 · 천안점', songyeong_cheongju: '송영 코스 · 청주 오창점',
               songyeong_bongmyeong: '송영 코스 · 케어링 청주점',
-              manualscore: '수기 점수표(지점점검)' };  // 도메인(caring.co.kr) 로그인해야 열림
+              manualscore: '지점점검 대시보드(수기점검표)' };  // 도메인(caring.co.kr) 로그인해야 열림
   // ★로깅을 여기서 하면 시트 열기·쓰기(0.5~1.5초)가 끝나야 화면이 뜬다.
   //   실측 2026-07-29: 로깅 없는 허브 첫 화면 1.16초 vs 로깅 있는 개별 페이지 1.70초.
   //   → 페이지가 뜬 뒤 google.script.run.logItem 으로 기록한다(_inject_topbar 가 넣는다).
