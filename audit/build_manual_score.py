@@ -63,6 +63,16 @@ def build() -> str:
         raise SystemExit("데이터 로더를 못 찾았습니다 — audit_dashboard.html 구조가 바뀐 듯합니다. "
                          "확인 없이 만들면 자동 판정이 섞여 들어갑니다.")
 
+    # ★인쇄 템플릿(JS 템플릿 문자열) 안의 </body> 를 이스케이프한다.
+    #   허브 변환(deploy_hub.page_html)이 '첫 </body>' 앞에 로깅 스크립트를 끼워 넣는데,
+    #   그 첫 </body> 가 JS 문자열 안쪽이라 문자열이 끊기고 페이지 전체가 죽는다
+    #   (실측: 'Unexpected end of input' · 화면에 JS 원문 노출 · 입력칸 0개).
+    #   <\/body> 는 JS 에서 </body> 와 같은 문자열이라 인쇄 결과는 그대로다.
+    tpl = "<\\/script></body>"
+    if tpl not in s:
+        raise SystemExit("인쇄 템플릿의 </body> 를 못 찾았습니다 — 허브에서 페이지가 깨질 수 있어 중단.")
+    s = s.replace(tpl, "<\\/script><\\/body>")
+
     # 엑셀 라이브러리 — 허브(Apps Script)는 vendor/*.js 를 서빙하지 못해 404 로 죽는다
     # (실측: '엑셀 내보내기'가 라이브러리 없음 경고만 내고 끝났다). CDN 으로 바꾼다.
     if 'src="vendor/xlsx.full.min.js"' not in s:
